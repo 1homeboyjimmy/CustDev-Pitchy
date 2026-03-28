@@ -15,6 +15,9 @@ export default defineConfig({
     allowedHosts: [
       'custdev.pitchy.pro' // Разрешаем наш боевой домен
     ],
+    hmr: {
+      clientPort: 443
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
