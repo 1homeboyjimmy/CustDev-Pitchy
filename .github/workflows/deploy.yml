@@ -56,10 +56,15 @@ jobs:
               cp .env.example .env
             fi
 
-            echo "==> Building containers (with cache)..."
+            echo "==> Building containers (optimized)..."
             docker compose build
 
+            echo "==> Stopping old containers to prevent name conflicts..."
+            docker stop pitchy-offline pitchy-neo4j 2>/dev/null || true
+            docker rm -f pitchy-offline pitchy-neo4j 2>/dev/null || true
+
             echo "==> Restarting services..."
+            docker compose down --remove-orphans 2>/dev/null || true
             docker compose up -d
 
             echo "==> Cleaning up dangling images..."

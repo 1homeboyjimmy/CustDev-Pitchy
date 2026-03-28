@@ -9,6 +9,11 @@ RUN npm run build
 # --- Stage 2: Backend Dependencies ---
 FROM python:3.11-slim AS uv-builder
 WORKDIR /app/backend
+
+# Force CPU-only torch and speed up uv
+ENV UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
+ENV UV_LINK_MODE="copy"
+
 # Copy uv binary into the stage
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 COPY backend/pyproject.toml backend/uv.lock ./
