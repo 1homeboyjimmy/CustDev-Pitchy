@@ -5,9 +5,9 @@
       <h2 class="text-2xl font-bold text-white tracking-tight italic">
         <span class="text-pitchy-violet">02</span> / Манифестация среды
       </h2>
-      <p class="text-xs text-white/40 leading-relaxed max-w-xl">
-        Настройка общества агентов и динамики социальных платформ на основе синтезированного графа знаний.
-      </p>
+    <p class="text-xs text-white/40 leading-relaxed max-w-xl">
+      Настройка общества агентов и динамики социальных платформ на основе синтезированного графа знаний.
+    </p>
     </div>
 
     <!-- Step 01: Simulation Instance -->
@@ -39,7 +39,7 @@
       <div class="flex items-start justify-between mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-            <span>Манифестация агентов</span>
+            <span>Активация агентов</span>
             <span class="w-px h-2 bg-white/10"></span>
             <span class="text-pitchy-violet">POST /api/simulation/prepare</span>
           </div>
@@ -196,7 +196,7 @@
         
         <div class="space-y-2">
           <h3 class="text-2xl font-bold text-white tracking-tight">Среда синхронизирована</h3>
-          <p class="text-xs text-white/50 max-w-sm">Модель мира и {{ profiles.length }} агентов готовы к манифестации. Определите глубину симуляции ниже.</p>
+          <p class="text-xs text-white/50 max-w-sm">Модель мира и {{ profiles.length }} агентов готовы к запуску. Определите глубину симуляции ниже.</p>
         </div>
 
         <!-- Custom Slider -->
@@ -282,7 +282,7 @@
                 </div>
 
                 <div v-if="selectedProfile.interested_topics?.length" class="space-y-3">
-                   <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Каналы семян реальности</span>
+                   <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Каналы архитектуры общества</span>
                    <div class="flex flex-wrap gap-2">
                      <span v-for="topic in selectedProfile.interested_topics" :key="topic" class="px-3 py-1.5 rounded-xl bg-pitchy-violet/5 border border-pitchy-violet/10 text-[10px] text-pitchy-violet-light font-medium italic">
                         #{{ topic }}
@@ -293,7 +293,7 @@
             </div>
 
             <div class="p-4 border-t border-white/5 bg-white/[0.01] text-[9px] font-mono text-white/20 text-center">
-              AGENT_ID: {{ profiles.indexOf(selectedProfile) }} | СТАТУС_МАНИФЕСТАЦИИ: СТАБИЛЬНЫЙ
+              AGENT_ID: {{ profiles.indexOf(selectedProfile) }} | СТАТУС: СТАБИЛЬНЫЙ
             </div>
           </GlassCard>
         </div>
@@ -406,7 +406,10 @@ const startConfigPolling = () => { pollConfig(); configTimer = setInterval(pollC
 const pollStatus = async () => {
   if (!taskId.value) return
   try {
-    const res = await getPrepareStatus(taskId.value)
+    const res = await getPrepareStatus({ 
+      task_id: taskId.value, 
+      simulation_id: props.simulationId 
+    })
     if (res.success) {
       const task = res.data
       if (task.message) addLog(task.message)

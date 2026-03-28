@@ -96,10 +96,10 @@
         <!-- Global Bottom Terminal -->
         <div 
           class="bg-[#0A0A0F]/95 border-t border-white/10 overflow-hidden shadow-2xl flex flex-col transition-all duration-500 ease-in-out"
-          :class="isTerminalCollapsed ? 'h-8' : 'h-48'"
+          :class="isTerminalCollapsed ? 'h-6' : 'h-48'"
         >
           <div 
-            class="h-8 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[8px] font-mono font-bold tracking-[0.2em] text-white/30 shrink-0 cursor-pointer hover:bg-white/[0.04] transition-colors"
+            class="h-6 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[7px] font-mono font-bold tracking-[0.2em] text-white/30 shrink-0 cursor-pointer hover:bg-white/[0.04] transition-colors"
             @click="isTerminalCollapsed = !isTerminalCollapsed"
           >
             <div class="flex items-center gap-2">
@@ -154,7 +154,7 @@ const router = useRouter()
 
 // Layout State
 const viewMode = ref('split')
-const isTerminalCollapsed = ref(false)
+const isTerminalCollapsed = ref(true)
 const logContent = ref(null)
 const currentStep = ref(1)
 const stepNames = ['Построение графа', 'Общество агентов', 'Симуляция', 'Ответные меры', 'Взаимодействие']
@@ -247,7 +247,7 @@ const handleNewProject = async () => {
   try {
     loading.value = true
     currentPhase.value = 0
-    ontologyProgress.value = { message: 'Анализ семян реальности...' }
+    ontologyProgress.value = { message: 'Анализ архитектуры общества...' }
     addLog('Запуск генерации онтологии...')
     
     const formData = new FormData()

@@ -6,7 +6,7 @@
         <span class="text-pitchy-violet">01</span> / Синтез знаний
       </h2>
       <p class="text-xs text-white/40 leading-relaxed max-w-xl">
-        Движок извлекает семена реальности из ваших неструктурированных данных. Этот процесс создает фундаментальную онтологию и многомерный граф знаний, который станет основы симуляции.
+        Движок извлекает архитектуру общества из ваших неструктурированных данных. Этот процесс создает фундаментальную онтологию и многомерный граф знаний, который станет основой симуляции.
       </p>
     </div>
 
@@ -35,7 +35,7 @@
         <div v-if="currentPhase === 0 && ontologyProgress" class="flex items-center gap-3 p-3 rounded-xl bg-pitchy-violet/10 border border-pitchy-violet/20 animate-pulse">
           <div class="w-4 h-4 border-2 border-pitchy-violet/30 border-t-pitchy-violet rounded-full animate-spin"></div>
           <span class="text-[10px] font-bold text-pitchy-violet-light uppercase tracking-widest">
-            {{ ontologyProgress.message || 'Извлечение семян реальности...' }}
+            {{ ontologyProgress.message || 'Синтез архитектуры общества...' }}
           </span>
         </div>
 
@@ -89,7 +89,7 @@
 
       <div class="space-y-8">
         <p class="text-xs text-white/50 leading-relaxed italic">
-          "Движок наносит семена реальности на карту графа Neo4j. Сущности связываются через временные факты, формируются кластеры сообществ."
+          "Движок наносит архитектуру общества на карту графа Neo4j. Сущности связываются через временные факты, формируются кластеры сообществ."
         </p>
         
         <!-- Progress Bar -->
@@ -124,9 +124,9 @@
           <CheckIcon class="w-6 h-6" />
         </div>
         <div class="space-y-2">
-          <h3 class="text-xl font-bold text-white tracking-tight">Лес знаний готов</h3>
+          <h3 class="text-xl font-bold text-white tracking-tight">Архитектура общества готова</h3>
           <p class="text-xs text-white/50 max-w-sm leading-relaxed">
-            Семена реальности успешно секвенированы. Модель мира теперь стабильна и готова к манифестации агентов.
+            Архитектура общества успешно секвенирована. Модель мира теперь стабильна и готова к активации агентов.
           </p>
         </div>
         
@@ -136,7 +136,7 @@
           @click="handleEnterEnvSetup"
           :loading="creatingSimulation"
         >
-          Манифестировать мир симуляции
+          Активировать модель общества
           <template #icon>
             <ZapIcon class="w-4 h-4 fill-current" />
           </template>

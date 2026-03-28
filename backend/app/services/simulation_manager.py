@@ -278,7 +278,7 @@ class SimulationManager:
             reader = EntityReader(storage)
             
             if progress_callback:
-                progress_callback("reading", 30, "Reading node data...")
+                progress_callback("reading", 30, "Анализ архитектуры общества...")
             
             filtered = reader.filter_defined_entities(
                 graph_id=state.graph_id,
@@ -315,7 +315,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_profiles", 0, 
-                    "Starting generation...",
+                    "Запуск активации агентов...",
                     current=0,
                     total=total_entities
                 )
@@ -361,7 +361,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_profiles", 95, 
-                    "Saving Profile files...",
+                    "Сохранение профилей агентов...",
                     current=total_entities,
                     total=total_entities
                 )
@@ -384,7 +384,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_profiles", 100, 
-                    f"Completed, total {len(profiles)} Profiles",
+                    f"Завершено, активировано {len(profiles)} агентов",
                     current=len(profiles),
                     total=len(profiles)
                 )
@@ -393,7 +393,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_config", 0, 
-                    "Analyzing simulation requirements...",
+                    "Анализ требований симуляции...",
                     current=0,
                     total=3
                 )
@@ -403,7 +403,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_config", 30, 
-                    "Calling LLM to generate config...",
+                    "Генерация параметров общества...",
                     current=1,
                     total=3
                 )
@@ -422,7 +422,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_config", 70, 
-                    "Saving config files...",
+                    "Сохранение конфигурации...",
                     current=2,
                     total=3
                 )
@@ -438,7 +438,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "generating_config", 100, 
-                    "Config generation completed",
+                    "Генерация завершена",
                     current=3,
                     total=3
                 )
