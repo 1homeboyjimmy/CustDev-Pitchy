@@ -133,7 +133,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'
