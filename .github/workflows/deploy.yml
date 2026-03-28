@@ -18,7 +18,7 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-
+            REPO_DIR="/root/MiroFish-Offline"
             APP_DIR="$REPO_DIR/MiroFish-Custom"
             REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
 
@@ -26,7 +26,16 @@ jobs:
             mkdir -p ~/.ssh
             ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
 
-            cd "$REPO_DIR"
+            # Если директория не является репозиторием, клонируем или инициализируем
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              echo "==> Repository not found. Initializing..."
+              mkdir -p "$REPO_DIR"
+              cd "$REPO_DIR"
+              git init
+              git remote add origin "$REMOTE_URL"
+            else
+              cd "$REPO_DIR"
+            fi
 
             # Переключаем remote только если нужно
             CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
