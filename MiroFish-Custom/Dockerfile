@@ -7,8 +7,10 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- Stage 2: Backend Dependencies ---
-FROM ghcr.io/astral-sh/uv:0.9.26 AS uv-builder
+FROM python:3.11-slim AS uv-builder
 WORKDIR /app/backend
+# Copy uv binary into the stage
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 COPY backend/pyproject.toml backend/uv.lock ./
 # Use --no-dev and --no-install-project to cache heavy ML dependencies (torch, etc.)
 RUN uv sync --no-dev --no-install-project
