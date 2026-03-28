@@ -28,6 +28,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
   && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
   && apt-get install -y --no-install-recommends nodejs \
+  && npm install -g concurrently \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy pre-built virtual environment and frontend dist
