@@ -19,7 +19,7 @@ jobs:
           script: |
             set -e
             REPO_DIR="/root/MiroFish-Offline"
-            APP_DIR="$REPO_DIR/MiroFish-Custom"
+            APP_DIR="$REPO_DIR"
             REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
 
             # Fix Host key verification failed
