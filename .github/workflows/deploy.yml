@@ -23,6 +23,10 @@ jobs:
             APP_DIR="$REPO_DIR/MiroFish-Custom"
             REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
 
+            # Fix Host key verification failed
+            mkdir -p ~/.ssh
+            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+
             cd "$REPO_DIR"
 
             # Переключаем remote только если нужно
