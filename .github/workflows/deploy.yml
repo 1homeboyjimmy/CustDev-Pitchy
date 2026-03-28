@@ -1,0 +1,38 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            cd /root/MiroFish-Offline
+
+            echo "==> Pulling latest changes..."
+            git pull origin main
+
+            cd MiroFish-Custom
+
+            echo "==> Rebuilding containers..."
+            docker compose build --no-cache
+
+            echo "==> Restarting services..."
+            docker compose up -d
+
+            echo "==> Cleaning up old images..."
+            docker image prune -f
+
+            echo "==> Deploy complete!"
+            docker compose ps
