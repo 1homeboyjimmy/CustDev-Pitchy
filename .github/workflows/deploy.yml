@@ -19,22 +19,12 @@ jobs:
           script: |
             set -e
 
-            REPO_DIR="/root/MiroFish-Offline"
-            # --- TEMPORARY: Get SSH Key for GitHub ---
-            mkdir -p ~/.ssh
-            if [ ! -f ~/.ssh/id_rsa ]; then
-              ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-            fi
-            echo "==> YOUR SERVER PUBLIC KEY (Add this to GitHub Deploy Keys):"
-            cat ~/.ssh/id_rsa.pub
-            echo "=========================================================="
-            # -----------------------------------------
-
-            # Fix Host key verification failed
-            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
-
             APP_DIR="$REPO_DIR/MiroFish-Custom"
             REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
+
+            # Fix Host key verification failed
+            mkdir -p ~/.ssh
+            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
 
             cd "$REPO_DIR"
 
@@ -50,6 +40,12 @@ jobs:
             git reset --hard origin/main
 
             cd "$APP_DIR"
+
+            # Убеждаемся, что .env существует (иначе docker-compose упадет)
+            if [ ! -f .env ]; then
+              echo "==> Warning: .env not found on server. Using .env.example as fallback..."
+              cp .env.example .env
+            fi
 
             echo "==> Building containers (with cache)..."
             docker compose build
