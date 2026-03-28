@@ -20,12 +20,21 @@ jobs:
             set -e
 
             REPO_DIR="/root/MiroFish-Offline"
-            APP_DIR="$REPO_DIR/MiroFish-Custom"
-            REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
+            # --- TEMPORARY: Get SSH Key for GitHub ---
+            mkdir -p ~/.ssh
+            if [ ! -f ~/.ssh/id_rsa ]; then
+              ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+            fi
+            echo "==> YOUR SERVER PUBLIC KEY (Add this to GitHub Deploy Keys):"
+            cat ~/.ssh/id_rsa.pub
+            echo "=========================================================="
+            # -----------------------------------------
 
             # Fix Host key verification failed
-            mkdir -p ~/.ssh
             ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+            APP_DIR="$REPO_DIR/MiroFish-Custom"
+            REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
 
             cd "$REPO_DIR"
 
