@@ -1,280 +1,220 @@
 <template>
-  <div class="main-view">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH OFFLINE</div>
-      </div>
-      
-      <div class="header-center">
-        <div class="view-switcher">
+  <AppLayout>
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Specialized Workflow Header -->
+      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="flex items-center gap-4">
+          <button @click="handleGoBack" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
+            <ArrowLeftIcon class="w-4 h-4" />
+          </button>
+          <div class="h-4 w-px bg-white/10"></div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 3/5</span>
+            <span class="text-sm font-bold text-white tracking-tight">Активная симуляция мультивселенной</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
           <button 
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
-            class="switch-btn"
-            :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
+            class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+            :class="viewMode === mode ? 'bg-pitchy-violet text-white shadow-glow-primary' : 'text-white/40 hover:text-white/60'"
           >
-            {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
+            {{ mode === 'graph' ? 'Граф' : (mode === 'split' ? 'Разделение' : 'Рабочая зона') }}
           </button>
         </div>
-      </div>
 
-      <div class="header-right">
-        <div class="workflow-step">
-          <span class="step-num">Step 3/5</span>
-          <span class="step-name">Simulation</span>
+        <div class="flex items-center gap-4">
+          <div class="flex flex-col items-end">
+            <span class="text-[10px] font-mono text-white/20 uppercase">{{ currentSimulationId?.slice(0, 8) }}</span>
+            <StatusBadge :type="statusClass" :dot="isSimulating">
+              {{ statusText }}
+            </StatusBadge>
+          </div>
         </div>
-        <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
-          <span class="dot"></span>
-          {{ statusText }}
-        </span>
-      </div>
-    </header>
+      </header>
 
-    <!-- Main Content Area -->
-    <main class="content-area">
-      <!-- Left Panel: Graph -->
-      <div class="panel-wrapper left" :style="leftPanelStyle">
-        <GraphPanel 
-          :graphData="graphData"
-          :loading="graphLoading"
-          :currentPhase="3"
-          :isSimulating="isSimulating"
-          @refresh="refreshGraph"
-          @toggle-maximize="toggleMaximize('graph')"
-        />
-      </div>
+      <!-- Main Layout -->
+      <main class="flex-1 flex overflow-hidden relative">
+        <!-- Left Panel: Graph (Real-time updates) -->
+        <div 
+          class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
+          :class="{
+            'w-full opacity-100': viewMode === 'graph',
+            'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
+            'w-1/2 opacity-100': viewMode === 'split'
+          }"
+        >
+          <GraphPanel 
+            :graphData="graphData"
+            :loading="graphLoading"
+            :currentPhase="3"
+            :isSimulating="isSimulating"
+            @refresh="refreshGraph"
+          />
+        </div>
 
-      <!-- Right Panel: Step3 Simulation -->
-      <div class="panel-wrapper right" :style="rightPanelStyle">
-        <Step3Simulation
-          :simulationId="currentSimulationId"
-          :maxRounds="maxRounds"
-          :minutesPerRound="minutesPerRound"
-          :projectData="projectData"
-          :graphData="graphData"
-          :systemLogs="systemLogs"
-          @go-back="handleGoBack"
-          @next-step="handleNextStep"
-          @add-log="addLog"
-          @update-status="updateStatus"
-        />
-      </div>
-    </main>
-  </div>
+        <!-- Right Panel: Simulation Feed & Controls -->
+        <div 
+          class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
+          :class="{
+            'w-full opacity-100': viewMode === 'workbench',
+            'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
+            'w-1/2 opacity-100': viewMode === 'split'
+          }"
+        >
+          <div class="h-full overflow-y-auto custom-scrollbar">
+            <div class="p-8 max-w-5xl mx-auto space-y-8">
+              <Step3Simulation
+                :simulationId="currentSimulationId"
+                :maxRounds="maxRounds"
+                :minutesPerRound="minutesPerRound"
+                :projectData="projectData"
+                :graphData="graphData"
+                :systemLogs="systemLogs"
+                @go-back="handleGoBack"
+                @next-step="handleNextStep"
+                @add-log="addLog"
+                @update-status="updateStatus"
+              />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppLayout from '../components/layout/AppLayout.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
+import StatusBadge from '../components/ui/StatusBadge.vue'
+import { 
+  ArrowLeft as ArrowLeftIcon
+} from 'lucide-vue-next'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
 
 const route = useRoute()
 const router = useRouter()
 
-// Props
 const props = defineProps({
   simulationId: String
 })
 
 // Layout State
 const viewMode = ref('split')
+const currentStatus = ref('processing')
 
 // Data State
 const currentSimulationId = ref(route.params.simulationId)
-// Get maxRounds from query param during init to ensure child components get value immediately
 const maxRounds = ref(route.query.maxRounds ? parseInt(route.query.maxRounds) : null)
-const minutesPerRound = ref(30) // Default 30 minutes per round
+const minutesPerRound = ref(30)
 const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
-const currentStatus = ref('processing') // processing | completed | error
-
-// --- Computed Layout Styles ---
-const leftPanelStyle = computed(() => {
-  if (viewMode.value === 'graph') return { width: '100%', opacity: 1, transform: 'translateX(0)' }
-  if (viewMode.value === 'workbench') return { width: '0%', opacity: 0, transform: 'translateX(-20px)' }
-  return { width: '50%', opacity: 1, transform: 'translateX(0)' }
-})
-
-const rightPanelStyle = computed(() => {
-  if (viewMode.value === 'workbench') return { width: '100%', opacity: 1, transform: 'translateX(0)' }
-  if (viewMode.value === 'graph') return { width: '0%', opacity: 0, transform: 'translateX(20px)' }
-  return { width: '50%', opacity: 1, transform: 'translateX(0)' }
-})
 
 // --- Status Computed ---
 const statusClass = computed(() => {
-  return currentStatus.value
+  if (currentStatus.value === 'error') return 'danger'
+  if (currentStatus.value === 'completed') return 'success'
+  return 'primary'
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Error'
-  if (currentStatus.value === 'completed') return 'Completed'
-  return 'Running'
+  if (currentStatus.value === 'error') return 'Ошибка пульса'
+  if (currentStatus.value === 'completed') return 'Цикл завершен'
+  return 'Симуляция активна'
 })
 
 const isSimulating = computed(() => currentStatus.value === 'processing')
 
 // --- Helpers ---
 const addLog = (msg) => {
-  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.' + new Date().getMilliseconds().toString().padStart(3, '0')
-  systemLogs.value.push({ time, msg })
-  if (systemLogs.value.length > 200) {
-    systemLogs.value.shift()
-  }
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  systemLogs.value.unshift({ time, msg })
+  if (systemLogs.value.length > 200) systemLogs.value.pop()
 }
 
 const updateStatus = (status) => {
   currentStatus.value = status
 }
 
-// --- Layout Methods ---
-const toggleMaximize = (target) => {
-  if (viewMode.value === target) {
-    viewMode.value = 'split'
-  } else {
-    viewMode.value = target
-  }
-}
-
 const handleGoBack = async () => {
-  // Close running simulation before returning to Step 2
-  addLog('Returning to Step 2, closing simulation...')
-
-  // Stop polling
+  addLog('Завершение текущего цикла симуляции...')
   stopGraphRefresh()
-
   try {
-    // First try gracefully closing the simulation environment
     const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
-    
     if (envStatusRes.success && envStatusRes.data?.env_alive) {
-      addLog('Closing simulation environment...')
-      try {
-        await closeSimulationEnv({
-          simulation_id: currentSimulationId.value,
-          timeout: 10
-        })
-        addLog('✓ Simulation environment closed')
-      } catch (closeErr) {
-        addLog(`Failed to close env, force stopping...`)
-        try {
-          await stopSimulation({ simulation_id: currentSimulationId.value })
-          addLog('✓ Simulation force stopped')
-        } catch (stopErr) {
-          addLog(`Force stop failed: ${stopErr.message}`)
-        }
-      }
-    } else {
-      // Environment not running, check if process needs to be stopped
-      if (isSimulating.value) {
-        addLog('Stopping simulation process...')
-        try {
-          await stopSimulation({ simulation_id: currentSimulationId.value })
-          addLog('✓ Simulation stopped')
-        } catch (err) {
-          addLog(`Stop simulation failed: ${err.message}`)
-        }
-      }
+      await closeSimulationEnv({ simulation_id: currentSimulationId.value, timeout: 5 })
+    } else if (isSimulating.value) {
+      await stopSimulation({ simulation_id: currentSimulationId.value })
     }
   } catch (err) {
-    addLog(`Failed to check simulation status: ${err.message}`)
+    console.warn(err)
   }
-
-  // Return to Step 2 (Env Setup)
   router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value } })
 }
 
 const handleNextStep = () => {
-  // Step3Simulation component will handle report generation and routing
-  // This method is for backup only
-  addLog('Entering Step 4: Report')
+  addLog('Цикл завершен. Переход к аналитическому синтезу.')
 }
 
 // --- Data Logic ---
 const loadSimulationData = async () => {
   try {
-    addLog(`Loading simulation data: ${currentSimulationId.value}`)
-
-    // Get simulation information
+    addLog(`Установка связи с симуляцией: ${currentSimulationId.value}`)
     const simRes = await getSimulation(currentSimulationId.value)
     if (simRes.success && simRes.data) {
       const simData = simRes.data
-      
-      // Get simulation config to get minutes_per_round
       try {
         const configRes = await getSimulationConfig(currentSimulationId.value)
         if (configRes.success && configRes.data?.time_config?.minutes_per_round) {
           minutesPerRound.value = configRes.data.time_config.minutes_per_round
-          addLog(`Time config: ${minutesPerRound.value} min/round`)
         }
-      } catch (configErr) {
-        addLog(`Failed to get time config, using default: ${minutesPerRound.value} min/round`)
-      }
+      } catch (e) {}
 
-      // Get project information
       if (simData.project_id) {
         const projRes = await getProject(simData.project_id)
         if (projRes.success && projRes.data) {
           projectData.value = projRes.data
-          addLog(`Project loaded: ${projRes.data.project_id}`)
-
-          // Get graph data
-          if (projRes.data.graph_id) {
-            await loadGraph(projRes.data.graph_id)
-          }
+          if (projRes.data.graph_id) await loadGraph(projRes.data.graph_id)
         }
       }
-    } else {
-      addLog(`Failed to load simulation data: ${simRes.error || 'Unknown error'}`)
     }
   } catch (err) {
-    addLog(`Load error: ${err.message}`)
+    addLog(`Ошибка связи: ${err.message}`)
   }
 }
 
 const loadGraph = async (graphId) => {
-  // Auto-refresh during simulation doesn't show fullscreen loading to avoid flickering
-  // Show loading for manual refresh or initial load
-  if (!isSimulating.value) {
-    graphLoading.value = true
-  }
-
+  if (!isSimulating.value) graphLoading.value = true
   try {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      if (!isSimulating.value) {
-        addLog('Graph data loaded successfully')
-      }
+      if (!isSimulating.value) addLog('Граф знаний синхронизирован.')
     }
   } catch (err) {
-    addLog(`Graph load failed: ${err.message}`)
+    addLog(`Задержка синхронизации графа: ${err.message}`)
   } finally {
     graphLoading.value = false
   }
 }
 
 const refreshGraph = () => {
-  if (projectData.value?.graph_id) {
-    loadGraph(projectData.value.graph_id)
-  }
+  if (projectData.value?.graph_id) loadGraph(projectData.value.graph_id)
 }
 
-// --- Auto Refresh Logic ---
 let graphRefreshTimer = null
-
 const startGraphRefresh = () => {
   if (graphRefreshTimer) return
-  addLog('Graph auto-refresh started (30s)')
-  // Refresh immediately, then every 30 seconds
   graphRefreshTimer = setInterval(refreshGraph, 30000)
 }
 
@@ -282,166 +222,24 @@ const stopGraphRefresh = () => {
   if (graphRefreshTimer) {
     clearInterval(graphRefreshTimer)
     graphRefreshTimer = null
-    addLog('Graph auto-refresh stopped')
   }
 }
 
-watch(isSimulating, (newValue) => {
-  if (newValue) {
-    startGraphRefresh()
-  } else {
-    stopGraphRefresh()
-  }
+watch(isSimulating, (nv) => {
+  if (nv) startGraphRefresh()
+  else stopGraphRefresh()
 }, { immediate: true })
 
 onMounted(() => {
-  addLog('SimulationRunView initialized')
-
-  // Log maxRounds config (value already retrieved from query param during init)
-  if (maxRounds.value) {
-    addLog(`Custom simulation rounds: ${maxRounds.value}`)
-  }
-  
+  addLog('Цикл симуляции манифестирован.')
   loadSimulationData()
 })
 
-onUnmounted(() => {
-  stopGraphRefresh()
-})
+onUnmounted(stopGraphRefresh)
 </script>
 
 <style scoped>
-.main-view {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #FFF;
-  overflow: hidden;
-  font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
-}
-
-/* Header */
-.app-header {
-  height: 60px;
-  border-bottom: 1px solid #EAEAEA;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  background: #FFF;
-  z-index: 100;
-  position: relative;
-}
-
-.header-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: 1px;
-  cursor: pointer;
-}
-
-.view-switcher {
-  display: flex;
-  background: #F5F5F5;
-  padding: 4px;
-  border-radius: 6px;
-  gap: 4px;
-}
-
-.switch-btn {
-  border: none;
-  background: transparent;
-  padding: 6px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.switch-btn.active {
-  background: #FFF;
-  color: #000;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.workflow-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.step-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  color: #999;
-}
-
-.step-name {
-  font-weight: 700;
-  color: #000;
-}
-
-.step-divider {
-  width: 1px;
-  height: 14px;
-  background-color: #E0E0E0;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #666;
-  font-weight: 500;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #CCC;
-}
-
-.status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
-.status-indicator.completed .dot { background: #4CAF50; }
-.status-indicator.error .dot { background: #F44336; }
-
-@keyframes pulse { 50% { opacity: 0.5; } }
-
-/* Content */
-.content-area {
-  flex: 1;
-  display: flex;
-  position: relative;
-  overflow: hidden;
-}
-
-.panel-wrapper {
-  height: 100%;
-  overflow: hidden;
-  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease, transform 0.3s ease;
-  will-change: width, opacity, transform;
-}
-
-.panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
-}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
 </style>
-

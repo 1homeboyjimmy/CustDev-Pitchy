@@ -1,0 +1,34 @@
+"use client";
+
+const AUTH_STATE_KEY = "vi_auth_state";
+
+// Custom event target for auth changes
+export const authEvents = new EventTarget();
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AUTH_STATE_KEY);
+}
+
+export function setToken(token: string) {
+  if (typeof window === "undefined") return;
+  if (!token) return;
+  window.localStorage.setItem(AUTH_STATE_KEY, token);
+  authEvents.dispatchEvent(new Event("auth-change"));
+}
+
+export async function clearToken() {
+  if (typeof window === "undefined") return;
+
+  try {
+    await fetch(`/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (err) {
+    console.error("Logout error:", err);
+  } finally {
+    window.localStorage.removeItem(AUTH_STATE_KEY);
+    authEvents.dispatchEvent(new Event("auth-change"));
+  }
+}

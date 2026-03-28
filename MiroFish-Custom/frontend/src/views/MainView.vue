@@ -1,85 +1,112 @@
 <template>
-  <div class="main-view">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH OFFLINE</div>
-      </div>
-      
-      <div class="header-center">
-        <div class="view-switcher">
+  <AppLayout>
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Specialized Workflow Header -->
+      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="flex items-center gap-4">
+          <button @click="router.push('/')" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
+            <HomeIcon class="w-4 h-4" />
+          </button>
+          <div class="h-4 w-px bg-white/10"></div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг {{ currentStep }}/5</span>
+            <span class="text-sm font-bold text-white tracking-tight">{{ stepNames[currentStep - 1] }}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
           <button 
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
-            class="switch-btn"
-            :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
+            class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+            :class="viewMode === mode ? 'bg-pitchy-violet text-white shadow-glow-primary' : 'text-white/40 hover:text-white/60'"
           >
-            {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
+            {{ mode === 'graph' ? 'Граф' : (mode === 'split' ? 'Разделение' : 'Рабочая зона') }}
           </button>
         </div>
-      </div>
 
-      <div class="header-right">
-        <div class="workflow-step">
-          <span class="step-num">Step {{ currentStep }}/5</span>
-          <span class="step-name">{{ stepNames[currentStep - 1] }}</span>
+        <div class="flex items-center gap-4">
+          <div class="flex flex-col items-end">
+            <span class="text-[10px] font-mono text-white/20 uppercase">{{ currentProjectId?.slice(0, 8) }}</span>
+            <StatusBadge :type="statusClass" :dot="currentPhase < 2">
+              {{ statusText }}
+            </StatusBadge>
+          </div>
         </div>
-        <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
-          <span class="dot"></span>
-          {{ statusText }}
-        </span>
-      </div>
-    </header>
+      </header>
 
-    <!-- Main Content Area -->
-    <main class="content-area">
-      <!-- Left Panel: Graph -->
-      <div class="panel-wrapper left" :style="leftPanelStyle">
-        <GraphPanel 
-          :graphData="graphData"
-          :loading="graphLoading"
-          :currentPhase="currentPhase"
-          @refresh="refreshGraph"
-          @toggle-maximize="toggleMaximize('graph')"
-        />
-      </div>
+      <!-- Main Layout -->
+      <main class="flex-1 flex overflow-hidden relative">
+        <!-- Left Panel: Knowledge Graph -->
+        <div 
+          class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
+          :class="{
+            'w-full opacity-100': viewMode === 'graph',
+            'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
+            'w-1/2 opacity-100': viewMode === 'split'
+          }"
+        >
+          <GraphPanel 
+            :graphData="graphData"
+            :loading="graphLoading"
+            :currentPhase="currentPhase"
+            @refresh="refreshGraph"
+          />
+        </div>
 
-      <!-- Right Panel: Step Components -->
-      <div class="panel-wrapper right" :style="rightPanelStyle">
-        <!-- Step 1: Graph Build -->
-        <Step1GraphBuild 
-          v-if="currentStep === 1"
-          :currentPhase="currentPhase"
-          :projectData="projectData"
-          :ontologyProgress="ontologyProgress"
-          :buildProgress="buildProgress"
-          :graphData="graphData"
-          :systemLogs="systemLogs"
-          @next-step="handleNextStep"
-        />
-        <!-- Step 2: Env Setup -->
-        <Step2EnvSetup
-          v-else-if="currentStep === 2"
-          :projectData="projectData"
-          :graphData="graphData"
-          :systemLogs="systemLogs"
-          @go-back="handleGoBack"
-          @next-step="handleNextStep"
-          @add-log="addLog"
-        />
-      </div>
-    </main>
-  </div>
+        <!-- Right Panel: Workbench -->
+        <div 
+          class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
+          :class="{
+            'w-full opacity-100': viewMode === 'workbench',
+            'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
+            'w-1/2 opacity-100': viewMode === 'split'
+          }"
+        >
+          <div class="h-full overflow-y-auto custom-scrollbar">
+            <div class="p-8 max-w-4xl mx-auto space-y-8">
+              <!-- Step 1: Graph Build -->
+              <Step1GraphBuild 
+                v-if="currentStep === 1"
+                :currentPhase="currentPhase"
+                :projectData="projectData"
+                :ontologyProgress="ontologyProgress"
+                :buildProgress="buildProgress"
+                :graphData="graphData"
+                :systemLogs="systemLogs"
+                @next-step="handleNextStep"
+              />
+              
+              <!-- Step 2: Env Setup -->
+              <Step2EnvSetup
+                v-else-if="currentStep === 2"
+                :projectData="projectData"
+                :graphData="graphData"
+                :systemLogs="systemLogs"
+                @go-back="handleGoBack"
+                @next-step="handleNextStep"
+                @add-log="addLog"
+              />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppLayout from '../components/layout/AppLayout.vue'
+import StatusBadge from '../components/ui/StatusBadge.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
+import { 
+  Home as HomeIcon
+} from 'lucide-vue-next'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
@@ -87,11 +114,9 @@ const route = useRoute()
 const router = useRouter()
 
 // Layout State
-const viewMode = ref('split') // graph | split | workbench
-
-// Step State
-const currentStep = ref(1) // 1: Graph Build, 2: Env Setup, 3: Simulation, 4: Report, 5: Interaction
-const stepNames = ['Graph Build', 'Env Setup', 'Simulation', 'Report', 'Interaction']
+const viewMode = ref('split')
+const currentStep = ref(1)
+const stepNames = ['Построение графа', 'Настройка среды', 'Симуляция', 'Отчет', 'Взаимодействие']
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -109,76 +134,46 @@ const systemLogs = ref([])
 let pollTimer = null
 let graphPollTimer = null
 
-// --- Computed Layout Styles ---
-const leftPanelStyle = computed(() => {
-  if (viewMode.value === 'graph') return { width: '100%', opacity: 1, transform: 'translateX(0)' }
-  if (viewMode.value === 'workbench') return { width: '0%', opacity: 0, transform: 'translateX(-20px)' }
-  return { width: '50%', opacity: 1, transform: 'translateX(0)' }
-})
-
-const rightPanelStyle = computed(() => {
-  if (viewMode.value === 'workbench') return { width: '100%', opacity: 1, transform: 'translateX(0)' }
-  if (viewMode.value === 'graph') return { width: '0%', opacity: 0, transform: 'translateX(20px)' }
-  return { width: '50%', opacity: 1, transform: 'translateX(0)' }
-})
-
 // --- Status Computed ---
 const statusClass = computed(() => {
-  if (error.value) return 'error'
-  if (currentPhase.value >= 2) return 'completed'
-  return 'processing'
+  if (error.value) return 'danger'
+  if (currentPhase.value >= 2) return 'success'
+  return 'primary'
 })
 
 const statusText = computed(() => {
-  if (error.value) return 'Error'
-  if (currentPhase.value >= 2) return 'Ready'
-  if (currentPhase.value === 1) return 'Building Graph'
-  if (currentPhase.value === 0) return 'Generating Ontology'
-  return 'Initializing'
+  if (error.value) return 'Ошибка системы'
+  if (currentPhase.value >= 2) return 'Готово'
+  if (currentPhase.value === 1) return 'Построение графа'
+  if (currentPhase.value === 0) return 'Анализ онтологии'
+  return 'Инициализация'
 })
 
 // --- Helpers ---
 const addLog = (msg) => {
-  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.' + new Date().getMilliseconds().toString().padStart(3, '0')
-  systemLogs.value.push({ time, msg })
-  // Keep last 100 logs
-  if (systemLogs.value.length > 100) {
-    systemLogs.value.shift()
-  }
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  systemLogs.value.unshift({ time, msg }) 
+  if (systemLogs.value.length > 100) systemLogs.value.pop()
 }
 
-// --- Layout Methods ---
-const toggleMaximize = (target) => {
-  if (viewMode.value === target) {
-    viewMode.value = 'split'
-  } else {
-    viewMode.value = target
-  }
-}
-
-const handleNextStep = (params = {}) => {
+const handleNextStep = () => {
   if (currentStep.value < 5) {
     currentStep.value++
-    addLog(`Entering Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
-
-    // If entering Step 3 from Step 2, log simulation round config
-    if (currentStep.value === 3 && params.maxRounds) {
-      addLog(`Custom simulation rounds: ${params.maxRounds}`)
-    }
+    addLog(`Переход к шагу ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
   }
 }
 
 const handleGoBack = () => {
   if (currentStep.value > 1) {
     currentStep.value--
-    addLog(`Back to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(`Возврат к шагу ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
   }
 }
 
 // --- Data Logic ---
 
 const initProject = async () => {
-  addLog('Project view initialized.')
+  addLog('Среда симуляции инициализирована.')
   if (currentProjectId.value === 'new') {
     await handleNewProject()
   } else {
@@ -189,16 +184,16 @@ const initProject = async () => {
 const handleNewProject = async () => {
   const pending = getPendingUpload()
   if (!pending.isPending || pending.files.length === 0) {
-    error.value = 'No pending files found.'
-    addLog('Error: No pending files found for new project.')
+    error.value = 'Файлы для загрузки не найдены.'
+    addLog('Критическая ошибка: Файлы для нового проекта не найдены.')
     return
   }
   
   try {
     loading.value = true
     currentPhase.value = 0
-    ontologyProgress.value = { message: 'Uploading and analyzing docs...' }
-    addLog('Starting ontology generation: Uploading files...')
+    ontologyProgress.value = { message: 'Анализ семян реальности...' }
+    addLog('Запуск генерации онтологии...')
     
     const formData = new FormData()
     pending.files.forEach(f => formData.append('files', f))
@@ -209,18 +204,17 @@ const handleNewProject = async () => {
       clearPendingUpload()
       currentProjectId.value = res.data.project_id
       projectData.value = res.data
-      
       router.replace({ name: 'Process', params: { projectId: res.data.project_id } })
       ontologyProgress.value = null
-      addLog(`Ontology generated successfully for project ${res.data.project_id}`)
+      addLog(`Онтология успешно синтезирована для проекта ${res.data.project_id}`)
       await startBuildGraph()
     } else {
-      error.value = res.error || 'Ontology generation failed'
-      addLog(`Error generating ontology: ${error.value}`)
+      error.value = res.error || 'Анализ синтаксиса не удался'
+      addLog(`Ошибка при синтезе: ${error.value}`)
     }
   } catch (err) {
     error.value = err.message
-    addLog(`Exception in handleNewProject: ${err.message}`)
+    addLog(`Исключение в конвейере синтеза: ${err.message}`)
   } finally {
     loading.value = false
   }
@@ -229,12 +223,12 @@ const handleNewProject = async () => {
 const loadProject = async () => {
   try {
     loading.value = true
-    addLog(`Loading project ${currentProjectId.value}...`)
+    addLog(`Восстановление состояния проекта: ${currentProjectId.value}`)
     const res = await getProject(currentProjectId.value)
     if (res.success) {
       projectData.value = res.data
       updatePhaseByStatus(res.data.status)
-      addLog(`Project loaded. Status: ${res.data.status}`)
+      addLog(`Состояние проекта восстановлено. Режим: ${res.data.status}`)
       
       if (res.data.status === 'ontology_generated' && !res.data.graph_id) {
         await startBuildGraph()
@@ -248,11 +242,11 @@ const loadProject = async () => {
       }
     } else {
       error.value = res.error
-      addLog(`Error loading project: ${res.error}`)
+      addLog(`Ошибка восстановления проекта: ${res.error}`)
     }
   } catch (err) {
     error.value = err.message
-    addLog(`Exception in loadProject: ${err.message}`)
+    addLog(`Исключение при восстановлении: ${err.message}`)
   } finally {
     loading.value = false
   }
@@ -264,52 +258,49 @@ const updatePhaseByStatus = (status) => {
     case 'ontology_generated': currentPhase.value = 0; break;
     case 'graph_building': currentPhase.value = 1; break;
     case 'graph_completed': currentPhase.value = 2; break;
-    case 'failed': error.value = 'Project failed'; break;
+    case 'failed': error.value = 'Ошибка фазы'; break;
   }
 }
 
 const startBuildGraph = async () => {
   try {
     currentPhase.value = 1
-    buildProgress.value = { progress: 0, message: 'Starting build...' }
-    addLog('Initiating graph build...')
+    buildProgress.value = { progress: 0, message: 'Построение узлов...' }
+    addLog('Запуск построения графа знаний...')
     
     const res = await buildGraph({ project_id: currentProjectId.value })
     if (res.success) {
-      addLog(`Graph build task started. Task ID: ${res.data.task_id}`)
+      addLog(`Задача построения графа в очереди. ID: ${res.data.task_id}`)
       startGraphPolling()
       startPollingTask(res.data.task_id)
     } else {
       error.value = res.error
-      addLog(`Error starting build: ${res.error}`)
+      addLog(`Очередь построения отклонена: ${res.error}`)
     }
   } catch (err) {
     error.value = err.message
-    addLog(`Exception in startBuildGraph: ${err.message}`)
+    addLog(`Исключение в конвейере построения: ${err.message}`)
   }
 }
 
 const startGraphPolling = () => {
-  addLog('Started polling for graph data...')
   fetchGraphData()
   graphPollTimer = setInterval(fetchGraphData, 10000)
 }
 
 const fetchGraphData = async () => {
   try {
-    // Refresh project info to check for graph_id
     const projRes = await getProject(currentProjectId.value)
     if (projRes.success && projRes.data.graph_id) {
       const gRes = await getGraphData(projRes.data.graph_id)
       if (gRes.success) {
         graphData.value = gRes.data
         const nodeCount = gRes.data.node_count || gRes.data.nodes?.length || 0
-        const edgeCount = gRes.data.edge_count || gRes.data.edges?.length || 0
-        addLog(`Graph data refreshed. Nodes: ${nodeCount}, Edges: ${edgeCount}`)
+        addLog(`Синхронизация состояния графа. Узлов: ${nodeCount}`)
       }
     }
   } catch (err) {
-    console.warn('Graph fetch error:', err)
+    console.warn('Синхронизация задерживается:', err.message)
   }
 }
 
@@ -323,21 +314,15 @@ const pollTaskStatus = async (taskId) => {
     const res = await getTaskStatus(taskId)
     if (res.success) {
       const task = res.data
-      
-      // Log progress message if it changed
       if (task.message && task.message !== buildProgress.value?.message) {
         addLog(task.message)
       }
-      
       buildProgress.value = { progress: task.progress || 0, message: task.message }
-      
       if (task.status === 'completed') {
-        addLog('Graph build task completed.')
+        addLog('Построение графа завершено.')
         stopPolling()
-        stopGraphPolling() // Stop polling, do final load
+        stopGraphPolling()
         currentPhase.value = 2
-        
-        // Final load
         const projRes = await getProject(currentProjectId.value)
         if (projRes.success && projRes.data.graph_id) {
             projectData.value = projRes.data
@@ -346,7 +331,7 @@ const pollTaskStatus = async (taskId) => {
       } else if (task.status === 'failed') {
         stopPolling()
         error.value = task.error
-        addLog(`Graph build task failed: ${task.error}`)
+        addLog(`Задача провалена: ${task.error}`)
       }
     }
   } catch (e) {
@@ -356,17 +341,14 @@ const pollTaskStatus = async (taskId) => {
 
 const loadGraph = async (graphId) => {
   graphLoading.value = true
-  addLog(`Loading full graph data: ${graphId}`)
   try {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      addLog('Graph data loaded successfully.')
-    } else {
-      addLog(`Failed to load graph data: ${res.error}`)
+      addLog('Полный граф синхронизирован.')
     }
   } catch (e) {
-    addLog(`Exception loading graph: ${e.message}`)
+    addLog(`Ошибка синхронизации: ${e.message}`)
   } finally {
     graphLoading.value = false
   }
@@ -374,30 +356,22 @@ const loadGraph = async (graphId) => {
 
 const refreshGraph = () => {
   if (projectData.value?.graph_id) {
-    addLog('Manual graph refresh triggered.')
+    addLog('Запущена ручная синхронизация графа.')
     loadGraph(projectData.value.graph_id)
   }
 }
 
 const stopPolling = () => {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = null
 }
 
 const stopGraphPolling = () => {
-  if (graphPollTimer) {
-    clearInterval(graphPollTimer)
-    graphPollTimer = null
-    addLog('Graph polling stopped.')
-  }
+  if (graphPollTimer) clearInterval(graphPollTimer)
+  graphPollTimer = null
 }
 
-onMounted(() => {
-  initProject()
-})
-
+onMounted(initProject)
 onUnmounted(() => {
   stopPolling()
   stopGraphPolling()
@@ -405,136 +379,17 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.main-view {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #FFF;
-  overflow: hidden;
-  font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-
-/* Header */
-.app-header {
-  height: 60px;
-  border-bottom: 1px solid #EAEAEA;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  background: #FFF;
-  z-index: 100;
-  position: relative;
-}
-
-.header-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: 1px;
-  cursor: pointer;
-}
-
-.view-switcher {
-  display: flex;
-  background: #F5F5F5;
-  padding: 4px;
-  border-radius: 6px;
-  gap: 4px;
-}
-
-.switch-btn {
-  border: none;
+.custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
-  padding: 6px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
-
-.switch-btn.active {
-  background: #FFF;
-  color: #000;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
 }
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #666;
-  font-weight: 500;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.workflow-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.step-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  color: #999;
-}
-
-.step-name {
-  font-weight: 700;
-  color: #000;
-}
-
-.step-divider {
-  width: 1px;
-  height: 14px;
-  background-color: #E0E0E0;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #CCC;
-}
-
-.status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
-.status-indicator.completed .dot { background: #4CAF50; }
-.status-indicator.error .dot { background: #F44336; }
-
-@keyframes pulse { 50% { opacity: 0.5; } }
-
-/* Content */
-.content-area {
-  flex: 1;
-  display: flex;
-  position: relative;
-  overflow: hidden;
-}
-
-.panel-wrapper {
-  height: 100%;
-  overflow: hidden;
-  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease, transform 0.3s ease;
-  will-change: width, opacity, transform;
-}
-
-.panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 </style>

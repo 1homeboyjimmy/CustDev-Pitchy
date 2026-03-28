@@ -15,21 +15,36 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
           script: |
             set -e
 
-            cd /root/MiroFish-Offline
+            REPO_DIR="/root/MiroFish-Offline"
+            APP_DIR="$REPO_DIR/MiroFish-Custom"
+            REMOTE_URL="https://github.com/1homeboyjimmy/CustDev-Pitchy.git"
+
+            cd "$REPO_DIR"
+
+            # Переключаем remote только если нужно
+            CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+            if [ "$CURRENT_REMOTE" != "$REMOTE_URL" ]; then
+              echo "==> Switching remote to CustDev-Pitchy..."
+              git remote set-url origin "$REMOTE_URL"
+            fi
 
             echo "==> Pulling latest changes..."
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
-            echo "==> Rebuilding containers..."
-            docker compose build --no-cache
+            cd "$APP_DIR"
+
+            echo "==> Building containers (with cache)..."
+            docker compose build
 
             echo "==> Restarting services..."
             docker compose up -d
 
-            echo "==> Cleaning up old images..."
+            echo "==> Cleaning up dangling images..."
             docker image prune -f
 
             echo "==> Deploy complete!"
