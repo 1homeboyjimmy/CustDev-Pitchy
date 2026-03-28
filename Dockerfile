@@ -34,17 +34,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl procps \
 # Copy uv binary into the final stage as it is used by the concurrently runner
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
-# Copy pre-built virtual environment and frontend dist
+# 1. СНАЧАЛА копируем весь ваш исходный код
+COPY . .
+
+# 2. ЗАТЕМ копируем собранные зависимости (чтобы локальные файлы их не затерли)
 COPY --from=uv-builder /app/backend/.venv /app/backend/.venv
+COPY --from=frontend-builder /app/frontend/node_modules /app/frontend/node_modules
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-# Copy application source code
-COPY . .
+# Устанавливаем пакеты для корневой папки (на всякий случай, если они нужны для запуска)
+RUN npm install
 
 # Set environment variables to use the virtual environment
 ENV PATH="/app/backend/.venv/bin:$PATH"
 
 EXPOSE 3000 5001
 
-# Note: npm run dev will still work but now benefits from pre-cached layers
+# Запускаем наш сервер!
 CMD ["npm", "run", "dev"]
