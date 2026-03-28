@@ -185,3 +185,11 @@ export const getSimulationHistory = (limit = 20) => {
   return service.get('/api/simulation/history', { params: { limit } })
 }
 
+/**
+ * Update Agent Profiles for simulation
+ * @param {string} simulationId
+ * @param {Object} data - { platform, profiles }
+ */
+export const updateSimulationProfiles = (simulationId, data) => {
+  return service.post(`/api/simulation/${simulationId}/profiles/update`, data)
+}

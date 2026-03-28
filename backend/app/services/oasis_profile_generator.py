@@ -610,12 +610,12 @@ class OasisProfileGenerator:
         logger.warning(f"JSON fix failed, returning basic structure")
         return {
             "bio": entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}",
-            "persona": entity_summary or f"{entity_name} is a {entity_type}."
+            "persona": entity_summary or f"{entity_name} — это {entity_type}."
         }
     
     def _get_system_prompt(self, is_individual: bool) -> str:
         """Get system prompt"""
-        base_prompt = "You are an expert in generating social media user profiles. Generate detailed, realistic personas for opinion simulation that maximize restoration of existing reality. Must return valid JSON format with all string values containing no unescaped newlines. Use English."
+        base_prompt = "Вы — эксперт в создании профилей пользователей социальных сетей. Генерируйте подробные, реалистичные персоны для симуляции мнений, которые максимально восстанавливают существующую реальность. Должны возвращать валидный формат JSON со всеми строковыми значениями без неэкранированных переносов строк. Используйте исключительно РУССКИЙ ЯЗЫК."
         return base_prompt
     
     def _build_individual_persona_prompt(
@@ -631,40 +631,40 @@ class OasisProfileGenerator:
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
 
-        return f"""Generate a detailed social media user persona for the entity, maximizing restoration of existing reality.
+        return f"""Сгенерируйте подробную персону пользователя социальной сети для сущности, максимально восстанавливая существующую реальность.
 
-Entity Name: {entity_name}
-Entity Type: {entity_type}
-Entity Summary: {entity_summary}
-Entity Attributes: {attrs_str}
+Название сущности: {entity_name}
+Тип сущности: {entity_type}
+Краткое описание: {entity_summary}
+Атрибуты: {attrs_str}
 
-Context Information:
+Контекстная информация:
 {context_str}
 
-Please generate JSON containing the following fields:
+Пожалуйста, сгенерируйте JSON, содержащий следующие поля:
 
-1. bio: Social media bio, 200 characters
-2. persona: Detailed persona description (2000 words of pure text), must include:
-   - Basic information (age, profession, educational background, location)
-   - Personal background (important experiences, event associations, social relationships)
-   - Personality traits (MBTI type, core personality, emotional expression)
-   - Social media behavior (posting frequency, content preferences, interaction style, language characteristics)
-   - Positions and views (attitudes toward topics, content that may provoke/touch emotions)
-   - Unique features (catchphrases, special experiences, personal interests)
-   - Personal memories (important part of persona, introduce this individual's association with events and their existing actions/reactions in events)
-3. age: Age as number (must be integer)
-4. gender: Gender, must be in English: "male" or "female"
-5. mbti: MBTI type (e.g., INTJ, ENFP)
-6. country: Country (use English, e.g., "US")
-7. profession: Profession
-8. interested_topics: Array of interested topics
+1. bio: Биография для социальной сети, 200 символов
+2. persona: Подробное описание персоны (2000 слов чистого текста), должно включать:
+   - Основную информацию (возраст, профессия, образование, местоположение)
+   - Личный бэкграунд (важный опыт, связь с событиями, социальные связи)
+   - Черты характера (тип MBTI, основной характер, эмоциональное выражение)
+   - Поведение в социальных сетях (частота публикаций, предпочтения в контенте, стиль взаимодействия, языковые особенности)
+   - Позиции и взгляды (отношение к темам, контент, который может спровоцировать/задеть эмоции)
+   - Уникальные особенности (словечки, особый опыт, личные интересы)
+   - Личные воспоминания (важная часть персоны, введите связь человека с событиями и его существующие действия/реакции)
+3. age: Возраст как число (целое)
+4. gender: Пол, строго на английском: "male" или "female"
+5. mbti: Тип MBTI (например, INTJ, ENFP)
+6. country: Страна (на английском, например, "Russia" или "US")
+7. profession: Профессия
+8. interested_topics: Массив интересующих тем
 
-Important:
-- All field values must be strings or numbers, do not use newlines
-- persona must be a coherent text description
-- Use English
-- Content must be consistent with entity information
-- age must be a valid integer, gender must be "male" or "female"
+Важно:
+- Все значения полей должны быть строками или числами, не используйте переносы строк
+- persona должна быть связным текстовым описанием
+- Используйте РУССКИЙ ЯЗЫК для текстовых полей
+- Контент должен соответствовать информации о сущности
+- age должно быть целым числом, gender должно быть "male" или "female"
 """
 
     def _build_group_persona_prompt(
@@ -680,40 +680,41 @@ Important:
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
 
-        return f"""Generate detailed social media account profile for institutional/group entity, maximizing restoration of existing reality.
+        return f"""Сгенерируйте подробный профиль аккаунта социальной сети для институциональной/групповой сущности, максимально восстанавливая существующую реальность.
 
-Entity Name: {entity_name}
-Entity Type: {entity_type}
-Entity Summary: {entity_summary}
-Entity Attributes: {attrs_str}
+Название: {entity_name}
+Тип: {entity_type}
+Описание: {entity_summary}
+Атрибуты: {attrs_str}
 
-Context Information:
+Контекстная информация:
 {context_str}
 
-Please generate JSON containing the following fields:
+Пожалуйста, сгенерируйте JSON, содержащий следующие поля:
 
-1. bio: Official account bio, 200 characters, professional and appropriate
-2. persona: Detailed account profile description (2000 words of pure text), must include:
-   - Basic institutional information (official name, organizational nature, founding background, main functions)
-   - Account positioning (account type, target audience, core functions)
-   - Speaking style (language characteristics, common expressions, taboo topics)
-   - Content publishing characteristics (content types, publishing frequency, active time periods)
-   - Position and attitude (official stance on core topics, handling of controversies)
-   - Special notes (group profiles represented, operational habits)
-   - Institutional memories (important part of institutional persona, introduce this institution's association with events and their existing actions/reactions in events)
-3. age: Fixed at 30 (virtual age of institutional account)
-4. gender: Fixed at "other" (institutional account uses other to denote non-individual)
-5. mbti: MBTI type used to describe account style, e.g., ISTJ represents rigorous conservative
-6. country: Country (use English, e.g., "US")
-7. profession: Institutional function description
-8. interested_topics: Array of focus areas
+1. bio: Биография официального аккаунта, 200 символов, профессионально и уместно
+2. persona: Подробное описание профиля аккаунта (2000 слов чистого текста), должно включать:
+   - Базовую институциональную информацию (официальное название, характер организации, история основания, основные функции)
+   - Позиционирование аккаунта (тип аккаунта, целевая аудитория, основные функции)
+   - Стиль речи (языковые особенности, общие выражения, табуированные темы)
+   - Характеристики публикаций контента (типы контента, частота публикаций, периоды активности)
+   - Позиция и отношение (официальная позиция по основным темам, отношение к спорам)
+   - Особые примечания (представленные групповые профили, операционные привычки)
+   - Институциональная память (важная часть институциональной персоны, введите связь организации с событиями и их реакции)
+3. age: Зафиксировано на 30 (виртуальный возраст институционального аккаунта)
+4. gender: Зафиксировано на "other" (институциональный аккаунт использует other)
+5. mbti: Тип MBTI для описания стиля аккаунта, например, ISTJ для строгого консервативного
+6. country: Страна (на английском, например, "Russia")
+7. profession: Описание институциональной функции
+8. interested_topics: Массив областей интереса
 
-Important:
-- All field values must be strings or numbers, no null values allowed
-- persona must be a coherent text description, do not use newlines
-- Use English
-- age must be integer 30, gender must be string "other"
-- Institutional account speech must match its identity positioning"""
+Важно:
+- Все значения полей должны быть строками или числами, без null
+- persona должна быть связным текстовым описанием, без переносов строк
+- Используйте РУССКИЙ ЯЗЫК для текстовых полей
+- age должно быть 30, gender должно быть "other"
+- Речь официального аккаунта должна соответствовать его идентичности
+"""
     
     def _generate_profile_rule_based(
         self,
@@ -729,25 +730,25 @@ Important:
 
         if entity_type_lower in ["student", "alumni"]:
             return {
-                "bio": f"{entity_type} with interests in academics and social issues.",
-                "persona": f"{entity_name} is a {entity_type.lower()} who is actively engaged in academic and social discussions. They enjoy sharing perspectives and connecting with peers.",
+                "bio": f"{entity_type} с интересами в учебе и социальных вопросах.",
+                "persona": f"{entity_name} — это {entity_type.lower()}, который активно участвует в академических и социальных дискуссиях. Им нравится делиться мнениями и общаться с коллегами.",
                 "age": random.randint(18, 30),
                 "gender": random.choice(["male", "female"]),
                 "mbti": random.choice(self.MBTI_TYPES),
                 "country": random.choice(self.COUNTRIES),
-                "profession": "Student",
-                "interested_topics": ["Education", "Social Issues", "Technology"],
+                "profession": "Студент",
+                "interested_topics": ["Образование", "Социальные вопросы", "Технологии"],
             }
 
         elif entity_type_lower in ["publicfigure", "expert", "faculty"]:
             return {
-                "bio": f"Expert and thought leader in their field.",
-                "persona": f"{entity_name} is a recognized {entity_type.lower()} who shares insights and opinions on important matters. They are known for their expertise and influence in public discourse.",
+                "bio": "Эксперт и идейный лидер в своей области.",
+                "persona": f"{entity_name} — признанный {entity_type.lower()}, который делится идеями и мнениями по важным вопросам. Они известны своим опытом и влиянием на публичный дискурс.",
                 "age": random.randint(35, 60),
                 "gender": random.choice(["male", "female"]),
                 "mbti": random.choice(["ENTJ", "INTJ", "ENTP", "INTP"]),
                 "country": random.choice(self.COUNTRIES),
-                "profession": entity_attributes.get("occupation", "Expert"),
+                "profession": entity_attributes.get("occupation", "Эксперт"),
                 "interested_topics": ["Politics", "Economics", "Culture & Society"],
             }
 

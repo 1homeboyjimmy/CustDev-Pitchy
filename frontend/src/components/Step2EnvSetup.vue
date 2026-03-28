@@ -70,8 +70,18 @@
               v-for="(profile, idx) in profiles" 
               :key="idx" 
               @click="selectProfile(profile)"
-              class="group p-4 rounded-2xl bg-[#0A0A0F]/40 border border-white/5 hover:border-pitchy-violet/50 transition-all cursor-pointer space-y-3"
+              class="group p-4 rounded-2xl bg-[#0A0A0F]/40 border border-white/5 hover:border-pitchy-violet/50 transition-all cursor-pointer space-y-3 relative overflow-hidden"
             >
+              <!-- Delete Action -->
+              <button 
+                v-if="phase >= 2"
+                @click.stop="handleDeleteProfile(idx)"
+                class="absolute top-2 right-2 p-1.5 rounded-lg bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20"
+                title="Удалить агента"
+              >
+                <TrashIcon class="w-3 h-3" />
+              </button>
+
               <div class="flex items-start justify-between">
                 <div class="space-y-0.5">
                   <div class="text-sm font-bold text-white group-hover:text-pitchy-violet-light transition-colors">{{ profile.username }}</div>
@@ -309,7 +319,8 @@ import {
   prepareSimulation, 
   getPrepareStatus, 
   getSimulationProfilesRealtime,
-  getSimulationConfigRealtime 
+  getSimulationConfigRealtime,
+  updateSimulationProfiles
 } from '../api/simulation'
 import GlassCard from './ui/GlassCard.vue'
 import StatusBadge from './ui/StatusBadge.vue'
@@ -320,7 +331,8 @@ import {
   Twitter as TwitterIcon,
   Layout as LayoutIcon,
   Compass as CompassIcon,
-  Rocket as RocketIcon
+  Rocket as RocketIcon,
+  Trash2 as TrashIcon
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -451,6 +463,22 @@ const pollConfig = async () => {
 
 const stopAllTimers = () => { clearInterval(pollTimer); clearInterval(profilesTimer); clearInterval(configTimer) }
 const stopConfigPolling = () => clearInterval(configTimer)
+const stopProfilesPolling = () => clearInterval(profilesTimer)
+
+const handleDeleteProfile = async (idx) => {
+  const removed = profiles.value.splice(idx, 1)[0]
+  addLog(`Агент ${removed.username} удален из архитектуры.`)
+  
+  try {
+    await updateSimulationProfiles(props.simulationId, {
+      platform: 'reddit', // Currently primarily reddit-based profiles in display
+      profiles: profiles.value
+    })
+  } catch (e) {
+    console.error('Failed to sync deleted profile:', e)
+    addLog('Ошибка синхронизации при удалении агента.')
+  }
+}
 
 
 onMounted(startPrepareSimulation)

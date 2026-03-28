@@ -1021,6 +1021,71 @@ def get_simulation_profiles(simulation_id: str):
         }), 500
 
 
+@simulation_bp.route('/<simulation_id>/profiles/update', methods=['POST'])
+def update_simulation_profiles(simulation_id: str):
+    """
+    Update simulation's Agent Profile (overwrites current list)
+    
+    JSON Body:
+        platform: Platform type (reddit/twitter, Default reddit)
+        profiles: List of profile objects
+    """
+    import json
+    import csv
+    try:
+        data = request.json
+        if not data or 'profiles' not in data:
+            return jsonify({
+                "success": False,
+                "error": "Missing profiles data"
+            }), 400
+            
+        profiles = data['profiles']
+        platform = data.get('platform', 'reddit')
+        
+        # Get simulation directory
+        sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+        
+        if not os.path.exists(sim_dir):
+            return jsonify({
+                "success": False,
+                "error": f"Simulation does not exist: {simulation_id}"
+            }), 404
+            
+        # Determine file path
+        if platform == "reddit":
+            profiles_file = os.path.join(sim_dir, "reddit_profiles.json")
+            with open(profiles_file, 'w', encoding='utf-8') as f:
+                json.dump(profiles, f, ensure_ascii=False, indent=4)
+        else:
+            profiles_file = os.path.join(sim_dir, "twitter_profiles.csv")
+            if profiles:
+                keys = profiles[0].keys()
+                with open(profiles_file, 'w', encoding='utf-8', newline='') as f:
+                    dict_writer = csv.DictWriter(f, fieldnames=keys)
+                    dict_writer.writeheader()
+                    dict_writer.writerows(profiles)
+            else:
+                # Create empty file with header if possible, or just empty
+                open(profiles_file, 'w').close()
+                
+        logger.info(f"Updated profiles for simulation {simulation_id} on {platform}. New count: {len(profiles)}")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully updated {platform} profiles",
+            "count": len(profiles)
+        })
+        
+    except Exception as e:
+        logger.error(f"UpdateProfileFailed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
 @simulation_bp.route('/<simulation_id>/profiles/realtime', methods=['GET'])
 def get_simulation_profiles_realtime(simulation_id: str):
     """

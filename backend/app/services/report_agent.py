@@ -473,78 +473,78 @@ class Report:
 # ── Tool Descriptions ──
 
 TOOL_DESC_INSIGHT_FORGE = """\
-[Deep Insight Retrieval - Powerful Retrieval Tool]
-This is our powerful retrieval function, designed for deep analysis. It will:
-1. Automatically decompose your question into multiple sub-questions
-2. Retrieve information from the simulated knowledge graph from multiple dimensions
-3. Integrate results from semantic search, entity analysis, and relationship chain tracking
-4. Return the most comprehensive and deep retrieval content
+[Углубленный поиск инсайтов — Мощный инструмент поиска]
+Это наша мощная функция поиска, предназначенная для глубокого анализа. Она:
+1. Автоматически разбивает ваш вопрос на несколько подвопросов.
+2. Извлекает информацию из симулированного графа знаний по нескольким измерениям.
+3. Объединяет результаты семантического поиска, анализа сущностей и отслеживания цепочек связей.
+4. Возвращает наиболее полный и глубокий контент.
 
-[Use Cases]
-- Need to deeply analyze a topic
-- Need to understand multiple aspects of an event
-- Need to obtain rich materials to support report sections
+[Случаи использования]
+- Нужно глубоко проанализировать тему.
+- Нужно понять множество аспектов события.
+- Нужно получить богатый материал для разделов отчета.
 
-[Return Content]
-- Relevant facts in original text (can be directly cited)
-- Core entity insights
-- Relationship chain analysis"""
+[Содержимое ответа]
+- Релевантные факты в оригинальном тексте (можно цитировать напрямую).
+- Инсайты по основным сущностям.
+- Анализ цепочек связей."""
 
 TOOL_DESC_PANORAMA_SEARCH = """\
-[Breadth Search - Get Complete Overview]
-This tool is used to get a complete panoramic view of simulation results, especially suitable for understanding the evolution of events. It will:
-1. Retrieve all relevant nodes and relationships
-2. Distinguish between current valid facts and historical/expired facts
-3. Help you understand how events have evolved
+[Панорамный поиск — Полный обзор]
+Этот инструмент используется для получения полного панорамного вида результатов симуляции, особенно подходит для понимания эволюции событий. Он:
+1. Извлекает все релевантные узлы и связи.
+2. Различает текущие актуальные факты и исторические/устаревшие факты.
+3. Помогает понять, как развивались события.
 
-[Use Cases]
-- Need to understand the complete development trajectory of an event
-- Need to compare public sentiment changes across different stages
-- Need to get comprehensive entity and relationship information
+[Случаи использования]
+- Нужно понять полную траекторию развития события.
+- Нужно сравнить изменения общественных настроений на разных этапах.
+- Нужно получить исчерпывающую информацию о сущностях и связях.
 
-[Return Content]
-- Current valid facts (latest simulation results)
-- Historical/expired facts (evolution records)
-- All involved entities"""
+[Содержимое ответа]
+- Текущие актуальные факты (последние результаты симуляции).
+- Исторические/устаревшие факты (записи об эволюции).
+- Все вовлеченные сущности."""
 
 TOOL_DESC_QUICK_SEARCH = """\
-[Simple Search - Quick Retrieval]
-A lightweight quick retrieval tool suitable for simple and direct information queries.
+[Простой поиск — Быстрое извлечение]
+Легкий инструмент быстрого поиска, подходящий для простых и прямых запросов информации.
 
-[Use Cases]
-- Need to quickly find specific information
-- Need to verify a fact
-- Simple information retrieval
+[Случаи использования]
+- Нужно быстро найти конкретную информацию.
+- Нужно проверить факт.
+- Простой поиск информации.
 
-[Return Content]
-- List of facts most relevant to the query"""
+[Содержимое ответа]
+- Список фактов, наиболее релевантных запросу."""
 
 TOOL_DESC_INTERVIEW_AGENTS = """\
-[Deep Interview - Real Agent Interview (Dual Platform)]
-Call the OASIS simulation environment's interview API to conduct real interviews with running simulation agents!
-This is not an LLM simulation, but calls the real interview interface to get original responses from simulation agents.
-By default, interview on Twitter and Reddit simultaneously to get more comprehensive perspectives.
+[Глубинное интервью — Реальное интервью с агентами (две платформы)]
+Вызовите API интервью среды симуляции OASIS для проведения реальных интервью с запущенными симуляционными агентами!
+Это не просто симуляция LLM, а вызов реального интерфейса интервью для получения оригинальных ответов от агентов симуляции.
+По умолчанию интервью проводятся в Twitter и Reddit одновременно для получения более полных перспектив.
 
-Function Flow:
-1. Automatically read character profile files to understand all simulation agents
-2. Intelligently select agents most relevant to the interview topic (e.g., students, media, officials)
-3. Automatically generate interview questions
-4. Call /api/simulation/interview/batch interface to conduct real interviews on dual platforms
-5. Integrate all interview results and provide multi-perspective analysis
+Поток функции:
+1. Автоматически читает файлы профилей персонажей, чтобы понять всех агентов симуляции.
+2. Интеллектуально выбирает агентов, наиболее релевантных теме интервью (например, студенты, СМИ, официальные лица).
+3. Автоматически генерирует вопросы для интервью.
+4. Вызывает интерфейс /api/simulation/interview/batch для проведения реальных интервью на двух платформах.
+5. Интегрирует все результаты интервью и предоставляет многоперспективный анализ.
 
-[Use Cases]
-- Need to understand event perspectives from different role angles (How do students view it? How does media view it? What does the official say?)
-- Need to collect diverse opinions and positions
-- Need to get real responses from simulation agents (from OASIS simulation environment)
-- Want to make the report more vivid, including "interview records"
+[Случаи использования]
+- Нужно понять перспективы событий с точек зрения разных ролей (Что думают студенты? Что говорят СМИ? Что заявляет официальное лицо?).
+- Нужно собрать разнообразные мнения и позиции.
+- Нужно получить реальные ответы от агентов симуляции (из среды симуляции OASIS).
+- Хотите сделать отчет более живым, включив в него «записи интервью».
 
-[Return Content]
-- Identity information of interviewed agents
-- Interview responses from each agent on Twitter and Reddit platforms
-- Key quotes (can be directly cited)
-- Interview summary and perspective comparison
+[Содержимое ответа]
+- Идентификационная информация опрошенных агентов.
+- Ответы на интервью от каждого агента на платформах Twitter и Reddit.
+- Ключевые цитаты (можно цитировать напрямую).
+- Резюме интервью и сравнение точек зрения.
 
-[Important] This feature requires the OASIS simulation environment to be running!"""
+[Важно] Эта функция требует, чтобы среда симуляции OASIS была запущена!"""
 
 # ── Outline Planning Prompt ──
 
@@ -554,39 +554,38 @@ You are an expert in writing "future prediction reports" with a "god's eye view"
 [Core Concept]
 We built a simulated world and injected specific "simulation requirements" as variables into it. The evolution result of the simulated world is a prediction of what might happen in the future. What you're observing is not "experimental data" but a "rehearsal of the future".
 
-[Your Task]
-Write a "future prediction report" that answers:
-1. What happened in the future under the conditions we set?
-2. How do various agents (groups) react and act?
-3. What future trends and risks does this simulation reveal that deserve attention?
+[Задача]
+Напишите «отчет о прогнозировании будущего», который отвечает на вопросы:
+1. Что произошло в будущем при заданных нами условиях?
+2. Как реагируют и действуют различные агенты (группы)?
+3. Какие будущие тенденции и риски выявляет эта симуляция, на которые стоит обратить внимание?
 
-[Report Positioning]
-- ✅ This is a future prediction report based on simulation, revealing "if this happens, how will the future unfold"
-- ✅ Focus on prediction results: event trajectories, group reactions, emergent phenomena, potential risks
-- ✅ Agent statements and behaviors in the simulated world are predictions of future human behavior
-- ❌ Not an analysis of the current state of the real world
-- ❌ Not a general overview of public sentiment
+[Позиционирование отчета]
+- ✅ Это отчет о прогнозировании будущего на основе симуляции, раскрывающий, «если это произойдет, как развернется будущее».
+- ✅ Сосредоточьтесь на результатах прогнозирования: траекториях событий, реакциях групп, возникающих явлениях, потенциальных рисках.
+- ✅ Высказывания и поведение агентов в симулированном мире являются предсказаниями будущего поведения людей.
+- ❌ Не анализ текущего состояния реального мира.
+- ❌ Не общий обзор общественных настроений.
 
-[Section Number Limit]
-- Minimum 2 sections, maximum 5 sections
-- No subsections needed, each section directly writes complete content
-- Content should be concise, focused on core prediction findings
-- Section structure is designed independently based on prediction results
+[Лимит разделов]
+- Минимум 2 раздела, максимум 5 разделов.
+- Подразделы не нужны, в каждом разделе пишется законченный контент.
+- Контент должен быть кратким, сосредоточенным на основных выводах прогноза.
 
-Please output the report outline in JSON format as follows:
+Пожалуйста, выведите план отчета в формате JSON следующим образом:
 {
-    "title": "Report Title",
-    "summary": "Report Summary (one sentence summarizing core prediction findings)",
+    "title": "Заголовок отчета",
+    "summary": "Резюме отчета (одно предложение, обобщающее основные выводы прогноза)",
     "sections": [
         {
-            "title": "Section Title",
-            "description": "Section Content Description"
+            "title": "Название раздела",
+            "description": "Описание содержания раздела"
         }
     ]
 }
 
-Note: sections array must have at least 2 and at most 5 elements!
-IMPORTANT: The entire report outline (title, summary, section titles and descriptions) MUST be in English. Never use Chinese or other languages."""
+Примечание: массив sections должен содержать от 2 до 5 элементов!
+ВАЖНО: Весь план отчета (заголовок, резюме, названия разделов и описания) ДОЛЖЕН быть на русском языке. Никогда не используй английский или другие языки. """
 
 PLAN_USER_PROMPT_TEMPLATE = """\
 [Prediction Scenario Settings]
@@ -640,30 +639,30 @@ Your task is to:
 [Most Important Rules - Must Follow]
 ═══════════════════════════════════════════════════════════════
 
-1. [Must Call Tools to Observe the Simulated World]
-   - You are observing a rehearsal of the future from a "god's eye view"
-   - All content must come from events and agent statements/behaviors in the simulated world
-   - Forbidden to use your own knowledge to write report content
-   - Each section must call tools at least 3 times (maximum 5 times) to observe the simulated world, which represents the future
+1. [Обязательно вызывайте инструменты для наблюдения за симулированным миром]
+   - Вы наблюдаете за репетицией будущего с «точки зрения бога».
+   - Весь контент должен исходить из событий и высказываний/поведения агентов в симулированном мире.
+   - Запрещено использовать собственные знания для написания содержания отчета.
+   - В каждом разделе необходимо вызвать инструменты не менее 3 раз (максимум 5 раз), чтобы наблюдать за симулированным миром, который представляет собой будущее.
 
-2. [Must Quote Original Agent Statements and Behaviors]
-   - Agent statements and behaviors are predictions of future human behavior
-   - Use quote format in the report to display these predictions, for example:
-     > "Certain groups will state: original content..."
-   - These quotes are core evidence of simulation predictions
+2. [Обязательно цитируйте оригинальные высказывания и поведение агентов]
+   - Высказывания и поведение агентов — это предсказания будущего поведения людей.
+   - Используйте формат цитат в отчете для отображения этих прогнозов, например:
+     > «Определенные группы заявят: оригинальное содержание...»
+   - Эти цитаты являются основным доказательством прогнозов симуляции.
 
-3. [Language Consistency - ALWAYS Write in English]
-   - The entire report MUST be written in English, regardless of source material language
-   - Tool-returned content may contain Chinese, mixed Chinese-English, or other languages
-   - When quoting tool-returned non-English content, ALWAYS translate it to fluent English before writing to report
-   - Keep original meaning unchanged during translation, ensure natural expression
-   - This rule applies to both body text and quoted content (> format)
-   - NEVER switch to Chinese or any other language mid-report
+3. [Языковая последовательность — ВСЕГДА пишите на русском языке]
+   - Весь отчет ДОЛЖЕН быть написан на русском языке, независимо от языка исходных материалов.
+   - Контент, возвращаемый инструментами, может содержать английский, смесь языков или другие языки.
+   - При цитировании нерусскоязычного контента, возвращенного инструментами, ВСЕГДА переводите его на беглый русский язык перед написанием в отчет.
+   - Сохраняйте исходный смысл неизменным при переводе, обеспечивайте естественность выражения.
+   - Это правило относится как к основному тексту, так и к цитируемому контенту (формат >).
+   - НИКОГДА не переключайтесь на английский или любой другой язык в середине отчета.
 
-4. [Faithfully Present Prediction Results]
-   - Report content must reflect simulation results that represent the future in the simulated world
-   - Don't add information that doesn't exist in the simulation
-   - If information is insufficient in some aspects, state it truthfully
+4. [Верно представляйте результаты прогнозирования]
+   - Содержание отчета должно отражать результаты симуляции, которые представляют будущее в симулированном мире.
+   - Не добавляйте информацию, которой нет в симуляции.
+   - Если информации недостаточно в каких-то аспектах, заявляйте об этом правдиво.
 
 ═══════════════════════════════════════════════════════════════
 [⚠️ Format Specification - Extremely Important!]
@@ -854,7 +853,7 @@ Prediction Condition: {simulation_requirement}
 - Concise and direct, don't write lengthy passages
 - Use > format to quote key content
 - Give conclusions first, then explain reasons
-- ALWAYS respond in English, regardless of the language used in source material or report content"""
+- ВСЕГДА отвечайте на русском языке, независимо от языка, используемого в исходных материалах или содержании отчета """
 
 CHAT_OBSERVATION_SUFFIX = "\n\nPlease answer the question concisely."
 
