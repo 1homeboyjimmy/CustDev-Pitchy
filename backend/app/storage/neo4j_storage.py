@@ -232,16 +232,35 @@ class Neo4jStorage(GraphStorage):
 
             # MERGE entities (upsert by graph_id + name + primary label)
             entity_uuid_map: Dict[str, str] = {}  # name_lower -> uuid
+            
+            # Check current entity count to enforce limit
+            current_count_res = session.run("MATCH (n:Entity {graph_id: $gid}) RETURN count(n) AS cnt", gid=graph_id)
+            existing_count = current_count_res.single()["cnt"]
+            
             for idx, entity in enumerate(entities):
                 ename = entity["name"]
+                ename_lower = ename.lower()
                 etype = entity["type"]
                 attrs = entity.get("attributes", {})
                 summary_text = entity_summaries[idx]
                 embedding = entity_embeddings[idx] if idx < len(entity_embeddings) else []
 
                 e_uuid = str(uuid.uuid4())
-                entity_uuid_map[ename.lower()] = e_uuid
-
+                
+                # Check if this is a NEW entity (not already in the graph)
+                check_res = session.run(
+                    "MATCH (n:Entity {graph_id: $gid, name_lower: $name_lower}) RETURN n.uuid AS uuid",
+                    gid=graph_id, name_lower=ename_lower
+                )
+                existing_entity_uuid = check_res.single()
+                
+                if not existing_entity_uuid and existing_count >= 10:
+                    logger.info(f"[add_text] Skipping new entity '{ename}' as limit (10) reached")
+                    continue
+                
+                if not existing_entity_uuid:
+                    existing_count += 1
+                
                 def _merge_entity(tx, _uuid=e_uuid, _name=ename, _type=etype,
                                   _attrs=attrs, _embedding=embedding,
                                   _summary=summary_text, _now=now):

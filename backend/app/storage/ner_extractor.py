@@ -27,6 +27,7 @@ RULES:
 4. Each relation must have: source entity name, target entity name, type (from ontology), and a fact sentence describing the relationship.
 5. If no entities or relations are found, return empty lists.
 6. Be precise — only extract what is explicitly stated or strongly implied in the text.
+7. LIMIT: Extract NO MORE THAN 10 entities in total. Focus ONLY on the most relevant "agents" (people, organizations) that drive the narrative.
 
 Return ONLY valid JSON in this exact format:
 {{

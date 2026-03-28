@@ -144,24 +144,6 @@
       </div>
     </GlassCard>
 
-    <!-- System Terminal (Logs) -->
-    <div class="rounded-2xl bg-[#0A0A0F]/90 border border-white/10 overflow-hidden shadow-2xl">
-      <div class="h-10 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[9px] font-mono font-bold tracking-[0.2em] text-white/30">
-        <div class="flex items-center gap-2">
-          <TerminalIcon class="w-3 h-3 text-pitchy-cyan" />
-          СИСТЕМНЫЙ_ЛОГ_ТЕРМИНАЛ
-        </div>
-        <div>{{ projectData?.project_id || 'NO_PID' }}</div>
-      </div>
-      <div class="h-40 overflow-y-auto p-4 space-y-1.5 custom-scrollbar font-mono text-[10px]" ref="logContent">
-        <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-4 group/log">
-          <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">{{ log.time }}</span>
-          <span class="text-white/60 group-hover/log:text-white/80 transition-colors break-all">
-            <span class="text-pitchy-cyan mr-1">>></span> {{ log.msg }}
-          </span>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -174,19 +156,12 @@ import StatusBadge from './ui/StatusBadge.vue'
 import PitchyButton from './ui/PitchyButton.vue'
 import { 
   Check as CheckIcon,
-  Zap as ZapIcon,
-  Terminal as TerminalIcon
+  Zap as ZapIcon
 } from 'lucide-vue-next'
 
 const router = useRouter()
 
-const props = defineProps({
-  currentPhase: { type: Number, default: 0 },
-  projectData: Object,
-  ontologyProgress: Object,
-  buildProgress: Object,
-  graphData: Object,
-  systemLogs: { type: Array, default: () => [] }
+  graphData: Object
 })
 
 const emit = defineEmits(['next-step'])
@@ -225,7 +200,5 @@ const graphStats = computed(() => ({
   types: props.projectData?.ontology?.entity_types?.length || 0
 }))
 
-watch(() => props.systemLogs.length, () => {
-  nextTick(() => { if (logContent.value) logContent.value.scrollTop = logContent.value.scrollHeight })
-})
+
 </script>

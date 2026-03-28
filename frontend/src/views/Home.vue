@@ -2,22 +2,22 @@
   <AppLayout>
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 space-y-24">
       <!-- Hero Section -->
-      <section class="relative flex flex-col md:flex-row items-center justify-between gap-12">
-        <div class="flex-1 space-y-8 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3">
+      <section class="relative space-y-12">
+        <div class="space-y-8 text-center">
+          <div class="flex items-center justify-center gap-3">
             <StatusBadge type="primary">Автономный рой агентов</StatusBadge>
           </div>
 
-          <h1 class="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1]">
+          <h1 class="text-5xl md:text-8xl font-bold tracking-tight text-white leading-[1.1]">
             Анализируй реальность.<br />
             <span class="text-gradient">Симулируй будущее.</span>
           </h1>
 
-          <p class="text-lg text-white/60 max-w-2xl leading-relaxed mx-auto md:mx-0">
+          <p class="text-xl md:text-2xl text-white/60 leading-relaxed mx-auto">
             <span class="text-white font-semibold">Pitchy.Pro</span> анализирует ваши инвестиционные презентации и рыночные гипотезы. Мы строим цифровую модель рынка, населенную автономными ИИ-агентами (инвесторами, экспертами, клиентами). Наблюдайте, как они реагируют на ваш питч, предсказывайте рыночные барьеры и тестируйте стратегии — быстро и эффективно.
           </p>
 
-          <div class="pt-4 flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 uppercase tracking-[0.2em] text-[10px] font-bold text-white/40">
+          <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-6 uppercase tracking-[0.2em] text-[10px] font-bold text-white/40">
             <div class="flex items-center gap-2">
               <ShieldCheckIcon class="w-4 h-4 text-pitchy-cyan" />
               <span>100% Приватно</span>
@@ -33,17 +33,6 @@
               <span>Мгновенный инсайт</span>
             </div>
           </div>
-        </div>
-
-        <div class="flex-1 relative w-full max-w-[500px] aspect-square group">
-          <div class="absolute inset-0 bg-pitchy-violet/20 blur-[100px] rounded-full group-hover:bg-pitchy-violet/30 transition-all duration-700"></div>
-          <GlassCard :padding="false" class="relative z-10 w-full h-full flex items-center justify-center border-white/10 overflow-hidden rotate-3 group-hover:rotate-0 transition-transform duration-700">
-            <img 
-              src="../assets/logo/Pitchy_logo_left.jpeg" 
-              alt="Pitchy Logo" 
-              class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700" 
-            />
-          </GlassCard>
         </div>
       </section>
 
