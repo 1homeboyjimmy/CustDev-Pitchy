@@ -32,12 +32,6 @@ class Config:
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://localhost:11434/v1')
     LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'qwen/qwen2.5-vl-32b-instruct')
 
-    # Synchronize with standard OpenAI environment variables for 3rd party tool compatibility
-    if LLM_API_KEY and not os.environ.get('OPENAI_API_KEY'):
-        os.environ['OPENAI_API_KEY'] = LLM_API_KEY
-    if LLM_BASE_URL and not os.environ.get('OPENAI_API_BASE_URL'):
-        os.environ['OPENAI_API_BASE_URL'] = LLM_BASE_URL
-
     # Neo4j configuration
     NEO4J_URI = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
     NEO4J_USER = os.environ.get('NEO4J_USER', 'neo4j')
@@ -85,4 +79,8 @@ class Config:
             errors.append("NEO4J_URI not configured")
         if not cls.NEO4J_PASSWORD:
             errors.append("NEO4J_PASSWORD not configured")
-        return errors
+# Synchronize with standard OpenAI environment variables for 3rd party tool compatibility
+if Config.LLM_API_KEY and not os.environ.get('OPENAI_API_KEY'):
+    os.environ['OPENAI_API_KEY'] = Config.LLM_API_KEY
+if Config.LLM_BASE_URL and not os.environ.get('OPENAI_API_BASE_URL'):
+    os.environ['OPENAI_API_BASE_URL'] = Config.LLM_BASE_URL

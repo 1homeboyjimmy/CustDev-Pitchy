@@ -306,9 +306,13 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
             
             profiles_count = 0
             if os.path.exists(profiles_file):
-                with open(profiles_file, 'r', encoding='utf-8') as f:
-                    profiles_data = json.load(f)
-                    profiles_count = len(profiles_data) if isinstance(profiles_data, list) else 0
+                try:
+                    with open(profiles_file, 'r', encoding='utf-8') as f:
+                        profiles_data = json.load(f)
+                        profiles_count = len(profiles_data) if isinstance(profiles_data, list) else 0
+                except (json.JSONDecodeError, IOError) as e:
+                    logger.warning(f"Failed to read profiles count: {e}")
+                    profiles_count = 0
             
             # If status is "preparing" but files are completed, update status to "ready"
             if status == "preparing":
