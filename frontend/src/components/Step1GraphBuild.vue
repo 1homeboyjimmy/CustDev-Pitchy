@@ -21,9 +21,18 @@
           </div>
           <h3 class="text-lg font-bold text-white">Генерация онтологии</h3>
         </div>
-        <StatusBadge :type="currentPhase > 0 ? 'success' : (currentPhase === 0 ? 'primary' : 'default')">
-          {{ currentPhase > 0 ? 'Синтезировано' : (currentPhase === 0 ? 'Анализ' : 'В очереди') }}
-        </StatusBadge>
+        <div class="flex items-center gap-3">
+          <button 
+            v-if="currentPhase === 0 || currentPhase === 1" 
+            @click="$emit('stop-task');" 
+            class="px-2 py-1 rounded bg-red-500/10 text-red-500 text-[9px] font-bold border border-red-500/20 hover:bg-red-500/20 transition-all uppercase"
+          >
+            Остановить
+          </button>
+          <StatusBadge :type="currentPhase > 0 ? 'success' : (currentPhase === 0 ? 'primary' : 'default')">
+            {{ currentPhase > 0 ? 'Синтезировано' : (currentPhase === 0 ? 'Анализ' : 'В очереди') }}
+          </StatusBadge>
+        </div>
       </div>
 
       <div class="space-y-6">
@@ -169,10 +178,9 @@ const props = defineProps({
   graphData: Object
 })
 
-const emit = defineEmits(['next-step'])
+const emit = defineEmits(['next-step', 'stop-task'])
 
 const selectedOntologyItem = ref(null)
-const logContent = ref(null)
 const creatingSimulation = ref(false)
 
 const handleEnterEnvSetup = async () => {

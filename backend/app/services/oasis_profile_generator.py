@@ -151,18 +151,33 @@ class OasisProfileGenerator:
     3. Distinguish between individual entities and abstract group entities
     """
 
-    # MBTI types list
-    MBTI_TYPES = [
-        "INTJ", "INTP", "ENTJ", "ENTP",
-        "INFJ", "INFP", "ENFJ", "ENFP",
-        "ISTJ", "ISFJ", "ESTJ", "ESFJ",
-        "ISTP", "ISFP", "ESTP", "ESFP"
-    ]
-
-    # Common countries list
-    COUNTRIES = [
-        "US", "UK", "Japan", "Germany", "France",
-        "Canada", "Australia", "Brazil", "India", "South Korea"
+    # ARCHETYPES Matrix for realistic social simulation
+    ARCHETYPES = [
+        {
+            "name": "Скептик-хейтер",
+            "description": "Ищет подвох во всем. Пишет критически, использует сарказм. Не верит обещаниям маркетинга. Если видит 'боли', активно на них нападает.",
+            "weight": 0.2
+        },
+        {
+            "name": "Рациональный прагматик",
+            "description": "Интересуется только сухими цифрами, ценой и эффективностью. Задает неудобные вопросы про окупаемость. Холодный и расчетливый.",
+            "weight": 0.2
+        },
+        {
+            "name": "Уставший предприниматель",
+            "description": "Занят, циничен, видел сотни таких проектов. Тратит только 5 секунд на пост. Пишет кратко, по делу, часто с оттенком обреченности.",
+            "weight": 0.2
+        },
+        {
+            "name": "Энтузиаст-инноватор",
+            "description": "Любит все новое, но быстро разочаровывается, если продукт 'пустышка'. Ищет реальную технологическую новизну.",
+            "weight": 0.2
+        },
+        {
+            "name": "Обыватель-консерватор",
+            "description": "Боится перемен, не доверяет новым сервисам. Предпочитает старые проверенные методы. Спрашивает 'Зачем мне это нужно?'.",
+            "weight": 0.2
+        }
     ]
 
     # Individual type entities (need to generate specific personas)
@@ -205,7 +220,8 @@ class OasisProfileGenerator:
         self,
         entity: EntityNode,
         user_id: int,
-        use_llm: bool = True
+        use_llm: bool = True,
+        market_context: str = ""
     ) -> OasisAgentProfile:
         """
         Generate OASIS Agent Profile from knowledge graph entity
@@ -234,7 +250,8 @@ class OasisProfileGenerator:
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes,
-                context=context
+                context=context,
+                market_context=market_context
             )
         else:
             # Use rules to generate basic persona
@@ -444,7 +461,8 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        market_context: str = ""
     ) -> Dict[str, Any]:
         """
         Use LLM to generate very detailed persona
@@ -456,13 +474,18 @@ class OasisProfileGenerator:
 
         is_individual = self._is_individual_entity(entity_type)
 
+        # Select a random archetype for individual entities to ensure diversity
+        archetype = None
+        if is_individual:
+            archetype = random.choice(self.ARCHETYPES)
+
         if is_individual:
             prompt = self._build_individual_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context
+                entity_name, entity_type, entity_summary, entity_attributes, context, archetype, market_context
             )
         else:
             prompt = self._build_group_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context
+                entity_name, entity_type, entity_summary, entity_attributes, context, market_context
             )
 
         # Try multiple times until successful or max retry attempts reached
@@ -615,7 +638,7 @@ class OasisProfileGenerator:
     
     def _get_system_prompt(self, is_individual: bool) -> str:
         """Get system prompt"""
-        base_prompt = "Вы — эксперт в создании профилей пользователей социальных сетей. Генерируйте подробные, реалистичные персоны для симуляции мнений, которые максимально восстанавливают существующую реальность. Должны возвращать валидный формат JSON со всеми строковыми значениями без неэкранированных переносов строк. Используйте исключительно РУССКИЙ ЯЗЫК."
+        base_prompt = "Вы — эксперт в создании профилей пользователей социальных сетей. Генерируйте подробные, реалистичные персоны для симуляции мнений, которые максимально восстанавливают существующую реальность. Должны возвращать валидный формат JSON со всеми строковыми значениями без неэкранированных переносов строк. Используйте исключительно РУССКИЙ ЯЗЫК. При наличии 'Контекста рынка' обязательно интегрируйте эти факты в знания и аргументацию персонажа."
         return base_prompt
     
     def _build_individual_persona_prompt(
@@ -624,12 +647,18 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        archetype: Optional[Dict[str, Any]] = None,
+        market_context: str = ""
     ) -> str:
         """Build detailed persona prompt for individual entities"""
 
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
+        
+        archetype_str = ""
+        if archetype:
+            archetype_str = f"\nТВОЙ АРХЕТИП: {archetype['name']}\nОПИСАНИЕ АРХЕТИПА: {archetype['description']}\n"
 
         return f"""Сгенерируйте подробную персону пользователя социальной сети для сущности, максимально восстанавливая существующую реальность.
 
@@ -637,21 +666,31 @@ class OasisProfileGenerator:
 Тип сущности: {entity_type}
 Краткое описание: {entity_summary}
 Атрибуты: {attrs_str}
+{archetype_str}
 
-Контекстная информация:
+Контекстная информация (из графа знаний о проекте):
 {context_str}
+
+Контекст рынка (реальные факты о рынке РФ):
+{market_context or 'Нет данных'}
+
+### ЖЕСТКИЕ ПРАВИЛА ПЕРСОНАЖА (ПРИОРИТЕТ):
+1. ТЫ — НЕЗАВИСИМЫЙ НАБЛЮДАТЕЛЬ, А НЕ РЕКЛАМНЫЙ БОТ.
+2. НИКАКОЙ ПОХВАЛЫ И 'ВАНИЛЬНЫХ' ОТЗЫВОВ. Если ты не в восторге от продукта — критикуй.
+3. ЕСЛИ ТВОЙ АРХЕТИП СКЕПТИК — ИЩИ УЯЗВИМОСТИ И 'БОЛИ'.
+4. ПИШИ КАК ЖИВОЙ ЧЕЛОВЕК: используй сленг, сокращения, ошибки, сарказм.
+5. ИГНОРИРУЙ МАРКЕТИНГОВЫЙ ТОН. Если в описании написано 'мы лучшие', твоя задача — проверить это через призму своего архетипа.
 
 Пожалуйста, сгенерируйте JSON, содержащий следующие поля:
 
-1. bio: Биография для социальной сети, 200 символов
-2. persona: Подробное описание персоны (2000 слов чистого текста), должно включать:
-   - Основную информацию (возраст, профессия, образование, местоположение)
-   - Личный бэкграунд (важный опыт, связь с событиями, социальные связи)
-   - Черты характера (тип MBTI, основной характер, эмоциональное выражение)
-   - Поведение в социальных сетях (частота публикаций, предпочтения в контенте, стиль взаимодействия, языковые особенности)
-   - Позиции и взгляды (отношение к темам, контент, который может спровоцировать/задеть эмоции)
-   - Уникальные особенности (словечки, особый опыт, личные интересы)
-   - Личные воспоминания (важная часть персоны, введите связь человека с событиями и его существующие действия/реакции)
+1. bio: Биография для социальной сети, 200 символов (в стиле выбранного архетипа)
+2. persona: Подробное описание персоны (до 2000 слов), должно включать:
+   - ТВОЙ АРХЕТИП И ЕГО ВЛИЯНИЕ НА МЫШЛЕНИЕ.
+   - Независимый взгляд на проект/продукт (через призму архетипа).
+   - Основную информацию (возраст, профессия, образование, местоположение).
+   - Личный бэкграунд (важный опыт, боли, потребности).
+   - Личные воспоминания (связь с событиями, реальные реакции).
+   - Языковые особенности (стиль письма в соцсетях: капс, многоточия, сленг).
 3. age: Возраст как число (целое)
 4. gender: Пол, строго на английском: "male" или "female"
 5. mbti: Тип MBTI (например, INTJ, ENFP)
@@ -660,11 +699,9 @@ class OasisProfileGenerator:
 8. interested_topics: Массив интересующих тем
 
 Важно:
-- Все значения полей должны быть строками или числами, не используйте переносы строк
-- persona должна быть связным текстовым описанием
-- Используйте РУССКИЙ ЯЗЫК для текстовых полей
-- Контент должен соответствовать информации о сущности
-- age должно быть целым числом, gender должно быть "male" или "female"
+- persona должна быть связным текстовым описанием.
+- Используйте РУССКИЙ ЯЗЫК для текстовых полей.
+- persona должна СТРОГО отражать твой архетип и независимую позицию.
 """
 
     def _build_group_persona_prompt(
@@ -673,7 +710,8 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        market_context: str = ""
     ) -> str:
         """Build detailed persona prompt for group/institutional entities"""
 
@@ -689,6 +727,9 @@ class OasisProfileGenerator:
 
 Контекстная информация:
 {context_str}
+
+Контекст рынка (реальные факты о рынке РФ):
+{market_context or 'Нет данных'}
 
 Пожалуйста, сгенерируйте JSON, содержащий следующие поля:
 
@@ -801,7 +842,8 @@ class OasisProfileGenerator:
         graph_id: Optional[str] = None,
         parallel_count: int = 5,
         realtime_output_path: Optional[str] = None,
-        output_platform: str = "reddit"
+        output_platform: str = "reddit",
+        market_context: str = ""
     ) -> List[OasisAgentProfile]:
         """
         Generate Agent Profiles in batch from entities (supports parallel generation)
@@ -869,7 +911,8 @@ class OasisProfileGenerator:
                 profile = self.generate_profile_from_entity(
                     entity=entity,
                     user_id=idx,
-                    use_llm=use_llm
+                    use_llm=use_llm,
+                    market_context=market_context
                 )
 
                 # Real-time output generated persona to console and log

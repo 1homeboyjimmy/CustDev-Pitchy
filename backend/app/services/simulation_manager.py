@@ -17,6 +17,7 @@ from ..utils.logger import get_logger
 from .entity_reader import EntityReader, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
 from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
+from .rag_service import RagService
 
 logger = get_logger('pitchy.simulation')
 
@@ -269,6 +270,22 @@ class SimulationManager:
             
             sim_dir = self._get_simulation_dir(simulation_id)
             
+            # ========== Phase 0: Get Market Context from RAG ==========
+            if progress_callback:
+                progress_callback("reading", 5, "Получение контекста рынка через RAG...")
+            
+            import asyncio
+            market_context = ""
+            try:
+                # We use asyncio.run because this is running in a background thread
+                market_context = asyncio.run(RagService.get_market_context(simulation_requirement))
+                if market_context:
+                    logger.info(f"Successfully injected market context (length: {len(market_context)})")
+                else:
+                    logger.warning("No market context returned from RAG service")
+            except Exception as rag_e:
+                logger.warning(f"RAG context lookup failed (non-critical): {rag_e}")
+            
             # ========== Phase 1: Read and filter entities ==========
             if progress_callback:
                 progress_callback("reading", 0, "Connecting to graph...")
@@ -351,7 +368,8 @@ class SimulationManager:
                 graph_id=state.graph_id,  # Pass graph_id for graph retrieval
                 parallel_count=parallel_profile_count,  # Parallel generation count
                 realtime_output_path=realtime_output_path,  # Real-time save path
-                output_platform=realtime_platform  # Output format
+                output_platform=realtime_platform,  # Output format
+                market_context=market_context  # Pass market context for persona generation
             )
             
             state.profiles_count = len(profiles)
@@ -416,7 +434,8 @@ class SimulationManager:
                 document_text=document_text,
                 entities=filtered.entities,
                 enable_twitter=state.enable_twitter,
-                enable_reddit=state.enable_reddit
+                enable_reddit=state.enable_reddit,
+                market_context=market_context  # Pass market context for config generation
             )
             
             if progress_callback:

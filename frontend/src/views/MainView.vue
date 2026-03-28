@@ -38,7 +38,7 @@
 
       <!-- Main Layout area -->
       <main class="flex-1 flex flex-col overflow-hidden relative">
-        <!-- Panels area (Top half when terminal is visible) -->
+        <!-- Panels area -->
         <div class="flex-1 flex overflow-hidden lg:flex-row flex-col">
           <!-- Left Panel: Knowledge Graph -->
           <div 
@@ -66,9 +66,8 @@
               'w-1/2 opacity-100': viewMode === 'split'
             }"
           >
-            <div class="h-full overflow-y-auto custom-scrollbar">
+            <div class="h-full overflow-y-auto custom-scrollbar pb-12">
               <div class="p-8 max-w-4xl mx-auto space-y-8">
-                <!-- Step 1: Graph Build -->
                 <Step1GraphBuild 
                   v-if="currentStep === 1"
                   :currentPhase="currentPhase"
@@ -77,6 +76,7 @@
                   :buildProgress="buildProgress"
                   :graphData="graphData"
                   @next-step="handleNextStep"
+                  @stop-task="stopPolling(); addLog('Поток анализа остановлен пользователем.'); currentPhase = 2;"
                 />
                 
                 <!-- Step 2: Env Setup -->
@@ -92,42 +92,42 @@
             </div>
           </div>
         </div>
+      </main>
 
-        <!-- Global Bottom Terminal -->
+      <!-- Terminal Bar -->
+      <div 
+        class="bg-[#0A0A0F]/95 border-t border-white/10 overflow-hidden shadow-2xl flex flex-col transition-all duration-500 ease-in-out shrink-0"
+        :class="isTerminalCollapsed ? 'h-6' : 'h-48'"
+      >
         <div 
-          class="bg-[#0A0A0F]/95 border-t border-white/10 overflow-hidden shadow-2xl flex flex-col transition-all duration-500 ease-in-out"
-          :class="isTerminalCollapsed ? 'h-6' : 'h-48'"
+          class="h-6 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[7px] font-mono font-bold tracking-[0.2em] text-white/30 shrink-0 cursor-pointer hover:bg-white/[0.04] transition-colors"
+          @click="isTerminalCollapsed = !isTerminalCollapsed"
         >
-          <div 
-            class="h-6 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[7px] font-mono font-bold tracking-[0.2em] text-white/30 shrink-0 cursor-pointer hover:bg-white/[0.04] transition-colors"
-            @click="isTerminalCollapsed = !isTerminalCollapsed"
-          >
-            <div class="flex items-center gap-2">
-              <TerminalIcon class="w-3 h-3 text-pitchy-cyan" />
-              Pitchy_PRO_SYSTEM_TERMINAL [{{ isTerminalCollapsed ? 'COLLAPSED' : 'REALTIME_PULSE' }}]
-            </div>
-            <div class="flex items-center gap-4">
-              <span v-if="!isTerminalCollapsed">PROJECT_ADDR: {{ currentProjectId?.slice(0, 12) }}</span>
-              <div class="flex items-center gap-2">
-                <span class="text-pitchy-cyan">{{ systemLogs.length }} RECORDS</span>
-                <ChevronUpIcon v-if="isTerminalCollapsed" class="w-3 h-3" />
-                <ChevronDownIcon v-else class="w-3 h-3" />
-              </div>
-            </div>
+          <div class="flex items-center gap-2">
+            <TerminalIcon class="w-3 h-3 text-pitchy-cyan" />
+            ТЕРМИНАЛ_СИСТЕМЫ_Pitchy_PRO [{{ isTerminalCollapsed ? 'СВЕРНУТ' : 'ПУЛЬС_РЕАЛЬНОГО_ВРЕМЕНИ' }}]
           </div>
-          <div v-if="!isTerminalCollapsed" class="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar font-mono text-[10px]" ref="logContent">
-            <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-4 group/log">
-              <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">{{ log.time }}</span>
-              <span class="text-white/60 group-hover/log:text-white/80 transition-colors break-all">
-                <span class="text-pitchy-cyan mr-1">>></span> {{ log.msg }}
-              </span>
-            </div>
-            <div v-if="systemLogs.length === 0" class="h-full flex items-center justify-center text-[9px] text-white/10 uppercase tracking-[0.3em]">
-              Waiting for system manifest...
+          <div class="flex items-center gap-4">
+            <span v-if="!isTerminalCollapsed">АДРЕС_ПРОЕКТА: {{ currentProjectId?.slice(0, 12) }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-pitchy-cyan">{{ systemLogs.length }} ЗАПИСЕЙ</span>
+              <ChevronUpIcon v-if="isTerminalCollapsed" class="w-3 h-3" />
+              <ChevronDownIcon v-else class="w-3 h-3" />
             </div>
           </div>
         </div>
-      </main>
+        <div v-if="!isTerminalCollapsed" class="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar font-mono text-[10px]" ref="logContent">
+          <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-4 group/log">
+            <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">{{ log.time }}</span>
+            <span class="text-white/60 group-hover/log:text-white/80 transition-colors break-all">
+              <span class="text-pitchy-cyan mr-1">>></span> {{ log.msg }}
+            </span>
+          </div>
+          <div v-if="systemLogs.length === 0" class="h-full flex items-center justify-center text-[9px] text-white/10 uppercase tracking-[0.3em]">
+            Waiting for system manifest...
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -154,7 +154,7 @@ const router = useRouter()
 
 // Layout State
 const viewMode = ref('split')
-const isTerminalCollapsed = ref(true)
+const isTerminalCollapsed = ref(false)
 const logContent = ref(null)
 const currentStep = ref(1)
 const stepNames = ['Построение графа', 'Общество агентов', 'Симуляция', 'Ответные меры', 'Взаимодействие']

@@ -65,9 +65,11 @@ class Config:
     ]
 
     # Report Agent configuration
-    REPORT_AGENT_MAX_TOOL_CALLS = int(os.environ.get('REPORT_AGENT_MAX_TOOL_CALLS', '5'))
-    REPORT_AGENT_MAX_REFLECTION_ROUNDS = int(os.environ.get('REPORT_AGENT_MAX_REFLECTION_ROUNDS', '2'))
     REPORT_AGENT_TEMPERATURE = float(os.environ.get('REPORT_AGENT_TEMPERATURE', '0.5'))
+
+    # External RAG Service configuration
+    MAIN_SERVER_RAG_URL = os.environ.get('MAIN_SERVER_RAG_URL', '')
+    RAG_API_KEY = os.environ.get('RAG_API_KEY', '')
 
     @classmethod
     def validate(cls):

@@ -233,7 +233,7 @@
                   <PitchyButton 
                     variant="primary" 
                     class="w-full py-4 shadow-glow-cyan" 
-                    :disabled="selectedAgents.size === 0 || !surveyQuestion.trim() || isSurveying"
+                    :disabled="selectedAgents.size === 0 || !surveyQuestion?.trim() || isSurveying"
                     @click="submitSurvey"
                   >
                     Транслировать вопрос
@@ -269,7 +269,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { chatWithReport, getReport, getAgentLog } from '../api/report'
 import { interviewAgents, getSimulationProfilesRealtime } from '../api/simulation'
 import GlassCard from './ui/GlassCard.vue'
@@ -367,12 +367,18 @@ const sendMessage = async () => {
   try {
     if (chatTarget.value === 'report_agent') {
       const res = await chatWithReport({ simulation_id: props.simulationId, message: msg, chat_history: chatHistory.value.slice(-6).map(m => ({ role: m.role, content: m.content })) })
-      if (res.success) chatHistory.value.push({ role: 'assistant', content: res.data.response || res.data.answer, timestamp: new Date().toISOString() })
+      if (res.success && res.data) {
+        const responseData = res.data.response || res.data.answer || res.data;
+        chatHistory.value.push({ role: 'assistant', content: responseData, timestamp: new Date().toISOString() })
+      }
     } else {
       const res = await interviewAgents({ simulation_id: props.simulationId, interviews: [{ agent_id: selectedAgentIndex.value, prompt: msg }] })
-      if (res.success) {
-        const results = res.data.results || res.data; const agentRes = results[`reddit_${selectedAgentIndex.value}`] || results[`twitter_${selectedAgentIndex.value}`] || Object.values(results)[0]
-        chatHistory.value.push({ role: 'assistant', content: agentRes.response || agentRes.answer, timestamp: new Date().toISOString() })
+      if (res.success && res.data) {
+        const results = res.data.results || res.data; 
+        const agentRes = results[`reddit_${selectedAgentIndex.value}`] || results[`twitter_${selectedAgentIndex.value}`] || Object.values(results)[0];
+        if (agentRes) {
+          chatHistory.value.push({ role: 'assistant', content: agentRes.response || agentRes.answer || agentRes, timestamp: new Date().toISOString() })
+        }
       }
     }
   } catch (e) { addLog(`Сбой связи с матрицей: ${e.message}`) }
@@ -386,7 +392,7 @@ const selectAllAgents = () => { const s = new Set(); profiles.value.forEach((_, 
 const clearAgentSelection = () => selectedAgents.value = new Set()
 
 const submitSurvey = async () => {
-  if (selectedAgents.value.size === 0 || !surveyQuestion.trim() || isSurveying.value) return
+  if (selectedAgents.value.size === 0 || !surveyQuestion.value?.trim() || isSurveying.value) return
   isSurveying.value = true; addLog('Распространение массового пульсового запроса...')
   try {
     const interviews = Array.from(selectedAgents.value).map(idx => ({ agent_id: idx, prompt: surveyQuestion.value }))
@@ -419,6 +425,9 @@ const loadInitialData = async () => {
 }
 
 onMounted(loadInitialData)
+
+watch(() => props.reportId, () => loadInitialData())
+watch(() => props.simulationId, () => loadInitialData())
 </script>
 
 <style scoped>

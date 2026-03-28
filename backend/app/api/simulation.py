@@ -2261,7 +2261,7 @@ def interview_agent():
         agent_id = data.get('agent_id')
         prompt = data.get('prompt')
         platform = data.get('platform')  # Optional：twitter/reddit/None
-        timeout = data.get('timeout', 60)
+        timeout = data.get('timeout', 120)
         
         if not simulation_id:
             return jsonify({
@@ -2382,7 +2382,7 @@ def interview_agents_batch():
         simulation_id = data.get('simulation_id')
         interviews = data.get('interviews')
         platform = data.get('platform')  # Optional：twitter/reddit/None
-        timeout = data.get('timeout', 120)
+        timeout = data.get('timeout', 300)
 
         if not simulation_id:
             return jsonify({
@@ -2509,7 +2509,7 @@ def interview_all_agents():
         simulation_id = data.get('simulation_id')
         prompt = data.get('prompt')
         platform = data.get('platform')  # Optional：twitter/reddit/None
-        timeout = data.get('timeout', 180)
+        timeout = data.get('timeout', 600)
 
         if not simulation_id:
             return jsonify({

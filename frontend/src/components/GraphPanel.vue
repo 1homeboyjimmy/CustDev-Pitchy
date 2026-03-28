@@ -4,7 +4,7 @@
     <div class="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-white/5 backdrop-blur-md z-10">
       <div class="flex items-center gap-2">
         <NetworkIcon class="w-4 h-4 text-pitchy-cyan shadow-glow shadow-pitchy-cyan" />
-        <span class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Knowledge Context Graph</span>
+        <span class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Архитектура общества</span>
       </div>
 
       <div class="flex items-center gap-2">
@@ -62,7 +62,7 @@
                     {{ selectedItem.type === 'node' ? selectedItem.data.name : selectedItem.data.name || 'Relation' }}
                   </h4>
                   <StatusBadge v-if="selectedItem.type === 'node'" type="default" :dot="false" class="scale-75 origin-left">
-                    {{ selectedItem.entityType }}
+                    {{ translateType(selectedItem.entityType) }}
                   </StatusBadge>
                 </div>
               </div>
@@ -149,11 +149,11 @@
     <!-- Bottom Legnd & Controls -->
     <div v-if="graphData && entityTypes.length" class="absolute bottom-4 left-4 z-10 flex items-end gap-4 pointer-events-none">
       <div class="glass-card p-3 rounded-xl border-white/5 pointer-events-auto">
-        <div class="text-[8px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3">Ontology Legend</div>
+        <div class="text-[8px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3">Легенда онтологии</div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 max-w-sm">
           <div v-for="t in entityTypes" :key="t.name" class="flex items-center gap-2 group/legend">
             <div class="w-2 h-2 rounded-full shadow-glow" :style="{ background: t.color, '--tw-shadow-color': t.color }"></div>
-            <span class="text-[9px] font-bold text-white/50 group-hover/legend:text-white transition-colors">{{ t.name }}</span>
+            <span class="text-[9px] font-bold text-white/50 group-hover/legend:text-white transition-colors">{{ translateType(t.name) }}</span>
           </div>
         </div>
       </div>
@@ -210,6 +210,16 @@ const pitchyColors = [
   '#EC4899', // Pink
   '#F97316', // Orange
 ]
+
+const LABEL_MAP = {
+  'Organization': 'Организация',
+  'Entity': 'Сущность',
+  'Person': 'Человек',
+  'StartupFounder': 'Фаундер',
+  'MarketplaceSeller': 'Селлер'
+}
+
+const translateType = (type) => LABEL_MAP[type] || type
 
 const dismissFinishedHint = () => { showSimulationFinishedHint.value = false }
 

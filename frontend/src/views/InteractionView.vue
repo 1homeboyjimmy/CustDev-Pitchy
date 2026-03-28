@@ -37,45 +37,81 @@
       </header>
 
       <!-- Main Layout -->
-      <main class="flex-1 flex overflow-hidden relative">
-        <!-- Left Panel: Graph -->
-        <div 
-          class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
-          :class="{
-            'w-full opacity-100': viewMode === 'graph',
-            'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
-            'w-1/2 opacity-100': viewMode === 'split'
-          }"
-        >
-          <GraphPanel 
-            :graphData="graphData"
-            :loading="graphLoading"
-            :currentPhase="5"
-            @refresh="refreshGraph"
-          />
-        </div>
-
-        <!-- Right Panel: Interaction -->
-        <div 
-          class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
-          :class="{
-            'w-full opacity-100': viewMode === 'workbench',
-            'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
-            'w-1/2 opacity-100': viewMode === 'split'
-          }"
-        >
-          <div class="h-full">
-            <Step5Interaction
-              :reportId="currentReportId"
-              :simulationId="simulationId"
-              :projectData="projectData"
-              :systemLogs="systemLogs"
-              @add-log="addLog"
-              @update-status="updateStatus"
+      <main class="flex-1 flex flex-col overflow-hidden relative">
+        <div class="flex-1 flex overflow-hidden lg:flex-row flex-col">
+          <!-- Left Panel: Graph -->
+          <div 
+            class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
+            :class="{
+              'w-full opacity-100': viewMode === 'graph',
+              'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
+              'w-1/2 opacity-100': viewMode === 'split'
+            }"
+          >
+            <GraphPanel 
+              :graphData="graphData"
+              :loading="graphLoading"
+              :currentPhase="5"
+              @refresh="refreshGraph"
             />
+          </div>
+
+          <!-- Right Panel: Interaction -->
+          <div 
+            class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
+            :class="{
+              'w-full opacity-100': viewMode === 'workbench',
+              'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
+              'w-1/2 opacity-100': viewMode === 'split'
+            }"
+          >
+            <div class="h-full overflow-hidden">
+              <Step5Interaction
+                :reportId="currentReportId"
+                :simulationId="simulationId"
+                :projectData="projectData"
+                @add-log="addLog"
+                @update-status="updateStatus"
+              />
+            </div>
           </div>
         </div>
       </main>
+
+      <!-- Terminal Bar -->
+      <div 
+        class="bg-[#0A0A0F]/95 border-t border-white/10 overflow-hidden shadow-2xl flex flex-col transition-all duration-500 ease-in-out shrink-0"
+        :class="isTerminalCollapsed ? 'h-6' : 'h-48'"
+      >
+        <div 
+          class="h-6 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[7px] font-mono font-bold tracking-[0.2em] text-white/30 shrink-0 cursor-pointer hover:bg-white/[0.04] transition-colors"
+          @click="isTerminalCollapsed = !isTerminalCollapsed"
+        >
+          <div class="flex items-center gap-2">
+            <TerminalIcon class="w-3 h-3 text-pitchy-cyan" />
+            ТЕРМИНАЛ_СИСТЕМЫ_Pitchy_PRO [{{ isTerminalCollapsed ? 'СВЕРНУТ' : 'ПУЛЬС_РЕАЛЬНОГО_ВРЕМЕНИ' }}]
+          </div>
+          <div class="flex items-center gap-4">
+            <span v-if="!isTerminalCollapsed">АДРЕС_ОТЧЕТА: {{ currentReportId?.slice(0, 12) }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-pitchy-cyan">{{ systemLogs.length }} ЗАПИСЕЙ</span>
+              <ChevronUpIcon v-if="isTerminalCollapsed" class="w-3 h-3" />
+              <ChevronDownIcon v-else class="w-3 h-3" />
+            </div>
+          </div>
+        </div>
+        <div v-if="!isTerminalCollapsed" class="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar font-mono text-[10px]" ref="logContent">
+          <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-4 group/log">
+            <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">{{ log.time }}</span>
+            <span class="text-white/60 group-hover/log:text-white/80 transition-colors break-all">
+              <span class="text-pitchy-cyan mr-1">>></span> {{ log.msg }}
+            </span>
+          </div>
+          <div v-if="systemLogs.length === 0" class="h-full flex items-center justify-center text-[9px] text-white/10 uppercase tracking-[0.3em]">
+            Waiting for report manifest...
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -88,7 +124,10 @@ import GraphPanel from '../components/GraphPanel.vue'
 import Step5Interaction from '../components/Step5Interaction.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'
 import { 
-  ArrowLeft as ArrowLeftIcon
+  ArrowLeft as ArrowLeftIcon,
+  Terminal as TerminalIcon,
+  ChevronUp as ChevronUpIcon,
+  ChevronDown as ChevronDownIcon
 } from 'lucide-vue-next'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation } from '../api/simulation'
@@ -104,6 +143,8 @@ const props = defineProps({
 // Layout State
 const viewMode = ref('split')
 const currentStatus = ref('ready')
+const isTerminalCollapsed = ref(false)
+const logContent = ref(null)
 
 // Data State
 const currentReportId = ref(route.params.reportId)
@@ -116,8 +157,14 @@ const systemLogs = ref([])
 // --- Helpers ---
 const addLog = (msg) => {
   const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  systemLogs.value.unshift({ time, msg })
-  if (systemLogs.value.length > 200) systemLogs.value.pop()
+  systemLogs.value.push({ time, msg })
+  if (systemLogs.value.length > 200) systemLogs.value.shift()
+  
+  nextTick(() => {
+    if (logContent.value) {
+      logContent.value.scrollTop = logContent.value.scrollHeight
+    }
+  })
 }
 
 const updateStatus = (status) => {

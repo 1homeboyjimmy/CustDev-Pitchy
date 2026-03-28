@@ -250,6 +250,7 @@ class SimulationConfigGenerator:
         enable_twitter: bool = True,
         enable_reddit: bool = True,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        market_context: str = ""
     ) -> SimulationParameters:
         """
         Intelligently generate complete simulation configuration (step-by-step generation)
@@ -300,7 +301,7 @@ class SimulationConfigGenerator:
 
         # ========== Step 2: Generate event configuration ==========
         report_progress(2, "Generating event configuration and hot topics...")
-        event_config_result = self._generate_event_config(context, simulation_requirement, entities)
+        event_config_result = self._generate_event_config(context, simulation_requirement, entities, market_context)
         event_config = self._parse_event_config(event_config_result)
         reasoning_parts.append(f"Event config: {event_config_result.get('reasoning', 'Success')}")
 
@@ -645,7 +646,8 @@ Field description:
         self,
         context: str,
         simulation_requirement: str,
-        entities: List[EntityNode]
+        entities: List[EntityNode],
+        market_context: str = ""
     ) -> Dict[str, Any]:
         """Generate event configuration"""
 
@@ -679,6 +681,9 @@ Simulation Requirements: {simulation_requirement}
 
 ## Available Entity Types and Examples
 {type_info}
+
+## Market Context (Real-world facts about RU market)
+{market_context or 'No additional market context available'}
 
 ## Task
 Please generate event configuration JSON:
@@ -838,11 +843,14 @@ Simulation Requirements: {simulation_requirement}
 
 ## Task
 Generate activity configuration for each entity, noting:
-- **Time follows Chinese work schedule**: Almost no activity 0-5am, most active 19-22
-- **Official institutions** (University/GovernmentAgency): Low activity (0.1-0.3), active during work hours (9-17), slow response (60-240 min), high influence (2.5-3.0)
-- **Media** (MediaOutlet): Medium activity (0.4-0.6), active all day (8-23), fast response (5-30 min), high influence (2.0-2.5)
-- **Individuals** (Student/Person/Alumni): High activity (0.6-0.9), mainly evening activity (18-23), fast response (1-15 min), low influence (0.8-1.2)
-- **Public figures/Experts**: Medium activity (0.4-0.6), medium-high influence (1.5-2.0)
+- **TIME FOLLOWS CHINESE WORK SCHEDULE**: Peak 19-22, Dead 0-5.
+- **DIVERSITY IS MANDATORY**: DO NOT make everyone 'supportive' or 'neutral'.
+- **STANCE SELECTION**: MUST include a mix of:
+    - `opposing` (Skeptics/Critics who attack the product's weak points)
+    - `observer` (Pragmatists who watch and occasionally ask difficult questions)
+    - `supportive` (Rarely, only if it makes sense for a founder or extreme fan)
+    - `neutral` (Those who don't care much)
+- **SENTIMENT BIAS**: Spread widely from -1.0 (very negative/toxic) to 1.0 (very positive). DO NOT default to 0.0.
 
 Return JSON format (no markdown):
 {{
@@ -852,11 +860,11 @@ Return JSON format (no markdown):
             "activity_level": <0.0-1.0>,
             "posts_per_hour": <posting frequency>,
             "comments_per_hour": <comment frequency>,
-            "active_hours": [<active hours list, consider Chinese work schedule>],
-            "response_delay_min": <minimum response delay minutes>,
-            "response_delay_max": <maximum response delay minutes>,
-            "sentiment_bias": <-1.0 to 1.0>,
-            "stance": "<supportive/opposing/neutral/observer>",
+            "active_hours": [<active hours list>],
+            "response_delay_min": <min delay>,
+            "response_delay_max": <max delay>,
+            "sentiment_bias": <-1.0 to 1.0, be bold and negative where needed>,
+            "stance": "<opposing/supportive/neutral/observer>",
             "influence_weight": <influence weight>
         }},
         ...
