@@ -323,6 +323,9 @@ import {
   Rocket as RocketIcon
 } from 'lucide-vue-next'
 
+const props = defineProps({
+  simulationId: String,
+  projectData: Object,
   graphData: Object
 })
 

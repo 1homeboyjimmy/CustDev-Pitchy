@@ -161,6 +161,11 @@ import {
 
 const router = useRouter()
 
+const props = defineProps({
+  currentPhase: { type: Number, default: 0 },
+  projectData: Object,
+  ontologyProgress: Object,
+  buildProgress: Object,
   graphData: Object
 })
 
