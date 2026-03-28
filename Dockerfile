@@ -24,12 +24,15 @@ RUN uv sync --no-dev --no-install-project
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install minimal Node.js runtime for the root concurrently runner
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# Install minimal Node.js runtime and process management for concurrently
+RUN apt-get update && apt-get install -y --no-install-recommends curl procps \
   && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
   && apt-get install -y --no-install-recommends nodejs \
   && npm install -g concurrently \
   && rm -rf /var/lib/apt/lists/*
+
+# Copy uv binary into the final stage as it is used by the concurrently runner
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
 # Copy pre-built virtual environment and frontend dist
 COPY --from=uv-builder /app/backend/.venv /app/backend/.venv
