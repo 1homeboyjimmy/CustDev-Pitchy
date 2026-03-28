@@ -9,8 +9,12 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    host: true, // Позволяет Vite принимать подключения извне (важно для Docker)
     port: 3000,
     open: false,
+    allowedHosts: [
+      'custdev.pitchy.pro' // Разрешаем наш боевой домен
+    ],
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
