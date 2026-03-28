@@ -6,7 +6,7 @@
 
 **Fully local fork of [Pitchy](https://github.com/666ghj/Pitchy) — no cloud APIs required. English UI.**
 
-*A multi-agent swarm intelligence engine that simulates public opinion, market sentiment, and social dynamics. Entirely on your hardware.*
+*A multi-agent Society of Agents engine that simulates public opinion, market sentiment, and social dynamics. Entirely on your hardware.*
 
 [![GitHub Stars](https://img.shields.io/github/stars/nikmcfly/Pitchy-Offline?style=flat-square&color=DAA520)](https://github.com/nikmcfly/Pitchy-Offline/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/nikmcfly/Pitchy-Offline?style=flat-square)](https://github.com/nikmcfly/Pitchy-Offline/network)

@@ -5,7 +5,7 @@
       <section class="relative space-y-12">
         <div class="space-y-8 text-center">
           <div class="flex items-center justify-center gap-3">
-            <StatusBadge type="primary">Автономный рой агентов</StatusBadge>
+            <StatusBadge type="primary">Общество агентов</StatusBadge>
           </div>
 
           <h1 class="text-5xl md:text-8xl font-bold tracking-tight text-white leading-[1.1]">
@@ -41,10 +41,6 @@
         <!-- Left: Status & Workflow -->
         <div class="lg:col-span-5 space-y-8">
           <div class="space-y-4">
-            <div class="flex items-center gap-2 text-white/30 text-[10px] font-bold uppercase tracking-widest">
-              <div class="w-1.5 h-1.5 bg-pitchy-cyan rounded-full animate-pulse shadow-glow shadow-pitchy-cyan"></div>
-              Статус движка системы
-            </div>
             <h2 class="text-3xl font-bold text-white">Режим ожидания</h2>
             <p class="text-white/50 leading-relaxed">
               Локальный движок предсказаний инициализирован. Загрузите ваш питч-дек (PDF, MD, TXT), чтобы засеять новую рыночную симуляцию и проверить жизнеспособность вашего стартапа.
@@ -135,10 +131,6 @@
                   placeholder="// Укажите ваши вопросы к рынку: например, 'какие основные возражения будут у инвесторов?' или 'насколько конкурентоспособен продукт?'"
                   :disabled="loading"
                 ></textarea>
-                <div class="absolute bottom-4 right-4 flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-                  <CpuIcon class="w-3 h-3" />
-                  Локальный движок активен
-                </div>
               </div>
             </div>
 
@@ -150,7 +142,7 @@
               :disabled="!canSubmit || loading"
               :loading="loading"
             >
-              Запустить движок
+              Запустить симуляцию
               <template #icon>
                 <ZapIcon class="w-5 h-5 fill-current" />
               </template>
@@ -187,10 +179,10 @@ import {
 
 const steps = [
   { num: '01', title: 'Анализ Питча', desc: 'Извлечение ключевых инсайтов, рыночных сущностей и связей из вашего питча. Построение структурного графа знаний.' },
-  { num: '02', title: 'Генерация Рынков', desc: 'Генерация профилей инвесторов, конкурентов и целевой аудитории специально под ваш проект.' },
-  { num: '03', title: 'Рыночная Симуляция', desc: 'Запуск живого обсуждения вашего продукта в симулированной рыночной среде. Наблюдение за возражениями и поддержкой.' },
-  { num: '04', title: 'Прогноз Выживаемости', desc: 'Агрегация мнений всех ИИ-агентов в единый аналитический отчет с оценкой перспектив и рекомендациями по улучшению.' },
-  { num: '05', title: 'Интервью с Рынком', desc: 'Личное интервью с любым ИИ-инвестором или уточнение деталей прогноза у аналитического агента.' },
+  { num: '02', title: 'Общество агентов', desc: 'Генерация профилей инвесторов, конкурентов и целевой аудитории специально под ваш проект.' },
+  { num: '03', title: 'Симуляция', desc: 'Запуск живого обсуждения вашего продукта в симулированной среде общества. Наблюдение за возражениями и поддержкой.' },
+  { num: '04', title: 'Прогноз Выживаемости', desc: 'Агрегация мнений всех агентов в единый аналитический отчет с оценкой перспектив и рекомендациями по улучшению.' },
+  { num: '05', title: 'Интервью с Рынком', desc: 'Личное интервью с любым агентом общества или уточнение деталей прогноза у аналитического агента.' },
 ]
 
 const router = useRouter()

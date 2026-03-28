@@ -237,6 +237,19 @@ class NERExtractor:
                 "fact": fact or f"{source} {rtype} {target}",
             })
 
+        # Strict Limit: keep only top 10 entities
+        if len(cleaned_entities) > 10:
+            logger.info(f"Truncating extracted entities from {len(cleaned_entities)} to 10")
+            cleaned_entities = cleaned_entities[:10]
+            
+            # Also filter relations to only include those between the remaining entities
+            entity_names_lower = {e["name"].lower() for e in cleaned_entities}
+            cleaned_relations = [
+                r for r in cleaned_relations 
+                if r["source"].lower() in entity_names_lower 
+                and r["target"].lower() in entity_names_lower
+            ]
+
         return {
             "entities": cleaned_entities,
             "relations": cleaned_relations,

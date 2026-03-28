@@ -157,7 +157,15 @@ const viewMode = ref('split')
 const isTerminalCollapsed = ref(false)
 const logContent = ref(null)
 const currentStep = ref(1)
-const stepNames = ['Построение графа', 'Настройка среды', 'Симуляция', 'Отчет', 'Взаимодействие']
+const stepNames = ['Построение графа', 'Общество агентов', 'Симуляция', 'Ответные меры', 'Взаимодействие']
+
+// Handle Terminal Expansion vs Graph Height
+watch(isTerminalCollapsed, () => {
+  // Give it a moment for the transition to finish
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'))
+  }, 500)
+})
 
 // Data State
 const currentProjectId = ref(route.params.projectId)

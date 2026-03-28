@@ -286,6 +286,12 @@ class SimulationManager:
                 enrich_with_edges=True
             )
             
+            # Strict Limit: keep only top 10 entities for the "Society of Agents"
+            if len(filtered.entities) > 10:
+                logger.info(f"Limiting simulation entities from {len(filtered.entities)} to 10")
+                filtered.entities = filtered.entities[:10]
+                filtered.filtered_count = 10
+            
             state.entities_count = filtered.filtered_count
             state.entity_types = list(filtered.entity_types)
             

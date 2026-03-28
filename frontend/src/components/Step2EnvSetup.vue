@@ -6,7 +6,7 @@
         <span class="text-pitchy-violet">02</span> / Манифестация среды
       </h2>
       <p class="text-xs text-white/40 leading-relaxed max-w-xl">
-        Настройка автономной популяции агентов и динамики социальных платформ на основе синтезированного графа знаний.
+        Настройка общества агентов и динамики социальных платформ на основе синтезированного графа знаний.
       </p>
     </div>
 
@@ -196,7 +196,7 @@
         
         <div class="space-y-2">
           <h3 class="text-2xl font-bold text-white tracking-tight">Среда синхронизирована</h3>
-          <p class="text-xs text-white/50 max-w-sm">Модель мира и {{ profiles.length }} автономных агентов готовы к манифестации. Определите глубину симуляции ниже.</p>
+          <p class="text-xs text-white/50 max-w-sm">Модель мира и {{ profiles.length }} агентов готовы к манифестации. Определите глубину симуляции ниже.</p>
         </div>
 
         <!-- Custom Slider -->
@@ -416,7 +416,7 @@ const pollStatus = async () => {
         stopAllTimers()
         phase.value = 4
         emit('update-status', 'completed')
-        addLog('Матрица среды полностью манифестирована.')
+        addLog('Общество агентов полностью манифестировано.')
       } else if (task.status === 'failed') {
         stopAllTimers()
         addLog(`Ошибка манифестации: ${task.error}`)
