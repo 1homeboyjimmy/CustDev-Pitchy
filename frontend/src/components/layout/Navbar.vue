@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Zap, Menu, X, User, LogOut, LayoutDashboard, HelpCircle, Info, CreditCard, Mail } from 'lucide-vue-next'
-import { getMe } from '@/api/auth'
+import { getMe } from '../../api/auth'
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
