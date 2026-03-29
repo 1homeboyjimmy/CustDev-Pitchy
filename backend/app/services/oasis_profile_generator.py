@@ -236,9 +236,8 @@ class OasisProfileGenerator:
         """
         entity_type = entity.get_entity_type() or "Entity"
 
-        # Basic information
-        name = entity.name
-        user_name = self._generate_username(name)
+        # Basic information (initial)
+        entity_name = entity.name
 
         # Build context information
         context = self._build_entity_context(entity)
@@ -246,28 +245,34 @@ class OasisProfileGenerator:
         if use_llm:
             # Use LLM to generate detailed persona
             profile_data = self._generate_profile_with_llm(
-                entity_name=name,
+                entity_name=entity_name,
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes,
                 context=context,
                 market_context=market_context
             )
+            # Use generated human name (e.g. "Investor Max") if available
+            display_name = profile_data.get("full_name", entity_name)
         else:
             # Use rules to generate basic persona
             profile_data = self._generate_profile_rule_based(
-                entity_name=name,
+                entity_name=entity_name,
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes
             )
+            display_name = entity_name
         
+        # Generate final username based on display name
+        user_name = self._generate_username(display_name)
+
         return OasisAgentProfile(
             user_id=user_id,
             user_name=user_name,
-            name=name,
-            bio=profile_data.get("bio", f"{entity_type}: {name}"),
-            persona=profile_data.get("persona", entity.summary or f"A {entity_type} named {name}."),
+            name=display_name,
+            bio=profile_data.get("bio", f"{entity_type}: {entity_name}"),
+            persona=profile_data.get("persona", entity.summary or f"A {entity_type} named {entity_name}."),
             karma=profile_data.get("karma", random.randint(500, 5000)),
             friend_count=profile_data.get("friend_count", random.randint(50, 500)),
             follower_count=profile_data.get("follower_count", random.randint(100, 1000)),
@@ -518,6 +523,8 @@ class OasisProfileGenerator:
                     result = json.loads(content)
 
                     # Validate required fields
+                    if "full_name" not in result or not result["full_name"]:
+                        result["full_name"] = entity_name
                     if "bio" not in result or not result["bio"]:
                         result["bio"] = entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}"
                     if "persona" not in result or not result["persona"]:
@@ -637,9 +644,10 @@ class OasisProfileGenerator:
 
 ### ТВОИ ЦЕЛИ:
 1. Создать ГЛУБОКУЮ, КРИТИЧЕСКУЮ личность (Persona).
-2. Тон: Душный, подозрительный, прагматичный, иногда агрессивный.
-3. Стиль: Живой человек. Сомнения, усталость, сарказм, сленг (IMHO, пруфы?, кто-то тестил?, развод какой-то).
-4. ANTI-ADVERTISING: Если продукт кажется слишком хорошим, твоя личность должна найти в нем подвох.
+2. Сгенерировать РЕАЛИСТИЧНОЕ ИМЯ И РОЛЬ (например, 'Инвестор Макс', 'Селлер Артем', 'Аналитик Дмитрий'). Имя должно строго соответствовать культуре страны (обычно Россия) и характеру. НИКАКИХ технических названий в поле имени.
+3. Тон: Душный, подозрительный, прагматичный, иногда агрессивный.
+4. Стиль: Живой человек. Сомнения, усталость, сарказм, сленг (IMHO, пруфы?, кто-то тестил?, развод какой-то).
+5. ANTI-ADVERTISING: Если продукт кажется слишком хорошим, твоя личность должна найти в нем подвох.
 
 ### ПЛАТФОРМЕННЫЕ ПРАВИЛА:
 - Twitter (X): Короткий, рубленый стиль, 1-2 предложения. Фокус на личной боли и сарказме. Минимум эмодзи (📈, 🤯, 📉).
@@ -693,8 +701,9 @@ class OasisProfileGenerator:
 
 Пожалуйста, сгенерируйте JSON, содержащий следующие поля:
 
-1. bio: Биография для социальной сети, 200 символов (в стиле выбранного архетипа)
-2. persona: Подробное описание персоны (до 2000 слов), должно включать:
+1. full_name: Реалистичное человеческое имя и роль (например, 'Инвестор Макс', 'Артем (селлеров WB)', 'Дядя Вася-кофевар'). Должно соответствовать культуре страны.
+2. bio: Биография для социальной сети, 200 символов (в стиле выбранного архетипа)
+3. persona: Подробное описание персоны (до 2000 слов), должно включать:
    - ТВОЙ АРХЕТИП И ЕГО ВЛИЯНИЕ НА МЫШЛЕНИЕ.
    - Независимый взгляд на проект/продукт (через призму архетипа).
    - Основную информацию (возраст, профессия, образование, местоположение).
@@ -702,12 +711,12 @@ class OasisProfileGenerator:
    - Личные воспоминания (связь с событиями, реальные реакции).
    - Языковые особенности (стиль письма в соцсетях: капс, многоточия, сленг).
    - ANTI-ADVERTISING RULES (скептицизм, отсутствие рекламного тона).
-3. age: Возраст как число (целое)
-4. gender: Пол, строго на английском: "male" или "female"
-5. mbti: Тип MBTI (например, INTJ, ENFP)
-6. country: Страна (на английском, например, "Russia" или "US")
-7. profession: Профессия
-8. interested_topics: Массив интересующих тем
+4. age: Возраст как число (целое)
+5. gender: Пол, строго на английском: "male" или "female"
+6. mbti: Тип MBTI (например, INTJ, ENFP)
+7. country: Страна (на английском, например, "Russia" или "US")
+8. profession: Профессия
+9. interested_topics: Массив интересующих тем
 
 Важно:
 - persona должна быть связным текстовым описанием.
