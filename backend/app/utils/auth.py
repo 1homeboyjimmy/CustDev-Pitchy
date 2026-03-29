@@ -1,4 +1,5 @@
 import jwt
+import traceback
 from functools import wraps
 from flask import request, jsonify, current_app
 from ..config import Config
@@ -15,15 +16,14 @@ def verify_jwt(token):
         secret_key = Config.SECRET_KEY
         
         # Decode token
-        # Main server uses 'access_token' cookie and shared SECRET_KEY
         payload = jwt.decode(token, secret_key, algorithms=['HS256'])
+        logger.debug(f"JWT decoded successfully. Payload keys: {list(payload.keys())}")
         
-        # Extract user information
-        # Adjust field names based on the main site's JWT structure (typically 'id' or 'sub')
-        user_id = payload.get('userId') or payload.get('id') or payload.get('sub')
+        # Extract user information - added 'user_id' as common variant
+        user_id = payload.get('userId') or payload.get('id') or payload.get('sub') or payload.get('user_id')
         
         if not user_id:
-            logger.warning("JWT payload missing user identifier")
+            logger.warning(f"JWT payload missing user identifier. Full payload keys: {list(payload.keys())}")
             return None
             
         return payload
@@ -32,9 +32,12 @@ def verify_jwt(token):
         return None
     except jwt.InvalidTokenError as e:
         logger.warning(f"JWT token invalid: {str(e)}")
+        # Log a small piece of the key to verify we're using the right one (first 4 chars)
+        logger.debug(f"Verify failed. Using SECRET_KEY starting with: {secret_key[:4] if secret_key else 'None'}...")
         return None
     except Exception as e:
         logger.error(f"Unexpected error during JWT verification: {str(e)}")
+        logger.error(traceback.format_exc())
         return None
 
 def login_required(f):
@@ -53,6 +56,7 @@ def login_required(f):
                 token = auth_header.split(' ')[1]
         
         if not token:
+            logger.debug(f"No 'access_token' cookie found. Total cookies received: {len(request.cookies)}. Names: {list(request.cookies.keys())}")
             return jsonify({
                 "success": False,
                 "error": "Authentication required",

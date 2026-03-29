@@ -21,7 +21,7 @@ class Config:
     """Flask configuration class"""
 
     # Flask configuration
-    SECRET_KEY = os.environ.get('APP_SECRET_KEY', os.environ.get('SECRET_KEY', 'pitchy-secret-key'))
+    SECRET_KEY = os.environ.get('APP_SECRET_KEY', os.environ.get('SECRET_KEY', 'pitchy-secret-key')).strip()
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
 
     # JSON configuration - disable ASCII escaping to display Chinese directly (not as \uXXXX)
