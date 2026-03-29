@@ -47,6 +47,10 @@ def login_required(f):
         # Read from 'access_token' cookie (standard for the main app)
         token = request.cookies.get('access_token')
         
+        # Strip potential quotes if the browser/proxy wrapped the cookie value
+        if token:
+            token = token.strip('"')
+        
         # Also check Authorization header as fallback
         if not token:
             # TELEMETRY: Log all cookies to find the correct name or verify if they are sent at all
