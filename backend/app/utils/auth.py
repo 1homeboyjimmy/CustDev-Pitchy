@@ -15,26 +15,50 @@ def verify_jwt(token):
         # Get secret key from config
         secret_key = Config.SECRET_KEY
         
-        # Support for hex-encoded keys (some platforms use this)
-        key_to_use = secret_key
+        # Support for different key transformations
+        key_variants = [
+            secret_key,                               # Plain string
+            secret_key.encode('utf-8'),               # UTF-8 bytes
+        ]
+        
         try:
-            if len(secret_key) == 64: # Possible hex key
-                key_to_use = bytes.fromhex(secret_key)
+            if len(secret_key) == 64: 
+                key_variants.append(bytes.fromhex(secret_key)) # Hex bytes
         except:
             pass
+            
+        # Add SHA256 of the key as a variant (common in some frameworks)
+        import hashlib
+        key_variants.append(hashlib.sha256(secret_key.encode('utf-8')).digest())
 
-        # Decode token with support for common algorithms
+        # Log JWT Header for algorithm verification
         try:
-            payload = jwt.decode(token, secret_key, algorithms=['HS256', 'HS384', 'HS512', 'RS256'])
-        except jwt.InvalidSignatureError:
-            # Try with hex-decoded key as fallback
-            if key_to_use != secret_key:
-                payload = jwt.decode(token, key_to_use, algorithms=['HS256', 'HS384', 'HS512', 'RS256'])
-            else:
-                raise
+            header = jwt.get_unverified_header(token)
+            logger.debug(f"[AUTH_DEBUG] JWT Header: {header}")
+            logger.debug(f"[AUTH_DEBUG] PyJWT version: {jwt.__version__}")
+        except Exception as e:
+            logger.debug(f"[AUTH_DEBUG] Could not read JWT header: {e}")
 
-        logger.debug(f"[AUTH_DEBUG] JWT decoded successfully. Payload keys: {list(payload.keys())}")
+        payload = None
+        last_error = None
         
+        # Try all variants
+        for variant in key_variants:
+            try:
+                # We try with all algorithms we previously defined
+                payload = jwt.decode(token, variant, algorithms=['HS256', 'HS384', 'HS512', 'RS256'])
+                if payload:
+                    logger.debug(f"[AUTH_DEBUG] JWT verified successfully using a key variant (type: {type(variant).__name__})")
+                    break
+            except Exception as e:
+                last_error = e
+                continue
+
+        if not payload:
+            if isinstance(last_error, jwt.ExpiredSignatureError):
+                raise last_error
+            raise jwt.InvalidSignatureError(str(last_error))
+
         # Extract user information
         user_id = payload.get('userId') or payload.get('id') or payload.get('sub') or payload.get('user_id')
         
@@ -46,8 +70,8 @@ def verify_jwt(token):
     except jwt.ExpiredSignatureError:
         logger.warning("[AUTH_DEBUG] JWT token expired")
         return None
-    except jwt.InvalidSignatureError:
-        logger.warning("[AUTH_DEBUG] JWT Signature verification failed")
+    except jwt.InvalidSignatureError as e:
+        logger.warning(f"[AUTH_DEBUG] JWT Signature verification failed: {e}")
         # Log unverified payload to see what's inside (issuer, etc)
         try:
             unverified = jwt.decode(token, options={"verify_signature": False})
