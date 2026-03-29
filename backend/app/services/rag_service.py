@@ -57,10 +57,22 @@ class RagService:
                 # but focus on getting any relevant string data.
                 context = ""
                 if isinstance(data, dict):
-                    # Try explicit fields
-                    context = data.get("context") or data.get("result") or data.get("answer")
-                    if not context and "data" in data:
-                        context = data["data"].get("context") or data["data"].get("result")
+                    # Try explicit fields (server-side common fields)
+                    context = (
+                        data.get("context") or 
+                        data.get("result") or 
+                        data.get("answer") or 
+                        data.get("content")
+                    )
+                    
+                    if not context and "data" in data and isinstance(data["data"], dict):
+                        data_inner = data["data"]
+                        context = (
+                            data_inner.get("context") or 
+                            data_inner.get("result") or 
+                            data_inner.get("answer") or
+                            data_inner.get("content")
+                        )
                 
                 if not context:
                     # If we can't find a specific field, use the first string value or the whole object

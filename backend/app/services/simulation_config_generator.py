@@ -691,6 +691,18 @@ Please generate event configuration JSON:
 - Describe opinion development direction
 - Design initial post content, **each post must specify poster_type (publisher type)**
 
+### ПРАВИЛА ГЕНЕРАЦИИ КОНТЕНТА (СТРОГО ОБЯЗАТЕЛЬНО):
+1. ЗАПРЕТ НА РЕКЛАМУ: Никаких 'инновационный', 'потрясающий', 'уникальный'. Тон должен быть прагматичным, скептичным или уставшим.
+2. УНИКАЛЬНОСТЬ: Тексты для Reddit и Twitter НЕ ДОЛЖНЫ совпадать ни на одно слово.
+3. ФОРМАТ REDDIT:
+   - Тон: Душный, подозрительный, длинный.
+   - Содержание: Вопросы про безопасность данных, юнит-экономику, пруфы.
+   - Пример: 'Очередной ИИ-копайлот (pitchy.pro). Кто-то реально доверяет свои API-ключи от WB ноунейм стартапам?'
+4. ФОРМАТ TWITTER (X):
+   - Тон: Короткий (1-2 предложения), рубленый.
+   - Содержание: Личная боль, быстрый инсайт. Без смайликов или максимум один (📉, 🤯).
+   - Пример: 'Опять пересчитывать юнитку руками. Наткнулся на pitchy pro, обещают автоматику. Тестил кто?'
+
 **Important**: poster_type must be selected from the "Available Entity Types" above so initial posts can be assigned to appropriate agents for publishing.
 Example: Official statements should be published by Official/University type, news by MediaOutlet, student opinions by Student type.
 
