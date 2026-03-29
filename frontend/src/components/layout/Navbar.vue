@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Zap, Menu, X, User, LogOut, LayoutDashboard, HelpCircle, Info, CreditCard, Mail } from 'lucide-vue-next'
+import { getMe } from '@/api/auth'
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
@@ -15,13 +16,21 @@ const navLinks = [
   { label: 'Контакты', href: 'https://pitchy.pro/contact', icon: Mail },
 ]
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('scroll', () => {
     isScrolled.value = window.scrollY > 20
   })
 
-  // Check for access_token cookie
-  isAuthenticated.value = document.cookie.includes('access_token')
+  // Verify session via backend (since cookie might be HttpOnly)
+  try {
+    const response = await getMe()
+    if (response.success) {
+      isAuthenticated.value = true
+    }
+  } catch (error) {
+    console.debug('Not authenticated')
+    isAuthenticated.value = false
+  }
 })
 
 const handleLogout = () => {
