@@ -12,9 +12,12 @@ project_root_env = os.path.join(os.path.dirname(__file__), '../../.env')
 
 if os.path.exists(project_root_env):
     load_dotenv(project_root_env, override=True)
+    # Diagnostic log (will be visible in stdout)
+    print(f"[CONFIG_DEBUG] Loaded .env from: {os.path.abspath(project_root_env)}")
 else:
     # If no .env in root, try to load environment variables (for production)
     load_dotenv(override=True)
+    print(f"[CONFIG_DEBUG] .env not found at {os.path.abspath(project_root_env)}, using system env")
 
 
 class Config:

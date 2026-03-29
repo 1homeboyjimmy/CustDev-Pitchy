@@ -28,12 +28,13 @@ def verify_jwt(token):
             
         return payload
     except jwt.ExpiredSignatureError:
-        logger.warning("JWT token expired")
+        logger.warning("JWT token expired (ExpiredSignatureError)")
         return None
     except jwt.InvalidTokenError as e:
-        logger.warning(f"JWT token invalid: {str(e)}")
+        logger.warning(f"JWT token invalid (InvalidTokenError): {str(e)}")
         # Log a small piece of the key to verify we're using the right one (first 4 chars)
-        logger.debug(f"Verify failed. Using SECRET_KEY starting with: {secret_key[:4] if secret_key else 'None'}...")
+        secret_key = Config.SECRET_KEY
+        logger.debug(f"[AUTH_DEBUG] Verify failed. Using SECRET_KEY starting with: {secret_key[:4] if secret_key else 'None'}...")
         return None
     except Exception as e:
         logger.error(f"Unexpected error during JWT verification: {str(e)}")
@@ -51,20 +52,30 @@ def login_required(f):
         
         # Also check Authorization header as fallback
         if not token:
+            # TELEMETRY: Log all cookies to find the correct name or verify if they are sent at all
+            cookie_names = list(request.cookies.keys())
+            logger.debug(f"[AUTH_DEBUG] No 'access_token' cookie found. Total cookies: {len(cookie_names)}. Names: {cookie_names}")
+            
+            # Fallback to Authorization header
             auth_header = request.headers.get('Authorization')
             if auth_header and auth_header.startswith('Bearer '):
                 token = auth_header.split(' ')[1]
+                logger.debug("[AUTH_DEBUG] Found token in Authorization header")
         
         if not token:
-            logger.debug(f"No 'access_token' cookie found. Total cookies received: {len(request.cookies)}. Names: {list(request.cookies.keys())}")
             return jsonify({
                 "success": False,
                 "error": "Authentication required",
-                "code": "UNAUTHORIZED"
+                "code": "UNAUTHORIZED",
+                "debug_info": {
+                    "cookies_received": list(request.cookies.keys()),
+                    "auth_header_present": bool(request.headers.get('Authorization'))
+                }
             }), 401
             
         user_payload = verify_jwt(token)
         if not user_payload:
+            logger.debug("[AUTH_DEBUG] JWT verification failed for the provided token")
             return jsonify({
                 "success": False,
                 "error": "Invalid or expired session",
