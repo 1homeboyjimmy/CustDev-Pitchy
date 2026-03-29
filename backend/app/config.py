@@ -19,6 +19,13 @@ else:
     load_dotenv(override=True)
     print(f"[CONFIG_DEBUG] .env not found at {os.path.abspath(project_root_env)}, using system env")
 
+# Check if secret key is present
+secret_key_check = os.environ.get('APP_SECRET_KEY') or os.environ.get('SECRET_KEY')
+if secret_key_check:
+    print(f"[CONFIG_DEBUG] SECRET_KEY is present (length: {len(secret_key_check)})")
+else:
+    print("[CONFIG_DEBUG] WARNING: SECRET_KEY is missing from environment!")
+
 
 class Config:
     """Flask configuration class"""
