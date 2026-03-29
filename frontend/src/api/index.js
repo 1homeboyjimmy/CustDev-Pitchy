@@ -4,6 +4,7 @@ import axios from 'axios'
 const service = axios.create({
   baseURL: '', // Hardcoded for relative paths to avoid Mixed Content
   timeout: 300000, // 5 minute timeout (ontology generation may require longer time)
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }

@@ -40,7 +40,19 @@ def create_app(config_class=Config):
         logger.info("=" * 50)
 
     # Enable CORS
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # For credentialed requests, origins must be specified exactly (not '*')
+    # Allow local development and the specific production IP/Domain
+    CORS(app, resources={r"/api/*": {
+        "origins": [
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173",
+            "http://141.105.71.215:5001",
+            "http://141.105.71.215:5000",
+            "https://pitchy.pro",
+            "https://custdev.pitchy.pro"
+        ],
+        "supports_credentials": True
+    }})
 
     # --- Initialize Neo4jStorage singleton (DI via app.extensions) ---
     from .storage import Neo4jStorage
