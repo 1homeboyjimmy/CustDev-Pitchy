@@ -30,6 +30,10 @@ if secret_key_check:
 else:
     print("[CONFIG_DEBUG] WARNING: SECRET_KEY is missing from environment!")
 
+# Check for emergency bypass
+bypass_check = os.environ.get('ALLOW_UNVERIFIED_SESSION')
+print(f"[CONFIG_DEBUG] ALLOW_UNVERIFIED_SESSION is set to: {bypass_check}")
+
 
 class Config:
     """Flask configuration class"""
