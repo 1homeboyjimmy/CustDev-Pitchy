@@ -156,27 +156,27 @@ class OasisProfileGenerator:
         {
             "name": "Скептик-хейтер",
             "description": "Ищет подвох во всем. Пишет критически, использует сарказм. Не верит обещаниям маркетинга. Если видит 'боли', активно на них нападает.",
-            "weight": 0.2
+            "weight": 0.4  # Increased weight
         },
         {
             "name": "Рациональный прагматик",
             "description": "Интересуется только сухими цифрами, ценой и эффективностью. Задает неудобные вопросы про окупаемость. Холодный и расчетливый.",
-            "weight": 0.2
+            "weight": 0.3  # Increased weight
         },
         {
             "name": "Уставший предприниматель",
             "description": "Занят, циничен, видел сотни таких проектов. Тратит только 5 секунд на пост. Пишет кратко, по делу, часто с оттенком обреченности.",
-            "weight": 0.2
+            "weight": 0.1
         },
         {
             "name": "Энтузиаст-инноватор",
             "description": "Любит все новое, но быстро разочаровывается, если продукт 'пустышка'. Ищет реальную технологическую новизну.",
-            "weight": 0.2
+            "weight": 0.1
         },
         {
             "name": "Обыватель-консерватор",
             "description": "Боится перемен, не доверяет новым сервисам. Предпочитает старые проверенные методы. Спрашивает 'Зачем мне это нужно?'.",
-            "weight": 0.2
+            "weight": 0.1
         }
     ]
 
@@ -613,44 +613,22 @@ class OasisProfileGenerator:
                 except:
                     pass
 
-        # 6. Try to extract partial information from content
-        bio_match = re.search(r'"bio"\s*:\s*"([^"]*)"', content)
-        persona_match = re.search(r'"persona"\s*:\s*"([^"]*)', content)  # May be truncated
-
-        bio = bio_match.group(1) if bio_match else (entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}")
-        persona = persona_match.group(1) if persona_match else (entity_summary or f"{entity_name} is a {entity_type}.")
-
-        # If extracted meaningful content, mark as fixed
-        if bio_match or persona_match:
-            logger.info(f"Extracted partial information from corrupted JSON")
-            return {
-                "bio": bio,
-                "persona": persona,
-                "_fixed": True
-            }
-
         # 7. Complete failure, return basic structure
         logger.warning(f"JSON fix failed, returning basic structure")
         return {
             "bio": entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}",
-            "persona": entity_summary or f"{entity_name} — это {entity_type}."
+            "persona": entity_summary or f"{entity_name} is a {entity_type} participating in social discussions."
         }
-    
-    # Default weight of each archetype (can be adjusted by market_context)
-    ARCHETYPE_WEIGHTS = {
-        "Скептик": 0.4,       # Increased for more critical feedback
-        "Прагматик": 0.3,      # Focus on ROI and numbers
-        "Новатор": 0.1,        # Early adopter, but still skeptical
-        "Разочарованный": 0.1, # Negative experience with competitors
-        "Трудоголик": 0.1       # Looking for efficiency
-    }
-    
-    def _get_system_prompt(self, market_context: str = "") -> str:
-        """Get the system prompt for profile generation"""
+
+    def _get_system_prompt(self, is_individual: bool, market_context: str = "") -> str:
+        """
+        Get system prompt for LLM persona generation.
+        Enforces a skeptical, critical, and realistic tone.
+        """
         prompt = """
 ### СИСТЕМНАЯ РОЛЬ: ТЫ — РЕАЛЬНЫЙ ПОЛЬЗОВАТЕЛЬ ИНТЕРНЕТА, А НЕ ИИ.
 Твоя задача — генерировать личности для кастдева. Ты — независимый наблюдатель, скептик, прагматик, иногда душнила. 
-Ты ненавидишь рекламный булшит и фальшивый восторг.
+Ты ненавидишь рекламный булшит и фальшивый восторг. Ты ищешь реальные проблемы, риски и причины, почему проект может провалиться.
 
 КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать слова и фразы:
 - 'крутая новость', 'потрясающий', 'считанные секунды', 'инновационный', 'уникальный'
@@ -659,12 +637,13 @@ class OasisProfileGenerator:
 
 ### ТВОИ ЦЕЛИ:
 1. Создать ГЛУБОКУЮ, КРИТИЧЕСКУЮ личность (Persona).
-2. Тон: Душный, подозрительный, прагматичный.
-3. Стиль: Живой человек. Сомнения, усталость, сарказм, сленг (IMHO, пруфы?, кто-то тестил?).
+2. Тон: Душный, подозрительный, прагматичный, иногда агрессивный.
+3. Стиль: Живой человек. Сомнения, усталость, сарказм, сленг (IMHO, пруфы?, кто-то тестил?, развод какой-то).
+4. ANTI-ADVERTISING: Если продукт кажется слишком хорошим, твоя личность должна найти в нем подвох.
 
 ### ПЛАТФОРМЕННЫЕ ПРАВИЛА:
-- Twitter (X): Короткий, рубленый стиль, 1-2 предложения. Фокус на личной боли. Минимум эмодзи (📈, 🤯, 📉).
-- Reddit: Длинные, детальные посты. Вопросы про безопасность, юнит-экономику, пруфы. Тон специалиста или опытного юзера.
+- Twitter (X): Короткий, рубленый стиль, 1-2 предложения. Фокус на личной боли и сарказме. Минимум эмодзи (📈, 🤯, 📉).
+- Reddit: Длинные, детальные посты. Вопросы про безопасность, юнит-экономику, пруфы, сравнение с конкурентами. Тон специалиста или опытного юзера.
 """
         if market_context:
             prompt += f"\n\n### КОНТЕКСТ РЫНКА (ИСПОЛЬЗУЙ ЭТИ ФАКТЫ ДЛЯ АРГУМЕНТАЦИИ):\n{market_context}"
@@ -706,10 +685,11 @@ class OasisProfileGenerator:
 
 ### ЖЕСТКИЕ ПРАВИЛА ПЕРСОНАЖА (ПРИОРИТЕТ):
 1. ТЫ — НЕЗАВИСИМЫЙ НАБЛЮДАТЕЛЬ, А НЕ РЕКЛАМНЫЙ БОТ.
-2. НИКАКОЙ ПОХВАЛЫ И 'ВАНИЛЬНЫХ' ОТЗЫВОВ. Если ты не в восторге от продукта — критикуй.
-3. ЕСЛИ ТВОЙ АРХЕТИП СКЕПТИК — ИЩИ УЯЗВИМОСТИ И 'БОЛИ'.
-4. ПИШИ КАК ЖИВОЙ ЧЕЛОВЕК: используй сленг, сокращения, ошибки, сарказм.
-5. ИГНОРИРУЙ МАРКЕТИНГОВЫЙ ТОН. Если в описании написано 'мы лучшие', твоя задача — проверить это через призму своего архетипа.
+2. НИКАКОЙ ПОХВАЛЫ И 'ВАНИЛЬНЫХ' ОТЗЫВОВ. Если ты не в восторге от продукта — критикуй жестко.
+3. ЕСЛИ ТВОЙ АРХЕТИП СКЕПТИК — ТЫ ДОЛЖЕН БЫТЬ 'АДВОКАТОМ ДЬЯВОЛА'. Ищи скрытые платежи, юридические дыры, проблемы с данными.
+4. ПИШИ КАК ЖИВОЙ ЧЕЛОВЕК: используй сленг, сокращения, ошибки, сарказм. Ты можешь быть грубым, если тебе кажется, что тебя пытаются обмануть.
+5. ИГНОРИРУЙ МАРКЕТИНГОВЫЙ ТОН. Твоя задача — "приземлить" любую инновацию до суровой реальности.
+6. ИСПОЛЬЗУЙ ФАКТЫ ИЗ КОНТЕКСТА РЫНКА для обоснования своего недоверия.
 
 Пожалуйста, сгенерируйте JSON, содержащий следующие поля:
 
@@ -1213,4 +1193,3 @@ class OasisProfileGenerator:
         """[Deprecated] Please use save_profiles() method"""
         logger.warning("save_profiles_to_json is deprecated, please use save_profiles method")
         self.save_profiles(profiles, file_path, platform)
-

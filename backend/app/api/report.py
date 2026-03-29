@@ -16,6 +16,7 @@ from ..models.project import ProjectManager
 from ..models.task import TaskManager, TaskStatus
 from ..services.graph_tools import GraphToolsService
 from ..utils.logger import get_logger
+from ..utils.auth import login_required
 
 logger = get_logger('pitchy.api.report')
 
@@ -23,6 +24,7 @@ logger = get_logger('pitchy.api.report')
 # ============== Report Generation Interface ==============
 
 @report_bp.route('/generate', methods=['POST'])
+@login_required
 def generate_report():
     try:
         data = request.get_json() or {}
@@ -114,6 +116,7 @@ def generate_report():
 
 
 @report_bp.route('/generate/status', methods=['POST'])
+@login_required
 def get_generate_status():
     try:
         data = request.get_json() or {}
@@ -150,6 +153,7 @@ def get_generate_status():
 # ============== Report Retrieval Interface ==============
 
 @report_bp.route('/<report_id>', methods=['GET'])
+@login_required
 def get_report(report_id: str):
     try:
         report = ReportManager.get_report(report_id)
@@ -162,6 +166,7 @@ def get_report(report_id: str):
 
 
 @report_bp.route('/by-simulation/<simulation_id>', methods=['GET'])
+@login_required
 def get_report_by_simulation(simulation_id: str):
     try:
         report = ReportManager.get_report_by_simulation(simulation_id)
@@ -174,6 +179,7 @@ def get_report_by_simulation(simulation_id: str):
 
 
 @report_bp.route('/list', methods=['GET'])
+@login_required
 def list_reports():
     try:
         simulation_id = request.args.get('simulation_id')
@@ -186,6 +192,7 @@ def list_reports():
 
 
 @report_bp.route('/<report_id>/download', methods=['GET'])
+@login_required
 def download_report(report_id: str):
     try:
         report = ReportManager.get_report(report_id)
@@ -208,6 +215,7 @@ def download_report(report_id: str):
 
 
 @report_bp.route('/<report_id>', methods=['DELETE'])
+@login_required
 def delete_report(report_id: str):
     try:
         success = ReportManager.delete_report(report_id)
@@ -222,6 +230,7 @@ def delete_report(report_id: str):
 # ============== Report Agent Chat Interface ==============
 
 @report_bp.route('/chat', methods=['POST'])
+@login_required
 def chat_with_report_agent():
     try:
         data = request.get_json() or {}
@@ -272,6 +281,7 @@ def chat_with_report_agent():
 # ============== Report Progress and Section Retrieval Interface ==============
 
 @report_bp.route('/<report_id>/progress', methods=['GET'])
+@login_required
 def get_report_progress(report_id: str):
     try:
         progress = ReportManager.get_progress(report_id)
@@ -284,6 +294,7 @@ def get_report_progress(report_id: str):
 
 
 @report_bp.route('/<report_id>/sections', methods=['GET'])
+@login_required
 def get_report_sections(report_id: str):
     try:
         sections = ReportManager.get_generated_sections(report_id)
@@ -301,6 +312,7 @@ def get_report_sections(report_id: str):
 
 
 @report_bp.route('/<report_id>/section/<int:section_index>', methods=['GET'])
+@login_required
 def get_single_section(report_id: str, section_index: int):
     try:
         section_path = ReportManager._get_section_path(report_id, section_index)
@@ -317,6 +329,7 @@ def get_single_section(report_id: str, section_index: int):
 # ============== Report Status Check Interface ==============
 
 @report_bp.route('/check/<simulation_id>', methods=['GET'])
+@login_required
 def check_report_status(simulation_id: str):
     try:
         report = ReportManager.get_report_by_simulation(simulation_id)
@@ -339,6 +352,7 @@ def check_report_status(simulation_id: str):
 # ============== Agent Log Interface ==============
 
 @report_bp.route('/<report_id>/agent-log', methods=['GET'])
+@login_required
 def get_agent_log(report_id: str):
     try:
         from_line = request.args.get('from_line', 0, type=int)
@@ -350,6 +364,7 @@ def get_agent_log(report_id: str):
 
 
 @report_bp.route('/<report_id>/agent-log/stream', methods=['GET'])
+@login_required
 def stream_agent_log(report_id: str):
     try:
         logs = ReportManager.get_agent_log_stream(report_id)
@@ -362,6 +377,7 @@ def stream_agent_log(report_id: str):
 # ============== Console Log Interface ==============
 
 @report_bp.route('/<report_id>/console-log', methods=['GET'])
+@login_required
 def get_console_log(report_id: str):
     try:
         from_line = request.args.get('from_line', 0, type=int)
@@ -373,6 +389,7 @@ def get_console_log(report_id: str):
 
 
 @report_bp.route('/<report_id>/console-log/stream', methods=['GET'])
+@login_required
 def stream_console_log(report_id: str):
     try:
         logs = ReportManager.get_console_log_stream(report_id)

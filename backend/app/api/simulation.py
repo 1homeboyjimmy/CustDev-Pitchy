@@ -15,6 +15,7 @@ from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
+from ..utils.auth import login_required
 
 logger = get_logger('pitchy.api.simulation')
 
@@ -45,6 +46,7 @@ def optimize_interview_prompt(prompt: str) -> str:
 # ============== Entity reading interface ==============
 
 @simulation_bp.route('/entities/<graph_id>', methods=['GET'])
+@login_required
 def get_graph_entities(graph_id: str):
     """
     Get all entities from the knowledge graph (filtered)
@@ -87,6 +89,7 @@ def get_graph_entities(graph_id: str):
 
 
 @simulation_bp.route('/entities/<graph_id>/<entity_uuid>', methods=['GET'])
+@login_required
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Get detailed information of a single entity"""
     try:
@@ -117,6 +120,7 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 
 
 @simulation_bp.route('/entities/<graph_id>/by-type/<entity_type>', methods=['GET'])
+@login_required
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Get all entities of specified type"""
     try:
@@ -153,6 +157,7 @@ def get_entities_by_type(graph_id: str, entity_type: str):
 # ============== Simulation management interface ==============
 
 @simulation_bp.route('/create', methods=['POST'])
+@login_required
 def create_simulation():
     """
     Create new simulation
@@ -351,6 +356,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
 
 
 @simulation_bp.route('/prepare', methods=['POST'])
+@login_required
 def prepare_simulation():
     """
     Prepare simulation environment (async task with LLM intelligent configuration generation).
@@ -636,6 +642,7 @@ def prepare_simulation():
 
 
 @simulation_bp.route('/prepare/status', methods=['POST'])
+@login_required
 def get_prepare_status():
     """
     Query preparation task progress
@@ -749,6 +756,7 @@ def get_prepare_status():
 
 
 @simulation_bp.route('/<simulation_id>', methods=['GET'])
+@login_required
 def get_simulation(simulation_id: str):
     """Get simulation status"""
     try:
@@ -782,6 +790,7 @@ def get_simulation(simulation_id: str):
 
 
 @simulation_bp.route('/list', methods=['GET'])
+@login_required
 def list_simulations():
     """
     List all simulations
@@ -870,6 +879,7 @@ def _get_report_id_for_simulation(simulation_id: str) -> str:
 
 
 @simulation_bp.route('/history', methods=['GET'])
+@login_required
 def get_simulation_history():
     """
     Get historical simulation list（With project details）
@@ -984,6 +994,7 @@ def get_simulation_history():
 
 
 @simulation_bp.route('/<simulation_id>/profiles', methods=['GET'])
+@login_required
 def get_simulation_profiles(simulation_id: str):
     """
     Get simulation'sAgent Profile
@@ -1022,6 +1033,7 @@ def get_simulation_profiles(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/profiles/update', methods=['POST'])
+@login_required
 def update_simulation_profiles(simulation_id: str):
     """
     Update simulation's Agent Profile (overwrites current list)
@@ -1087,6 +1099,7 @@ def update_simulation_profiles(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/profiles/realtime', methods=['GET'])
+@login_required
 def get_simulation_profiles_realtime(simulation_id: str):
     """
     Real-time get simulation's Agent Profile (for viewing during generation).
@@ -1197,6 +1210,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/config/realtime', methods=['GET'])
+@login_required
 def get_simulation_config_realtime(simulation_id: str):
     """
     Real-time get simulation configuration (for viewing during generation).
@@ -1317,6 +1331,7 @@ def get_simulation_config_realtime(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/config', methods=['GET'])
+@login_required
 def get_simulation_config(simulation_id: str):
     """
     Get simulation configuration (generated with LLM intelligence).
@@ -1353,6 +1368,7 @@ def get_simulation_config(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/config/download', methods=['GET'])
+@login_required
 def download_simulation_config(simulation_id: str):
     """Download simulation configuration file"""
     try:
@@ -1382,6 +1398,7 @@ def download_simulation_config(simulation_id: str):
 
 
 @simulation_bp.route('/script/<script_name>/download', methods=['GET'])
+@login_required
 def download_simulation_script(script_name: str):
     """
     Download simulation run script file (general scripts from backend/scripts/)
@@ -1436,6 +1453,7 @@ def download_simulation_script(script_name: str):
 # ============== ProfileGeneration interface（StandaloneUse） ==============
 
 @simulation_bp.route('/generate-profiles', methods=['POST'])
+@login_required
 def generate_profiles():
     """
     Generate directly from knowledge graphOASIS Agent Profile（Do not createSimulation）
@@ -1513,6 +1531,7 @@ def generate_profiles():
 # ============== Simulation execution control interface ==============
 
 @simulation_bp.route('/start', methods=['POST'])
+@login_required
 def start_simulation():
     """
     Start running simulation
@@ -1706,6 +1725,7 @@ def start_simulation():
 
 
 @simulation_bp.route('/stop', methods=['POST'])
+@login_required
 def stop_simulation():
     """
     Stop simulation
@@ -1767,6 +1787,7 @@ def stop_simulation():
 # ============== Real-time status monitoring interface ==============
 
 @simulation_bp.route('/<simulation_id>/run-status', methods=['GET'])
+@login_required
 def get_run_status(simulation_id: str):
     """
     Get simulation real-time running status（For frontend polling）
@@ -1825,6 +1846,7 @@ def get_run_status(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/run-status/detail', methods=['GET'])
+@login_required
 def get_run_status_detail(simulation_id: str):
     """
     Get simulation detailed running status（Include all actions）
@@ -1926,6 +1948,7 @@ def get_run_status_detail(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/actions', methods=['GET'])
+@login_required
 def get_simulation_actions(simulation_id: str):
     """
     Get from simulationAgentAction history
@@ -1980,6 +2003,7 @@ def get_simulation_actions(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/timeline', methods=['GET'])
+@login_required
 def get_simulation_timeline(simulation_id: str):
     """
     Get simulation timeline（Summarized by round）
@@ -2020,6 +2044,7 @@ def get_simulation_timeline(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/agent-stats', methods=['GET'])
+@login_required
 def get_agent_stats(simulation_id: str):
     """
     Get eachAgentStatistics
@@ -2049,6 +2074,7 @@ def get_agent_stats(simulation_id: str):
 # ============== Database query interface ==============
 
 @simulation_bp.route('/<simulation_id>/posts', methods=['GET'])
+@login_required
 def get_simulation_posts(simulation_id: str):
     """
     Get posts in simulation
@@ -2127,6 +2153,7 @@ def get_simulation_posts(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/comments', methods=['GET'])
+@login_required
 def get_simulation_comments(simulation_id: str):
     """
     Get comments in simulation（OnlyReddit）
@@ -2204,6 +2231,7 @@ def get_simulation_comments(simulation_id: str):
 # ============== Interview Interview interface ==============
 
 @simulation_bp.route('/interview', methods=['POST'])
+@login_required
 def interview_agent():
     """
     Interview individualAgent
@@ -2333,6 +2361,7 @@ def interview_agent():
 
 
 @simulation_bp.route('/interview/batch', methods=['POST'])
+@login_required
 def interview_agents_batch():
     """
     Batch interview multipleAgent
@@ -2471,6 +2500,7 @@ def interview_agents_batch():
 
 
 @simulation_bp.route('/interview/all', methods=['POST'])
+@login_required
 def interview_all_agents():
     """
     Global interview - UseInterview all with same questionAgent
@@ -2574,6 +2604,7 @@ def interview_all_agents():
 
 
 @simulation_bp.route('/interview/history', methods=['POST'])
+@login_required
 def get_interview_history():
     """
     GetInterviewHistorical records
@@ -2646,6 +2677,7 @@ def get_interview_history():
 
 
 @simulation_bp.route('/env-status', methods=['POST'])
+@login_required
 def get_env_status():
     """
     Get simulation environment status
@@ -2711,6 +2743,7 @@ def get_env_status():
 
 
 @simulation_bp.route('/close-env', methods=['POST'])
+@login_required
 def close_simulation_env():
     """
     Close simulation environment

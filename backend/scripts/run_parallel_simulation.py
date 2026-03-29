@@ -89,6 +89,9 @@ _project_root = os.path.abspath(os.path.join(_backend_dir, '..'))
 sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
 
+from app.services.rag_service import RagService
+from app.storage import GraphStorage
+
 # Load .env file from project root (contains LLM_API_KEY and other configurations)
 from dotenv import load_dotenv
 _env_file = os.path.join(_project_root, '.env')
