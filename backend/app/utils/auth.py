@@ -15,9 +15,24 @@ def verify_jwt(token):
         # Get secret key from config
         secret_key = Config.SECRET_KEY
         
+        # Support for hex-encoded keys (some platforms use this)
+        key_to_use = secret_key
+        try:
+            if len(secret_key) == 64: # Possible hex key
+                key_to_use = bytes.fromhex(secret_key)
+        except:
+            pass
+
         # Decode token with support for common algorithms
-        # Added RS256 just in case the main platform uses it
-        payload = jwt.decode(token, secret_key, algorithms=['HS256', 'HS384', 'HS512', 'RS256'])
+        try:
+            payload = jwt.decode(token, secret_key, algorithms=['HS256', 'HS384', 'HS512', 'RS256'])
+        except jwt.InvalidSignatureError:
+            # Try with hex-decoded key as fallback
+            if key_to_use != secret_key:
+                payload = jwt.decode(token, key_to_use, algorithms=['HS256', 'HS384', 'HS512', 'RS256'])
+            else:
+                raise
+
         logger.debug(f"[AUTH_DEBUG] JWT decoded successfully. Payload keys: {list(payload.keys())}")
         
         # Extract user information
@@ -31,11 +46,20 @@ def verify_jwt(token):
     except jwt.ExpiredSignatureError:
         logger.warning("[AUTH_DEBUG] JWT token expired")
         return None
+    except jwt.InvalidSignatureError:
+        logger.warning("[AUTH_DEBUG] JWT Signature verification failed")
+        # Log unverified payload to see what's inside (issuer, etc)
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            logger.debug(f"[AUTH_DEBUG] Unverified payload: {unverified}")
+        except:
+            pass
+        return None
     except Exception as e:
         logger.warning(f"[AUTH_DEBUG] JWT decode error ({type(e).__name__}): {str(e)}")
         # It's safe to log the first few chars of the token to see if it's actually a JWT
         token_preview = f"{token[:10]}..." if token else "None"
-        logger.debug(f"[AUTH_DEBUG] Token starts with: {token_preview}, length: {len(token) if token else 0}")
+        logger.debug(f"[AUTH_DEBUG] Token preview: {token_preview}, length: {len(token)}")
         return None
 
 def login_required(f):
