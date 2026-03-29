@@ -74,11 +74,13 @@ def setup_logger(name: str = 'pitchy', level: int = logging.DEBUG) -> logging.Lo
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(detailed_formatter)
 
-    # 2. Console handler - concise logs (INFO and above)
-    # Ensure UTF-8 encoding on Windows to avoid Chinese character issues
+    # 2. Console handler - concise logs (DEBUG and above if debug_mode, else INFO)
     _ensure_utf8_stdout()
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
+    
+    # Check debug mode from environment
+    is_debug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    console_handler.setLevel(logging.DEBUG if is_debug else logging.INFO)
     console_handler.setFormatter(simple_formatter)
 
     # Add handlers
