@@ -251,7 +251,7 @@ const toggleSectionCollapse = idx => {
 
 const renderMarkdown = content => content ? marked(content) : ''
 const getLogLevelClass = log => log.includes('ERR') || log.includes('failed') ? 'text-red-400' : (log.includes('WARN') ? 'text-orange-400' : 'text-white/60')
-const getActionLabel = a => ({ 'report_start': 'ИНИЦ', 'planning_start': 'ПЛАН', 'planning_complete': 'ГОТОВО', 'section_start': 'ПЕРЕХОД', 'section_content': 'ПРОЦЕСС', 'section_complete': 'СИНХ', 'tool_call': 'ИНСТР', 'tool_result': 'ДАННЫЕ', 'llm_response': 'СИНТЕЗ', 'report_complete': 'ФИНАЛ' }[a] || a)
+const getActionLabel = a => ({ 'report_start': 'ПОДГОТОВКА', 'planning_start': 'ПЛАНИРОВАНИЕ', 'planning_complete': 'ПЛАН ГОТОВ', 'section_start': 'НОВЫЙ ЭТАП', 'section_content': 'АНАЛИЗ', 'section_complete': 'ОБРАБОТКА', 'tool_call': 'ДЕЙСТВИЕ', 'tool_result': 'ДАННЫЕ', 'llm_response': 'СИНТЕЗ ЗНАНИЙ', 'report_complete': 'ЗАВЕРШЕНО' }[a] || a)
 const getLogColorClass = a => ({ 'report_start': 'bg-white', 'planning_start': 'bg-pitchy-violet', 'planning_complete': 'bg-green-500', 'section_start': 'bg-pitchy-violet', 'section_complete': 'bg-green-500', 'tool_call': 'bg-pitchy-cyan', 'tool_result': 'bg-pitchy-cyan', 'llm_response': 'bg-white', 'report_complete': 'bg-green-500' }[a] || 'bg-white/20')
 const formatTime = ts => ts ? new Date(ts).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''
 const formatResultSize = s => s > 1024 ? (s / 1024).toFixed(1) + 'kb' : (s || 0) + 'b'

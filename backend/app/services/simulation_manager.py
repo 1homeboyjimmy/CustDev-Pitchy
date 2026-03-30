@@ -303,9 +303,26 @@ class SimulationManager:
                 enrich_with_edges=True
             )
             
+            # Intelligent Ranking: prioritize "Human" entities for the "Society of Agents"
+            def get_entity_actor_score(entity) -> int:
+                etype = (entity.get_entity_type() or "").lower()
+                # High priority: Individual human actors
+                if etype in ["person", "student", "professor", "alumni", "founder", "expert", "analyst", "investor", "seller", "user"]:
+                    return 100
+                # Medium priority: Organizations/Institutions (can be represented by humans)
+                if etype in ["organization", "university", "government", "governmentagency", "mediaoutlet", "company", "ngo"]:
+                    return 50
+                # Low priority: Abstract concepts, non-human things
+                if etype in ["website", "service", "platform", "market", "product", "concept", "idea", "document"]:
+                    return 10
+                return 30 # Default for unknown types
+
+            # Sort by actor score (highest first)
+            filtered.entities.sort(key=get_entity_actor_score, reverse=True)
+
             # Strict Limit: keep only top 10 entities for the "Society of Agents"
             if len(filtered.entities) > 10:
-                logger.info(f"Limiting simulation entities from {len(filtered.entities)} to 10")
+                logger.info(f"Limiting simulation entities from {len(filtered.entities)} to 10 (sorted by actor relevance)")
                 filtered.entities = filtered.entities[:10]
                 filtered.filtered_count = 10
             
