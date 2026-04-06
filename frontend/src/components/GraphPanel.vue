@@ -9,9 +9,9 @@
 
       <div class="flex items-center gap-2">
         <div class="flex items-center gap-4 mr-4 text-[10px] font-mono text-white/30 uppercase tracking-tighter">
-          <span v-if="graphData">{{ graphData.node_count || 0 }} Nodes</span>
+          <span v-if="graphData">{{ graphData.node_count || 0 }} Узлов</span>
           <span v-if="graphData" class="w-px h-2 bg-white/10"></span>
-          <span v-if="graphData">{{ graphData.edge_count || 0 }} Edges</span>
+          <span v-if="graphData">{{ graphData.edge_count || 0 }} Связей</span>
         </div>
         <button 
           @click="$emit('refresh')" 
@@ -182,7 +182,7 @@
       </Transition>
 
       <div class="glass-card p-1.5 px-3 rounded-xl border-white/5 pointer-events-auto flex items-center gap-3">
-        <span class="text-[9px] font-bold text-white/30 uppercase tracking-widest">Show Labels</span>
+        <span class="text-[9px] font-bold text-white/30 uppercase tracking-widest">Показать связи</span>
         <label class="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" v-model="showEdgeLabels" class="sr-only peer" />
           <div class="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-pitchy-violet"></div>
@@ -238,11 +238,50 @@ const pitchyColors = [
 ]
 
 const LABEL_MAP = {
+  // Entity types
   'Organization': 'Организация',
   'Entity': 'Сущность',
   'Person': 'Человек',
   'StartupFounder': 'Фаундер',
-  'MarketplaceSeller': 'Селлер'
+  'MarketplaceSeller': 'Селлер',
+  'BusinessConsultant': 'Консультант',
+  'Investor': 'Инвестор',
+  'UniversityStudent': 'Студент',
+  'GovernmentAgency': 'Гос. орган',
+  'TechStartup': 'IT-стартап',
+  'MarketplacePlatform': 'Маркетплейс',
+  'Seller': 'Продавец',
+  'Founder': 'Основатель',
+  'Consultant': 'Консультант',
+  'Student': 'Студент',
+  'Agency': 'Агентство',
+  'Platform': 'Платформа',
+  // Edge (relationship) types
+  'FOUNDERS_OF': 'ОСНОВАТЕЛЬ',
+  'CONSULTS_FOR': 'КОНСУЛЬТИРУЕТ',
+  'INVESTS_IN': 'ИНВЕСТИРУЕТ_В',
+  'SELLS_ON': 'ПРОДАЁТ_НА',
+  'STUDIES_AT': 'УЧИТСЯ_В',
+  'PROVIDES_SUPPORT': 'ОКАЗЫВАЕТ_ПОДДЕРЖКУ',
+  'COMPETES_WITH': 'КОНКУРИРУЕТ_С',
+  'USES_TOOL': 'ИСПОЛЬЗУЕТ',
+  'REPORTS_TO': 'ПОДЧИНЯЕТСЯ',
+  'COLLABORATES_WITH': 'СОТРУДНИЧАЕТ_С',
+  'WORKS_AT': 'РАБОТАЕТ_В',
+  'MANAGES': 'УПРАВЛЯЕТ',
+  'PARTNERS_WITH': 'ПАРТНЁР',
+  'RELATED_TO': 'СВЯЗАН_С',
+  'BELONGS_TO': 'ПРИНАДЛЕЖИТ',
+  'PART_OF': 'ЧАСТЬ',
+  'CREATED_BY': 'СОЗДАН',
+  'LOCATED_IN': 'РАСПОЛОЖЕН_В',
+  'KNOWS': 'ЗНАЕТ',
+  'LIKES': 'НРАВИТСЯ',
+  'HIRES': 'НАНИМАЕТ',
+  'MENTORS': 'НАСТАВЛЯЕТ',
+  'SUPPLIES_TO': 'ПОСТАВЛЯЕТ',
+  'BUYS_FROM': 'ПОКУПАЕТ_У',
+  'SELF': 'ЦИКЛ'
 }
 
 const translateType = (type) => LABEL_MAP[type] || type
@@ -356,7 +395,17 @@ const renderGraph = () => {
   
   currentSimulation = simulation
   const g = svg.append('g')
-  svg.call(d3.zoom().scaleExtent([0.1, 8]).on('zoom', (e) => g.attr('transform', e.transform)))
+  const zoomBehavior = d3.zoom().scaleExtent([0.1, 8]).on('zoom', (e) => g.attr('transform', e.transform))
+  svg.call(zoomBehavior)
+
+  // Fit-to-view after simulation stabilizes
+  simulation.on('end', () => {
+    fitGraphToView(svg, g, nodes, width, height, zoomBehavior)
+  })
+  // Also fit after a short delay in case simulation is slow to settle
+  setTimeout(() => {
+    fitGraphToView(svg, g, nodes, width, height, zoomBehavior)
+  }, 1500)
 
   const linkGroup = g.append('g').attr('class', 'links')
 
@@ -395,7 +444,7 @@ const renderGraph = () => {
     .attr('fill', 'rgba(10,10,15,0.8)').attr('rx', 4).attr('ry', 4).style('display', showEdgeLabels.value ? 'block' : 'none')
 
   const linkLabels = linkGroup.selectAll('text').data(edges).enter().append('text')
-    .text(d => d.name).attr('font-size', '8px').attr('fill', 'rgba(255,255,255,0.4)').attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+    .text(d => translateType(d.name)).attr('font-size', '8px').attr('fill', 'rgba(255,255,255,0.4)').attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
     .style('font-family', 'ui-monospace, monospace').style('font-weight', '600').style('display', showEdgeLabels.value ? 'block' : 'none')
 
   linkLabelsRef = linkLabels
@@ -440,6 +489,42 @@ watch(showEdgeLabels, (nv) => {
   if (linkLabelsRef) linkLabelsRef.style('display', nv ? 'block' : 'none')
   if (linkLabelBgRef) linkLabelBgRef.style('display', nv ? 'block' : 'none')
 })
+
+// Fit graph to view: zoom and pan so all nodes are visible with padding
+const fitGraphToView = (svg, g, nodes, width, height, zoomBehavior) => {
+  if (!nodes || nodes.length === 0) return
+  
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  nodes.forEach(n => {
+    if (n.x < minX) minX = n.x
+    if (n.y < minY) minY = n.y
+    if (n.x > maxX) maxX = n.x
+    if (n.y > maxY) maxY = n.y
+  })
+  
+  const padding = 80
+  const graphWidth = maxX - minX || 1
+  const graphHeight = maxY - minY || 1
+  
+  const scale = Math.min(
+    (width - padding * 2) / graphWidth,
+    (height - padding * 2) / graphHeight,
+    1.5 // max zoom to avoid over-zooming on small graphs
+  )
+  
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
+  const translateX = width / 2 - centerX * scale
+  const translateY = height / 2 - centerY * scale
+  
+  const transform = d3.zoomIdentity
+    .translate(translateX, translateY)
+    .scale(scale)
+  
+  svg.transition()
+    .duration(600)
+    .call(zoomBehavior.transform, transform)
+}
 
 const handleResize = () => renderGraph()
 onMounted(() => { window.addEventListener('resize', handleResize); nextTick(renderGraph) })

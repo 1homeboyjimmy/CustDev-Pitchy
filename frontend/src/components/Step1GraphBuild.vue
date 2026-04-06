@@ -56,9 +56,10 @@
               v-for="entity in projectData.ontology.entity_types" 
               :key="entity.name"
               @click="selectOntologyItem(entity, 'entity')"
+              :title="entity.name"
               class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-white/60 hover:text-white hover:border-pitchy-violet/50 transition-all"
             >
-              {{ entity.name }}
+              {{ translateType(entity.name) }}
             </button>
           </div>
         </div>
@@ -71,9 +72,10 @@
               v-for="rel in projectData.ontology.edge_types" 
               :key="rel.name" 
               @click="selectOntologyItem(rel, 'relation')"
+              :title="rel.name"
               class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-pitchy-violet-light/60 hover:text-white hover:border-pitchy-violet transition-all"
             >
-              {{ rel.name }}
+              {{ translateType(rel.name) }}
             </button>
           </div>
         </div>
@@ -212,6 +214,53 @@ const graphStats = computed(() => ({
   edges: props.graphData?.edge_count || props.graphData?.edges?.length || 0,
   types: props.projectData?.ontology?.entity_types?.length || 0
 }))
+
+const LABEL_MAP = {
+  // Entity types
+  'Organization': 'Организация',
+  'Entity': 'Сущность',
+  'Person': 'Человек',
+  'StartupFounder': 'Фаундер',
+  'MarketplaceSeller': 'Селлер',
+  'BusinessConsultant': 'Консультант',
+  'Investor': 'Инвестор',
+  'UniversityStudent': 'Студент',
+  'GovernmentAgency': 'Гос. орган',
+  'TechStartup': 'IT-стартап',
+  'MarketplacePlatform': 'Маркетплейс',
+  'Seller': 'Продавец',
+  'Founder': 'Основатель',
+  'Consultant': 'Консультант',
+  'Student': 'Студент',
+  'Agency': 'Агентство',
+  'Platform': 'Платформа',
+  // Edge (relationship) types
+  'FOUNDERS_OF': 'Основатель',
+  'CONSULTS_FOR': 'Консультирует',
+  'INVESTS_IN': 'Инвестирует',
+  'SELLS_ON': 'Продаёт на',
+  'STUDIES_AT': 'Учится в',
+  'PROVIDES_SUPPORT': 'Поддерживает',
+  'COMPETES_WITH': 'Конкурирует с',
+  'USES_TOOL': 'Использует',
+  'REPORTS_TO': 'Подчиняется',
+  'COLLABORATES_WITH': 'Сотрудничает с',
+  'WORKS_AT': 'Работает в',
+  'MANAGES': 'Управляет',
+  'PARTNERS_WITH': 'Партнёр',
+  'RELATED_TO': 'Связан с',
+  'BELONGS_TO': 'Принадлежит',
+  'PART_OF': 'Часть',
+  'CREATED_BY': 'Создан',
+  'LOCATED_IN': 'Расположен в',
+  'KNOWS': 'Знает',
+  'HIRES': 'Нанимает',
+  'MENTORS': 'Наставляет',
+  'SUPPLIES_TO': 'Поставляет',
+  'BUYS_FROM': 'Покупает у',
+}
+
+const translateType = (type) => LABEL_MAP[type] || type
 
 
 </script>
