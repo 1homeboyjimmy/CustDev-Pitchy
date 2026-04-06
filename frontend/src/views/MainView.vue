@@ -145,7 +145,6 @@ import StatusBadge from '../components/ui/StatusBadge.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
-import TerminalConsole from '../components/TerminalConsole.vue'
 import { 
   Home as HomeIcon,
   Terminal as TerminalIcon,
