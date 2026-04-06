@@ -154,7 +154,7 @@ const router = useRouter()
 
 // Layout State
 const viewMode = ref('split')
-const isTerminalCollapsed = ref(false)
+const isTerminalCollapsed = ref(true)
 const logContent = ref(null)
 const currentStep = ref(1)
 const stepNames = ['Построение графа', 'Общество агентов', 'Симуляция', 'Ответные меры', 'Взаимодействие']

@@ -53,31 +53,33 @@ const toggleMobileMenu = () => {
     ]"
   >
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between w-full relative">
         <!-- Logo -->
-        <a href="https://pitchy.pro" class="flex items-center gap-2 group">
-          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center transition-transform group-hover:scale-105">
-            <Zap class="w-5 h-5 text-white" />
-          </div>
-          <div class="flex items-baseline">
-            <span class="text-xl font-bold text-white tracking-tight">pitchy</span>
-            <span class="text-violet-400 font-medium">.pro</span>
-            <span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-500/10 text-violet-400 border border-violet-500/20">CustDev</span>
-          </div>
-        </a>
+        <div class="flex-shrink-0 md:flex-1 flex items-center justify-start">
+          <a href="https://pitchy.pro" class="flex items-center group">
+            <div class="flex items-baseline">
+              <span class="text-xl font-bold text-white tracking-tight">pitchy</span>
+              <span class="text-violet-400 font-medium">.pro</span>
+              <span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-500/10 text-violet-400 border border-violet-500/20">CustDev</span>
+            </div>
+          </a>
+        </div>
 
-        <!-- Desktop Nav -->
-        <nav class="hidden md:flex items-center gap-1">
+        <!-- Desktop Nav Centered -->
+        <nav class="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
           <a
             v-for="link in navLinks"
             :key="link.href"
             :href="link.href"
-            class="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200"
+            class="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200 whitespace-nowrap"
           >
             {{ link.label }}
           </a>
-          
-          <div v-if="isAuthenticated" class="flex items-center gap-4 ml-4 pl-4 border-l border-white/10">
+        </nav>
+
+        <!-- Auth Buttons -->
+        <div class="hidden md:flex flex-shrink-0 md:flex-1 justify-end items-center">
+          <div v-if="isAuthenticated" class="flex items-center gap-4">
             <a href="https://pitchy.pro/account" class="text-zinc-400 hover:text-white transition-colors">
               <User class="w-5 h-5" />
             </a>
@@ -86,15 +88,15 @@ const toggleMobileMenu = () => {
             </button>
           </div>
           
-          <div v-else class="flex items-center gap-4 ml-4">
+          <div v-else class="flex items-center gap-4">
             <a href="https://pitchy.pro/login" class="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
               Войти
             </a>
-            <a href="https://pitchy.pro/login" class="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+            <a href="https://pitchy.pro/login" class="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] whitespace-nowrap">
               Начать
             </a>
           </div>
-        </nav>
+        </div>
 
         <!-- Mobile Menu Button -->
         <button 
