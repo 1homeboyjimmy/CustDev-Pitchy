@@ -1,5 +1,11 @@
 <template>
-  <AppLayout>
+  <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pitchy-violet/10 blur-[120px] rounded-full"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-pitchy-cyan/10 blur-[120px] rounded-full"></div>
+    <div class="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px] opacity-10"></div>
+  </div>
+
+  <div class="fixed inset-0 pt-20 flex flex-col overflow-hidden bg-transparent z-10 pointer-events-auto">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Specialized Workflow Header -->
       <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
@@ -129,17 +135,17 @@
         </div>
       </div>
     </div>
-  </AppLayout>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppLayout from '../components/layout/AppLayout.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
+import TerminalConsole from '../components/TerminalConsole.vue'
 import { 
   Home as HomeIcon,
   Terminal as TerminalIcon,
