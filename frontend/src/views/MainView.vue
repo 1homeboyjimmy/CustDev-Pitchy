@@ -8,8 +8,9 @@
   <div class="fixed inset-0 pt-20 flex flex-col overflow-hidden bg-transparent z-10 pointer-events-auto">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Specialized Workflow Header -->
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
-        <div class="flex items-center gap-4">
+      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20 relative w-full">
+        <!-- Left Section -->
+        <div class="flex items-center gap-4 flex-1 justify-start">
           <button @click="router.push('/')" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <HomeIcon class="w-4 h-4" />
           </button>
@@ -20,7 +21,8 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+        <!-- Center Section (Absolute Centering) -->
+        <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
           <button 
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
@@ -32,7 +34,8 @@
           </button>
         </div>
 
-        <div class="flex items-center gap-4">
+        <!-- Right Section -->
+        <div class="flex items-center gap-4 flex-1 justify-end">
           <div class="flex flex-col items-end">
             <span class="text-[10px] font-mono text-white/20 uppercase">{{ currentProjectId?.slice(0, 8) }}</span>
             <StatusBadge :type="statusClass" :dot="currentPhase < 2">

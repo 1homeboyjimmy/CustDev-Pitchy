@@ -148,15 +148,38 @@
 
     <!-- Bottom Legnd & Controls -->
     <div v-if="graphData && entityTypes.length" class="absolute bottom-4 left-4 z-10 flex items-end gap-4 pointer-events-none">
-      <div class="glass-card p-3 rounded-xl border-white/5 pointer-events-auto">
-        <div class="text-[8px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3">Легенда онтологии</div>
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 max-w-sm">
-          <div v-for="t in entityTypes" :key="t.name" class="flex items-center gap-2 group/legend">
-            <div class="w-2 h-2 rounded-full shadow-glow" :style="{ background: t.color, '--tw-shadow-color': t.color }"></div>
-            <span class="text-[9px] font-bold text-white/50 group-hover/legend:text-white transition-colors">{{ translateType(t.name) }}</span>
+      
+      <!-- Legend Toggle/Container -->
+      <Transition name="fade-scale" mode="out-in">
+        <!-- Minimized Button -->
+        <button 
+          v-if="!isLegendVisible"
+          @click="isLegendVisible = true"
+          class="glass-card p-2.5 px-3 rounded-xl border-white/5 pointer-events-auto flex items-center gap-2 shadow-xl hover:bg-white/10 transition-all text-white/40 hover:text-white"
+        >
+          <LayersIcon class="w-4 h-4" />
+          <span class="text-[9px] font-bold uppercase tracking-widest">Легенда</span>
+        </button>
+
+        <!-- Expanded Legend -->
+        <div v-else class="glass-card p-3 rounded-xl border-white/5 pointer-events-auto relative pr-8">
+          <button 
+            @click="isLegendVisible = false"
+            class="absolute top-2 right-2 p-1.5 text-white/30 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+            title="Скрыть легенду"
+          >
+            <ChevronDownIcon class="w-3.5 h-3.5" />
+          </button>
+          
+          <div class="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3">Легенда онтологии</div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 max-w-[280px]">
+            <div v-for="t in entityTypes" :key="t.name" class="flex items-center gap-2 group/legend">
+              <div class="w-2.5 h-2.5 rounded-full shadow-glow" :style="{ background: t.color, '--tw-shadow-color': t.color }"></div>
+              <span class="text-[10px] font-bold text-white/50 group-hover/legend:text-white transition-colors">{{ translateType(t.name) }}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </Transition>
 
       <div class="glass-card p-1.5 px-3 rounded-xl border-white/5 pointer-events-auto flex items-center gap-3">
         <span class="text-[9px] font-bold text-white/30 uppercase tracking-widest">Show Labels</span>
@@ -179,7 +202,9 @@ import {
   RefreshCw as RefreshCwIcon, 
   X as XIcon,
   Info as InfoIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  Layers as LayersIcon,
+  ChevronDown as ChevronDownIcon
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -195,6 +220,7 @@ const graphContainer = ref(null)
 const graphSvg = ref(null)
 const selectedItem = ref(null)
 const showEdgeLabels = ref(true)
+const isLegendVisible = ref(true)
 const expandedSelfLoops = ref(new Set())
 const showSimulationFinishedHint = ref(false)
 const wasSimulating = ref(false)
@@ -430,4 +456,7 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 .slide-left-enter-from, .slide-left-leave-to { transform: translateX(40px); opacity: 0; }
 .slide-up-enter-active, .slide-up-leave-active { transition: all 0.4s ease; }
 .slide-up-enter-from, .slide-up-leave-to { transform: translate(-50%, -20px); opacity: 0; }
+
+.fade-scale-enter-active, .fade-scale-leave-active { transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1); }
+.fade-scale-enter-from, .fade-scale-leave-to { transform: scale(0.95) translateY(5px); opacity: 0; }
 </style>
