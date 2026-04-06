@@ -1,5 +1,6 @@
 <template>
   <AppLayout>
+    <div class="flex-1 overflow-y-auto">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 space-y-24">
       <!-- Hero Section -->
       <section class="relative space-y-12">
@@ -153,6 +154,7 @@
 
       <!-- History DB Placeholder -->
       <HistoryDatabase v-if="projectData?.projects?.length" />
+    </div>
     </div>
   </AppLayout>
 </template>

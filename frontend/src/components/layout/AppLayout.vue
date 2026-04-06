@@ -8,10 +8,10 @@
     </div>
 
     <!-- Layout Shell -->
-    <div class="relative z-10 flex flex-col min-h-screen">
+    <div class="relative z-10 flex flex-col h-screen overflow-hidden">
       <Navbar />
       
-      <main class="flex-1 flex flex-col">
+      <main class="flex-1 flex flex-col min-h-0 pt-20">
         <slot></slot>
       </main>
 
