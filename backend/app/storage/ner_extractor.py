@@ -22,12 +22,14 @@ ONTOLOGY:
 
 RULES:
 1. Only extract entity types and relation types defined in the ontology.
-2. Normalize entity names: strip whitespace, use canonical form (e.g., "Jack Ma" not "ma jack").
-3. Each entity must have: name, type (from ontology), and optional attributes.
-4. Each relation must have: source entity name, target entity name, type (from ontology), and a fact sentence describing the relationship.
-5. If no entities or relations are found, return empty lists.
-6. Be precise — only extract what is explicitly stated or strongly implied in the text.
-7. LIMIT: Extract NO MORE THAN 10 entities in total. Focus ONLY on the most relevant "agents" (people, organizations) that drive the narrative.
+2. HUMANIZATION (CRITICAL): Always extract entities as **Singular Human Actors** (e.g., 'Founder' not 'Founders', 'WB Seller' not 'WB sellers').
+3. NAMING: If an entity represents a key participant but has no specific name in the text, you MUST assign a realistic human name to make it a relatable 'agent' (e.g., 'Expert Alex', 'Investor Maria', 'Seller Maxim'). Singular names like 'Maxim' or roles like 'Investor' are preferred over abstract categories.
+4. Normalize entity names: strip whitespace, use canonical form (e.g., "Jack Ma" not "ma jack").
+5. Each entity must have: name, type (from ontology), and optional attributes.
+6. Each relation must have: source entity name, target entity name, type (from ontology), and a fact sentence describing the relationship.
+7. If no entities or relations are found, return empty lists.
+8. Be precise — only extract what is explicitly stated or strongly implied as an active participant in the text.
+9. LIMIT: Extract NO MORE THAN 10 entities in total. Focus ONLY on the most relevant "agents" (people, roles) that drive the narrative.
 
 Return ONLY valid JSON in this exact format:
 {{
