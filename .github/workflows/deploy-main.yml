@@ -7,77 +7,44 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, prod-server]
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USERNAME }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          command_timeout: 30m
-          script: |
-            set -e
-            REPO_DIR="/root/CustDev-Pitchy"
-            APP_DIR="$REPO_DIR"
-            REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            # Fix Host key verification failed
-            mkdir -p ~/.ssh
-            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Build and Deploy
+        run: |
+          echo "==> Preparing Environment..."
+          # Copy the .env file configured previously on the server to the current workspace
+          if [ -f "/root/CustDev-Pitchy/.env" ]; then
+            cp /root/CustDev-Pitchy/.env .env
+            echo "    .env copied successfully."
+          else
+            echo "    WARNING: /root/CustDev-Pitchy/.env not found. Using .env.example."
+            cp .env.example .env
+          fi
 
-            # Если директория не является репозиторием, клонируем или инициализируем
-            if [ ! -d "$REPO_DIR/.git" ]; then
-              echo "==> Repository not found. Initializing..."
-              mkdir -p "$REPO_DIR"
-              cd "$REPO_DIR"
-              git init
-              git remote add origin "$REMOTE_URL"
-            else
-              cd "$REPO_DIR"
-            fi
+          echo "==> Building containers (optimized)..."
+          docker compose build
 
-            # Переключаем remote только если нужно
-            CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
-            if [ "$CURRENT_REMOTE" != "$REMOTE_URL" ]; then
-              echo "==> Switching remote to CustDev-Pitchy..."
-              git remote set-url origin "$REMOTE_URL"
-            fi
+          echo "==> Stopping old containers to prevent name conflicts..."
+          docker stop pitchy-offline pitchy-neo4j 2>/dev/null || true
+          docker rm -f pitchy-offline pitchy-neo4j 2>/dev/null || true
 
-            echo "==> Pulling latest changes from main..."
-            git fetch origin main
-            git reset --hard origin/main
+          echo "==> Restarting services..."
+          docker compose down --remove-orphans 2>/dev/null || true
+          docker compose up -d
 
-            cd "$APP_DIR"
+          echo "==> Waiting for services to initialize (15s)..."
+          sleep 15
 
-            # Убеждаемся, что .env существует (иначе docker-compose упадет)
-            if [ ! -f .env ]; then
-              echo "==> Warning: .env not found on server. Using .env.example as fallback..."
-              cp .env.example .env
-            fi
+          echo "==> Container Status:"
+          docker compose ps
+          
+          echo "==> Recent Logs (last 20 lines):"
+          docker compose logs --tail=20
 
-            echo "==> Building containers (optimized)..."
-            docker compose build
+          echo "==> Cleaning up dangling images..."
+          docker image prune -f
 
-            echo "==> Stopping old containers to prevent name conflicts..."
-            docker stop pitchy-offline pitchy-neo4j 2>/dev/null || true
-            docker rm -f pitchy-offline pitchy-neo4j 2>/dev/null || true
-
-            echo "==> Restarting services..."
-            docker compose down --remove-orphans 2>/dev/null || true
-            docker compose up -d
-
-            echo "==> Waiting for services to initialize (15s)..."
-            sleep 15
-
-            echo "==> Container Status:"
-            docker compose ps
-            
-            echo "==> Recent Logs (last 20 lines):"
-            docker compose logs --tail=20
-
-            echo "==> Cleaning up dangling images..."
-            docker image prune -f
-
-            echo "==> Deploy complete!"
-            docker compose ps
+          echo "==> Deploy complete!"
