@@ -27,6 +27,13 @@ jobs:
           echo "==> Building containers (optimized)..."
           docker compose build
 
+          echo "==> Fixing Nginx configuration if needed..."
+          if [ -f "/etc/nginx/sites-available/custdev" ]; then
+            sudo sed -i 's/proxy_pass http:\/\/127.0.0.1:5001\/;/proxy_pass http:\/\/127.0.0.1:5001;/' /etc/nginx/sites-available/custdev
+            sudo nginx -t && sudo systemctl reload nginx || true
+            echo "    Nginx fixed and reloaded."
+          fi
+
           echo "==> Stopping old containers to prevent name conflicts..."
           docker stop pitchy-offline pitchy-neo4j 2>/dev/null || true
           docker rm -f pitchy-offline pitchy-neo4j 2>/dev/null || true
