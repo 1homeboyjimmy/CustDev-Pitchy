@@ -18,7 +18,7 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-            REPO_DIR="/root/MiroFish-Offline"
+            REPO_DIR="/root/CustDev-Pitchy"
             APP_DIR="$REPO_DIR"
             REMOTE_URL="git@github.com:1homeboyjimmy/CustDev-Pitchy.git"
 
