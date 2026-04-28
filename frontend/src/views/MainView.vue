@@ -144,6 +144,14 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: false
+  }
+})
+
 import StatusBadge from '../components/ui/StatusBadge.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
