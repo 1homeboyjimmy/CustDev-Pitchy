@@ -336,8 +336,10 @@ const renderGraph = () => {
   if (nodesData.length === 0) return
 
   const nodeMap = {}
-  nodesData.forEach(n => nodeMap[n.uuid] = n)
-  const nodes = nodesData.map(n => ({ id: n.uuid, name: n.name || '?', type: n.labels?.find(l => l !== 'Entity') || 'Entity', rawData: n }))
+  nodesData.forEach(n => {
+    if (n && n.uuid) nodeMap[n.uuid] = n
+  })
+  const nodes = Object.values(nodeMap).map(n => ({ id: n.uuid, name: n.name || '?', type: n.labels?.find(l => l !== 'Entity') || 'Entity', rawData: n }))
   const nodeIds = new Set(nodes.map(n => n.id))
 
   const edgePairCount = {}
@@ -492,38 +494,51 @@ watch(showEdgeLabels, (nv) => {
 
 // Fit graph to view: zoom and pan so all nodes are visible with padding
 const fitGraphToView = (svg, g, nodes, width, height, zoomBehavior) => {
-  if (!nodes || nodes.length === 0) return
+  if (!nodes || nodes.length === 0 || width < 10 || height < 10) return
   
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  let validNodes = 0
+  
   nodes.forEach(n => {
-    if (n.x < minX) minX = n.x
-    if (n.y < minY) minY = n.y
-    if (n.x > maxX) maxX = n.x
-    if (n.y > maxY) maxY = n.y
+    if (n.x != null && !isNaN(n.x) && n.y != null && !isNaN(n.y)) {
+      if (n.x < minX) minX = n.x
+      if (n.y < minY) minY = n.y
+      if (n.x > maxX) maxX = n.x
+      if (n.y > maxY) maxY = n.y
+      validNodes++
+    }
   })
   
-  const padding = 80
-  const graphWidth = maxX - minX || 1
-  const graphHeight = maxY - minY || 1
+  if (validNodes === 0 || minX === Infinity) return
   
-  const scale = Math.min(
+  const padding = Math.min(80, width * 0.1, height * 0.1)
+  const graphWidth = Math.max(maxX - minX, 1)
+  const graphHeight = Math.max(maxY - minY, 1)
+  
+  const scale = Math.max(0.1, Math.min(
     (width - padding * 2) / graphWidth,
     (height - padding * 2) / graphHeight,
     1.5 // max zoom to avoid over-zooming on small graphs
-  )
+  ))
   
   const centerX = (minX + maxX) / 2
   const centerY = (minY + maxY) / 2
   const translateX = width / 2 - centerX * scale
   const translateY = height / 2 - centerY * scale
   
+  if (isNaN(translateX) || isNaN(translateY) || isNaN(scale)) return
+  
   const transform = d3.zoomIdentity
     .translate(translateX, translateY)
     .scale(scale)
   
-  svg.transition()
-    .duration(600)
-    .call(zoomBehavior.transform, transform)
+  try {
+    svg.transition()
+      .duration(600)
+      .call(zoomBehavior.transform, transform)
+  } catch (e) {
+    console.warn("Failed to apply D3 transform", e)
+  }
 }
 
 const handleResize = () => renderGraph()
