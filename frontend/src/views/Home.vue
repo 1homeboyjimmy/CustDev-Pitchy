@@ -69,43 +69,44 @@
 
         <!-- Right: Interactive Console -->
         <div class="lg:col-span-7">
-          <GlassCard class="space-y-8 border-white/10">
+          <div class="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-8 md:p-10 space-y-10">
             <!-- Step 01: Upload -->
-            <div class="space-y-4">
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-white/80 flex items-center gap-2 italic">
-                  Ваш Питч-дек
-                </h3>
-                <span class="text-[10px] font-mono text-white/30">ПОДДЕРЖИВАЮТСЯ: PDF, MD, TXT</span>
+            <div class="space-y-5">
+              <div class="flex items-end justify-between">
+                <div class="space-y-1">
+                  <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">01 / Источник</span>
+                  <h3 class="font-serif text-3xl text-white leading-none">Ваш питч-дек</h3>
+                </div>
+                <span class="text-[10px] font-mono text-white/30 hidden sm:block">PDF · MD · TXT</span>
               </div>
-              
+
               <div
-                class="relative border-2 border-dashed border-white/10 rounded-2xl h-48 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/30 transition-all duration-300 group"
-                :class="{ 'border-white/25 bg-white/5': isDragOver }"
+                class="relative rounded-2xl border border-white/10 hover:border-white/30 bg-white/[0.015] hover:bg-white/[0.03] h-52 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 group"
+                :class="{ 'border-white/30 bg-white/[0.04]': isDragOver }"
                 @dragover.prevent="handleDragOver"
                 @dragleave.prevent="handleDragLeave"
                 @drop.prevent="handleDrop"
                 @click="triggerFileInput"
               >
                 <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" @change="handleFileSelect" class="hidden" :disabled="loading" />
-                
+
                 <div v-if="files.length === 0" class="text-center space-y-4">
-                  <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto group-hover:border-white/25 group-hover:text-white transition-all">
-                    <UploadIcon class="w-6 h-6 border-none" />
+                  <div class="w-12 h-12 rounded-full border border-white/15 flex items-center justify-center mx-auto group-hover:border-white/40 transition-all">
+                    <UploadIcon class="w-5 h-5 text-white/70" />
                   </div>
                   <div class="space-y-1">
-                    <div class="text-sm font-bold text-white/70">Перетащите файлы сюда</div>
-                    <div class="text-[10px] text-white/30 uppercase tracking-widest font-bold">или нажмите для выбора в хранилище</div>
+                    <div class="text-sm text-white/80">Перетащите файлы сюда</div>
+                    <div class="text-[10px] text-white/30 uppercase tracking-[0.25em] font-medium">или кликните для выбора</div>
                   </div>
                 </div>
 
                 <div v-else class="w-full h-full p-4 overflow-y-auto space-y-2">
-                  <div v-for="(file, index) in files" :key="index" class="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl group/item hover:bg-white/10 transition-colors">
+                  <div v-for="(file, index) in files" :key="index" class="flex items-center justify-between p-3 bg-white/[0.03] border border-white/5 rounded-xl group/item hover:bg-white/[0.06] transition-colors">
                     <div class="flex items-center gap-3">
-                      <FileTextIcon class="w-4 h-4 text-white/80" />
+                      <FileTextIcon class="w-4 h-4 text-white/70" />
                       <span class="text-xs font-mono text-white/70 truncate max-w-[200px]">{{ file.name }}</span>
                     </div>
-                    <button @click.stop="removeFile(index)" class="p-1 hover:text-pitchy-score-red transition-colors">
+                    <button @click.stop="removeFile(index)" class="p-1 text-white/40 hover:text-red-300 transition-colors">
                       <XIcon class="w-4 h-4" />
                     </button>
                   </div>
@@ -113,22 +114,20 @@
               </div>
             </div>
 
-            <div class="h-px bg-white/5 relative">
-              <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#1A1A24] px-4 text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Параметры</span>
-            </div>
+            <!-- Subtle divider -->
+            <div class="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 
             <!-- Step 02: Prompt -->
-            <div class="space-y-4">
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-white/80 flex items-center gap-2 italic">
-                  Цели анализа
-                </h3>
+            <div class="space-y-5">
+              <div class="space-y-1">
+                <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">02 / Запрос</span>
+                <h3 class="font-serif text-3xl text-white leading-none">Цели анализа</h3>
               </div>
-              
+
               <div class="relative group">
-                <textarea 
-                  v-model="formData.simulationRequirement" 
-                  class="pitchy-input w-full min-h-[160px] resize-none pb-12" 
+                <textarea
+                  v-model="formData.simulationRequirement"
+                  class="w-full min-h-[160px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 placeholder:font-mono placeholder:text-[13px] outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"
                   placeholder="// Укажите ваши вопросы к рынку: например, 'какие основные возражения будут у инвесторов?' или 'насколько конкурентоспособен продукт?'"
                   :disabled="loading"
                 ></textarea>
@@ -136,19 +135,17 @@
             </div>
 
             <!-- Action -->
-            <PitchyButton 
-              size="lg" 
-              class="w-full text-lg py-5 shadow-[0_0_20px_rgba(255,255,255,0.15)]" 
-              @click="startSimulation" 
+            <button
+              type="button"
+              @click="startSimulation"
               :disabled="!canSubmit || loading"
-              :loading="loading"
+              class="w-full inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 rounded-full text-[12px] font-bold uppercase tracking-[0.15em] font-sans hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.08)]"
             >
+              <span v-if="loading" class="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
+              <ZapIcon v-else class="w-4 h-4 fill-current" />
               Запустить симуляцию
-              <template #icon>
-                <ZapIcon class="w-5 h-5 fill-current" />
-              </template>
-            </PitchyButton>
-          </GlassCard>
+            </button>
+          </div>
         </div>
       </section>
 

@@ -1,5 +1,5 @@
 /* ─── Google Fonts (Pitchy design system) ─── */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 /* ─── Tailwind v4 ─── */
@@ -7,17 +7,17 @@
 
 /* ─── Tailwind v4 Theme — Pitchy design tokens ─── */
 @theme {
-  /* ── Colors: Material-style palette ── */
-  --color-background: #141313;
+  /* ── Colors: Pure-black palette ── */
+  --color-background: #000000;
   --color-on-background: #e5e2e1;
-  --color-surface: #141313;
-  --color-surface-dim: #141313;
-  --color-surface-bright: #3a3939;
-  --color-surface-container-lowest: #0e0e0e;
-  --color-surface-container-low: #1c1b1b;
-  --color-surface-container: #201f1f;
-  --color-surface-container-high: #2a2a2a;
-  --color-surface-container-highest: #353434;
+  --color-surface: #000000;
+  --color-surface-dim: #000000;
+  --color-surface-bright: #1a1a1a;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-low: #0a0a0a;
+  --color-surface-container: #0f0f0f;
+  --color-surface-container-high: #161616;
+  --color-surface-container-highest: #1f1f1f;
   --color-on-surface: #e5e2e1;
   --color-on-surface-variant: #c4c7c8;
   --color-inverse-surface: #e5e2e1;
@@ -61,7 +61,7 @@
   --color-on-error-container: #ffdad6;
 
   /* ── Legacy Pitchy palette (compat for existing classes) ── */
-  --color-pitchy-bg: #141313;
+  --color-pitchy-bg: #000000;
   --color-pitchy-surface: rgba(26, 26, 36, 0.65);
   --color-pitchy-surface-light: rgba(26, 26, 36, 0.45);
   --color-pitchy-violet: #8B5CF6;
@@ -81,8 +81,9 @@
 
   /* ── Fonts ── */
   --font-display: 'Barlow', ui-sans-serif, system-ui, sans-serif;
-  --font-h1: 'Instrument Serif', serif;
-  --font-h2: 'Instrument Serif', serif;
+  --font-h1: 'Fraunces', 'Newsreader', Georgia, serif;
+  --font-h2: 'Fraunces', 'Newsreader', Georgia, serif;
+  --font-serif: 'Fraunces', 'Newsreader', Georgia, serif;
   --font-body-lg: 'Barlow', ui-sans-serif, system-ui, sans-serif;
   --font-body-sm: 'Barlow', ui-sans-serif, system-ui, sans-serif;
   --font-mono-label: 'Barlow', ui-sans-serif, system-ui, sans-serif;
@@ -132,10 +133,10 @@
 
 /* ─── CSS Variables (legacy + new) ─── */
 :root {
-  --background: #141313;
+  --background: #000000;
   --foreground: #e5e2e1;
-  --pitchy-bg: #141313;
-  --pitchy-bg-secondary: #1c1b1b;
+  --pitchy-bg: #000000;
+  --pitchy-bg-secondary: #0a0a0a;
   --pitchy-surface: rgba(26, 26, 36, 0.65);
   --pitchy-surface-hover: rgba(26, 26, 36, 0.75);
   --pitchy-border: rgba(255, 255, 255, 0.06);
@@ -174,8 +175,15 @@ body {
 
 @layer base {
   h1, h2 {
-    font-family: 'Instrument Serif', serif;
+    font-family: 'Fraunces', 'Newsreader', Georgia, serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "opsz" 100, "SOFT" 50;
   }
+}
+
+.font-serif {
+  font-family: 'Fraunces', 'Newsreader', Georgia, serif;
+  font-optical-sizing: auto;
 }
 
 /* ─── Selection ─── */
