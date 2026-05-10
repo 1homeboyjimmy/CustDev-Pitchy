@@ -1,7 +1,8 @@
 <template>
-  <div 
-    class="glass-card overflow-hidden" 
+  <div
+    class="overflow-hidden rounded-2xl"
     :class="[
+      strong ? 'liquid-glass-strong' : 'liquid-glass',
       hover ? 'glass-card-hover' : '',
       padding ? 'p-6' : 'p-0'
     ]"
@@ -19,6 +20,10 @@ defineProps({
   padding: {
     type: Boolean,
     default: true
+  },
+  strong: {
+    type: Boolean,
+    default: false
   }
 })
 </script>

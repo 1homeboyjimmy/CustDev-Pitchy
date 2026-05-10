@@ -3,7 +3,7 @@
     <!-- Graph Header -->
     <div class="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-white/5 backdrop-blur-md z-10">
       <div class="flex items-center gap-2">
-        <NetworkIcon class="w-4 h-4 text-pitchy-cyan shadow-glow shadow-pitchy-cyan" />
+        <NetworkIcon class="w-4 h-4 text-white/80 shadow-glow shadow-white/25" />
         <span class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Архитектура общества</span>
       </div>
 
@@ -16,7 +16,7 @@
         <button 
           @click="$emit('refresh')" 
           :disabled="loading" 
-          class="p-1.5 hover:bg-white/10 rounded-lg transition-all text-white/40 hover:text-pitchy-cyan disabled:opacity-30"
+          class="p-1.5 hover:bg-white/10 rounded-lg transition-all text-white/40 hover:text-white/80 disabled:opacity-30"
           title="Sync with Neo4j"
         >
           <RefreshCwIcon class="w-4 h-4" :class="{ 'animate-spin': loading }" />
@@ -30,7 +30,7 @@
       
       <!-- Overlays -->
       <div v-if="currentPhase === 1 || isSimulating" class="absolute bottom-4 right-4 z-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <StatusBadge type="cyan" class="shadow-glow-cyan bg-[#0A0A0F]/80 backdrop-blur-xl border-white/10 transition-all">
+        <StatusBadge type="cyan" class="shadow-[0_0_20px_rgba(255,255,255,0.12)] bg-[#0A0A0F]/80 backdrop-blur-xl border-white/10 transition-all">
           {{ isSimulating ? 'GraphRAG Real-time Memory Pulse' : 'Constructing Reality Threads' }}
         </StatusBadge>
       </div>
@@ -38,9 +38,9 @@
       <!-- Hint box redesigned as a slide-in alert -->
       <Transition name="slide-up">
         <div v-if="showSimulationFinishedHint" class="absolute top-16 left-1/2 -translate-x-1/2 z-20 w-full max-w-md px-4">
-          <div class="glass-card p-4 flex items-center justify-between border-pitchy-cyan/30 bg-pitchy-cyan/5">
+          <div class="glass-card p-4 flex items-center justify-between border-white/30 bg-white/5">
             <div class="flex items-center gap-3">
-              <InfoIcon class="w-5 h-5 text-pitchy-cyan" />
+              <InfoIcon class="w-5 h-5 text-white/80" />
               <span class="text-xs text-white/80 leading-snug">Simulation complete. Manual sync recommended to capture final state items.</span>
             </div>
             <button @click="dismissFinishedHint" class="p-1 hover:text-white transition-colors text-white/40">
@@ -109,9 +109,9 @@
               <div v-if="selectedItem.type === 'edge' && !selectedItem.data.isSelfLoopGroup" class="space-y-4 pt-4 border-t border-white/5">
                 <div class="flex items-center justify-center gap-3 py-4 bg-white/[0.01] rounded-xl border border-dashed border-white/5">
                   <div class="text-[10px] text-white/50 font-bold truncate max-w-[80px]">{{ selectedItem.data.source_name }}</div>
-                  <ChevronRightIcon class="w-3 h-3 text-pitchy-violet" />
+                  <ChevronRightIcon class="w-3 h-3 text-white" />
                   <div class="text-[10px] text-white px-2 py-1 bg-white/5 rounded-md border border-white/10 font-mono">{{ selectedItem.data.name }}</div>
-                  <ChevronRightIcon class="w-3 h-3 text-pitchy-cyan" />
+                  <ChevronRightIcon class="w-3 h-3 text-white/80" />
                   <div class="text-[10px] text-white/50 font-bold truncate max-w-[80px]">{{ selectedItem.data.target_name }}</div>
                 </div>
                 
@@ -129,7 +129,7 @@
                 <div class="space-y-2">
                   <div v-for="(loop, idx) in selectedItem.data.selfLoopEdges" :key="loop.uuid || idx" class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
                     <div class="flex items-center justify-between">
-                      <span class="text-[10px] font-bold text-pitchy-violet">LINK_{{ idx+1 }}</span>
+                      <span class="text-[10px] font-bold text-white">LINK_{{ idx+1 }}</span>
                       <span class="text-[9px] font-mono text-white/20">{{ loop.fact_type || 'REL' }}</span>
                     </div>
                     <p class="text-[10px] text-white/60 leading-relaxed italic">"{{ loop.fact }}"</p>
@@ -185,7 +185,7 @@
         <span class="text-[9px] font-bold text-white/30 uppercase tracking-widest">Показать связи</span>
         <label class="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" v-model="showEdgeLabels" class="sr-only peer" />
-          <div class="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-pitchy-violet"></div>
+          <div class="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-white/10"></div>
         </label>
       </div>
     </div>
@@ -548,7 +548,7 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 
 <style scoped>
 .shadow-glow { filter: drop-shadow(0 0 4px var(--tw-shadow-color)); }
-.shadow-glow-cyan { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.4)); }
+.shadow-glow-cyan-fx { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.4)); }
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }

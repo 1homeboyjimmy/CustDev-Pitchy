@@ -20,17 +20,17 @@
 
           <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-6 uppercase tracking-[0.2em] text-[10px] font-bold text-white/40">
             <div class="flex items-center gap-2">
-              <ShieldCheckIcon class="w-4 h-4 text-pitchy-cyan" />
+              <ShieldCheckIcon class="w-4 h-4 text-white/80" />
               <span>100% Приватно</span>
             </div>
             <div class="hidden sm:block text-white/10">•</div>
             <div class="flex items-center gap-2">
-              <SparklesIcon class="w-4 h-4 text-pitchy-violet animate-pulse" />
+              <SparklesIcon class="w-4 h-4 text-white animate-pulse" />
               <span>Технология GraphRAG + LLM</span>
             </div>
             <div class="hidden sm:block text-white/10">•</div>
             <div class="flex items-center gap-2">
-              <ZapIcon class="w-4 h-4 text-pitchy-cyan" />
+              <ZapIcon class="w-4 h-4 text-white/80" />
               <span>Мгновенный инсайт</span>
             </div>
           </div>
@@ -57,7 +57,7 @@
             </h3>
             <div class="space-y-6">
               <div v-for="(step, i) in steps" :key="i" class="flex gap-4 group">
-                <span class="text-2xl font-bold text-white/10 group-hover:text-pitchy-violet transition-colors">{{ step.num }}</span>
+                <span class="text-2xl font-bold text-white/10 group-hover:text-white transition-colors">{{ step.num }}</span>
                 <div class="space-y-1">
                   <div class="text-sm font-bold text-white/80 transition-colors">{{ step.title }}</div>
                   <div class="text-xs text-white/40 leading-relaxed">{{ step.desc }}</div>
@@ -80,8 +80,8 @@
               </div>
               
               <div
-                class="relative border-2 border-dashed border-white/10 rounded-2xl h-48 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-pitchy-violet/30 transition-all duration-300 group"
-                :class="{ 'border-pitchy-violet bg-pitchy-violet/5': isDragOver }"
+                class="relative border-2 border-dashed border-white/10 rounded-2xl h-48 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/30 transition-all duration-300 group"
+                :class="{ 'border-white/25 bg-white/5': isDragOver }"
                 @dragover.prevent="handleDragOver"
                 @dragleave.prevent="handleDragLeave"
                 @drop.prevent="handleDrop"
@@ -90,7 +90,7 @@
                 <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" @change="handleFileSelect" class="hidden" :disabled="loading" />
                 
                 <div v-if="files.length === 0" class="text-center space-y-4">
-                  <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto group-hover:border-pitchy-violet group-hover:text-pitchy-violet transition-all">
+                  <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto group-hover:border-white/25 group-hover:text-white transition-all">
                     <UploadIcon class="w-6 h-6 border-none" />
                   </div>
                   <div class="space-y-1">
@@ -102,7 +102,7 @@
                 <div v-else class="w-full h-full p-4 overflow-y-auto space-y-2">
                   <div v-for="(file, index) in files" :key="index" class="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl group/item hover:bg-white/10 transition-colors">
                     <div class="flex items-center gap-3">
-                      <FileTextIcon class="w-4 h-4 text-pitchy-cyan" />
+                      <FileTextIcon class="w-4 h-4 text-white/80" />
                       <span class="text-xs font-mono text-white/70 truncate max-w-[200px]">{{ file.name }}</span>
                     </div>
                     <button @click.stop="removeFile(index)" class="p-1 hover:text-pitchy-score-red transition-colors">
@@ -138,7 +138,7 @@
             <!-- Action -->
             <PitchyButton 
               size="lg" 
-              class="w-full text-lg py-5 shadow-glow-primary" 
+              class="w-full text-lg py-5 shadow-[0_0_20px_rgba(255,255,255,0.15)]" 
               @click="startSimulation" 
               :disabled="!canSubmit || loading"
               :loading="loading"

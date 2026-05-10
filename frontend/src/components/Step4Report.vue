@@ -8,11 +8,11 @@
           <!-- Report Header -->
           <div class="space-y-4">
             <div class="flex items-center gap-3">
-              <span class="px-2 py-0.5 rounded bg-pitchy-violet/20 border border-pitchy-violet/30 text-[9px] font-bold text-pitchy-violet-light uppercase tracking-widest">Прогностический отчет</span>
+              <span class="px-2 py-0.5 rounded bg-white/20 border border-white/30 text-[9px] font-bold text-white/90 uppercase tracking-widest">Прогностический отчет</span>
               <span class="text-[9px] font-mono text-white/20 uppercase tracking-widest">ID: {{ reportId?.slice(0, 12) }}</span>
             </div>
             <h1 class="text-4xl font-bold text-white tracking-tight leading-tight">{{ reportOutline.title }}</h1>
-            <p class="text-sm text-white/50 leading-relaxed italic border-l-2 border-pitchy-violet pl-4">{{ reportOutline.summary }}</p>
+            <p class="text-sm text-white/50 leading-relaxed italic border-l-2 border-white/25 pl-4">{{ reportOutline.summary }}</p>
           </div>
 
           <!-- Section Iteration -->
@@ -25,7 +25,7 @@
               <GlassCard 
                 :class="[
                   'transition-all duration-500 overflow-hidden',
-                  currentSectionIndex === idx + 1 ? 'border-pitchy-violet/40 bg-pitchy-violet/5' : 'border-white/5'
+                  currentSectionIndex === idx + 1 ? 'border-white/40 bg-white/5' : 'border-white/5'
                 ]"
               >
                 <div 
@@ -33,8 +33,8 @@
                   @click="toggleSectionCollapse(idx)"
                 >
                   <div class="flex items-center gap-4">
-                    <span class="text-2xl font-black text-white/5 font-mono group-hover:text-pitchy-violet/20 transition-colors">{{ String(idx + 1).padStart(2, '0') }}</span>
-                    <h3 class="text-lg font-bold text-white group-hover:text-pitchy-violet-light transition-colors">{{ section.title }}</h3>
+                    <span class="text-2xl font-black text-white/5 font-mono group-hover:text-white/20 transition-colors">{{ String(idx + 1).padStart(2, '0') }}</span>
+                    <h3 class="text-lg font-bold text-white group-hover:text-white/90 transition-colors">{{ section.title }}</h3>
                   </div>
                   <div class="flex items-center gap-4">
                     <StatusBadge :type="generatedSections[idx + 1] ? 'success' : (currentSectionIndex === idx + 1 ? 'primary' : 'default')" :dot="currentSectionIndex === idx + 1">
@@ -50,10 +50,10 @@
                 <div v-show="!collapsedSections.has(idx)" class="mt-6 animate-in slide-in-from-top-2 duration-500">
                   <div v-if="generatedSections[idx + 1]" class="prose prose-invert prose-sm max-w-none text-white/70 leading-relaxed custom-markdown" v-html="renderMarkdown(generatedSections[idx + 1])"></div>
                   <div v-else-if="currentSectionIndex === idx + 1" class="py-8 flex flex-col items-center justify-center space-y-4">
-                    <div class="w-12 h-1 border-2 border-pitchy-violet/20 rounded-full overflow-hidden relative">
-                      <div class="absolute inset-0 bg-pitchy-violet animate-progress-ind"></div>
+                    <div class="w-12 h-1 border-2 border-white/20 rounded-full overflow-hidden relative">
+                      <div class="absolute inset-0 bg-white/10 animate-progress-ind"></div>
                     </div>
-                    <span class="text-[10px] font-bold text-pitchy-violet-light uppercase tracking-[0.3em] animate-pulse">Анализ потоков...</span>
+                    <span class="text-[10px] font-bold text-white/90 uppercase tracking-[0.3em] animate-pulse">Анализ потоков...</span>
                   </div>
                 </div>
               </GlassCard>
@@ -64,8 +64,8 @@
         <!-- Waiting for First Section -->
         <div v-if="!reportOutline" class="py-40 flex flex-col items-center justify-center space-y-6">
            <div class="relative">
-             <div class="w-20 h-20 rounded-full border-2 border-pitchy-violet/10 animate-spin border-t-pitchy-violet"></div>
-             <div class="absolute inset-4 rounded-full border-2 border-pitchy-cyan/10 animate-spin-slow border-t-pitchy-cyan"></div>
+             <div class="w-20 h-20 rounded-full border-2 border-white/10 animate-spin border-t-white"></div>
+             <div class="absolute inset-4 rounded-full border-2 border-white/10 animate-spin-slow border-t-white/80"></div>
            </div>
            <div class="text-xs font-bold text-white/20 uppercase tracking-[0.4em] animate-pulse">Установка аналитического ядра...</div>
         </div>
@@ -76,7 +76,7 @@
         <GlassCard class="bg-[#0A0A0F]/50 border-white/10 backdrop-blur-xl">
            <div class="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
              <div class="flex items-center gap-3">
-               <ActivityIcon class="w-4 h-4 text-pitchy-cyan" />
+               <ActivityIcon class="w-4 h-4 text-white/80" />
                <span class="text-sm font-bold text-white uppercase tracking-widest">Метрики процесса</span>
              </div>
              <StatusBadge :type="isComplete ? 'success' : 'primary'" :dot="!isComplete">
@@ -93,7 +93,7 @@
 
            <!-- Timeline Track -->
            <div class="space-y-6 relative max-h-[600px] overflow-y-auto custom-scrollbar pr-4">
-             <div class="absolute left-3.5 top-2 bottom-2 w-px bg-gradient-to-b from-pitchy-cyan via-white/10 to-transparent"></div>
+             <div class="absolute left-3.5 top-2 bottom-2 w-px bg-gradient-to-b from-white/70 via-white/10 to-transparent"></div>
              
              <TransitionGroup name="log-fade">
                <div v-for="(log, idx) in displayLogs" :key="log.timestamp + '-' + idx" class="relative pl-10 group/log">
@@ -112,8 +112,8 @@
                     >
                       <!-- Tool Call Display -->
                       <div v-if="log.action === 'tool_call'" class="flex items-center gap-2">
-                        <component :is="getIconForTool(log.details?.tool_name)" class="w-3 h-3 text-pitchy-cyan" />
-                        <span class="text-[10px] font-bold text-pitchy-cyan-light">{{ getToolDisplayName(log.details?.tool_name) }}</span>
+                        <component :is="getIconForTool(log.details?.tool_name)" class="w-3 h-3 text-white/80" />
+                        <span class="text-[10px] font-bold text-white/85">{{ getToolDisplayName(log.details?.tool_name) }}</span>
                       </div>
 
                       <!-- Tool Result (Minimalist Preview) -->
@@ -127,14 +127,14 @@
 
                       <!-- Section Tags -->
                       <div v-if="log.action === 'section_start' || log.action === 'section_complete'" class="flex items-center gap-2">
-                        <div class="text-[10px] font-black text-pitchy-violet px-1.5 py-0.5 rounded bg-pitchy-violet/10 border border-pitchy-violet/20">#{{ log.section_index }}</div>
+                        <div class="text-[10px] font-black text-white px-1.5 py-0.5 rounded bg-white/10 border border-white/20">#{{ log.section_index }}</div>
                         <span class="text-[10px] font-bold text-white">{{ log.section_title }}</span>
                       </div>
 
                       <!-- LLM Iteration -->
                       <div v-if="log.action === 'llm_response'" class="space-y-1">
                          <div class="text-[9px] font-bold text-white/40 uppercase">Цикл когнитивного синтеза {{ log.details?.iteration }}</div>
-                         <div v-if="log.details?.has_final_answer" class="text-[9px] text-pitchy-cyan font-bold italic">>> Последовательность завершена</div>
+                         <div v-if="log.details?.has_final_answer" class="text-[9px] text-white/80 font-bold italic">>> Последовательность завершена</div>
                       </div>
                     </div>
                     
@@ -160,7 +160,7 @@
     <div class="rounded-2xl bg-[#0A0A0F]/90 border border-white/10 overflow-hidden shadow-2xl">
       <div class="h-10 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[9px] font-mono font-bold tracking-[0.2em] text-white/30">
         <div class="flex items-center gap-2">
-          <TerminalIcon class="w-3 h-3 text-pitchy-violet" />
+          <TerminalIcon class="w-3 h-3 text-white" />
           ГЕНЕРАТОР_ОТЧЕТОВ_СИМУЛЯЦИИ_V4
         </div>
         <div>{{ reportId || 'БЕЗ_СЕССИИ' }}</div>
@@ -169,7 +169,7 @@
         <div v-for="(log, idx) in consoleLogs" :key="idx" class="flex gap-4 group/log">
           <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">[{{ String(idx).padStart(3, '0') }}]</span>
           <span :class="['text-white/60 group-hover/log:text-white/80 transition-colors break-all', getLogLevelClass(log)]">
-            <span class="text-pitchy-violet mr-1">>></span> {{ log }}
+            <span class="text-white mr-1">>></span> {{ log }}
           </span>
         </div>
       </div>
@@ -252,7 +252,7 @@ const toggleSectionCollapse = idx => {
 const renderMarkdown = content => content ? marked(content) : ''
 const getLogLevelClass = log => log.includes('ERR') || log.includes('failed') ? 'text-red-400' : (log.includes('WARN') ? 'text-orange-400' : 'text-white/60')
 const getActionLabel = a => ({ 'report_start': 'ПОДГОТОВКА', 'planning_start': 'ПЛАНИРОВАНИЕ', 'planning_complete': 'ПЛАН ГОТОВ', 'section_start': 'НОВЫЙ ЭТАП', 'section_content': 'АНАЛИЗ', 'section_complete': 'ОБРАБОТКА', 'tool_call': 'ДЕЙСТВИЕ', 'tool_result': 'ДАННЫЕ', 'llm_response': 'СИНТЕЗ ЗНАНИЙ', 'report_complete': 'ЗАВЕРШЕНО' }[a] || a)
-const getLogColorClass = a => ({ 'report_start': 'bg-white', 'planning_start': 'bg-pitchy-violet', 'planning_complete': 'bg-green-500', 'section_start': 'bg-pitchy-violet', 'section_complete': 'bg-green-500', 'tool_call': 'bg-pitchy-cyan', 'tool_result': 'bg-pitchy-cyan', 'llm_response': 'bg-white', 'report_complete': 'bg-green-500' }[a] || 'bg-white/20')
+const getLogColorClass = a => ({ 'report_start': 'bg-white', 'planning_start': 'bg-white/10', 'planning_complete': 'bg-green-500', 'section_start': 'bg-white/10', 'section_complete': 'bg-green-500', 'tool_call': 'bg-white/8', 'tool_result': 'bg-white/8', 'llm_response': 'bg-white', 'report_complete': 'bg-green-500' }[a] || 'bg-white/20')
 const formatTime = ts => ts ? new Date(ts).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''
 const formatResultSize = s => s > 1024 ? (s / 1024).toFixed(1) + 'kb' : (s || 0) + 'b'
 const truncateText = (t, l) => t && t.length > l ? t.substring(0, l) + '...' : (t || '')

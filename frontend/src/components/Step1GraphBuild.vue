@@ -3,7 +3,7 @@
     <!-- Introduction -->
     <div class="space-y-2">
       <h2 class="text-2xl font-bold text-white tracking-tight italic">
-        <span class="text-pitchy-violet">01</span> / Синтез знаний
+        <span class="text-white">01</span> / Синтез знаний
       </h2>
       <p class="text-xs text-white/40 leading-relaxed max-w-xl">
         Движок извлекает архитектуру общества из ваших неструктурированных данных. Этот процесс создает фундаментальную онтологию и многомерный граф знаний, который станет основой симуляции.
@@ -11,13 +11,13 @@
     </div>
 
     <!-- Step 01: Ontology -->
-    <GlassCard :class="{ 'border-pitchy-violet/30 bg-pitchy-violet/5 shadow-glow-primary/5': currentPhase === 0 }">
+    <GlassCard :class="{ 'border-white/30 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.15)]/5': currentPhase === 0 }">
       <div class="flex items-start justify-between mb-6">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Метод синтеза</span>
             <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-pitchy-violet">POST /api/graph/ontology/generate</span>
+            <span class="text-white">POST /api/graph/ontology/generate</span>
           </div>
           <h3 class="text-lg font-bold text-white">Генерация онтологии</h3>
         </div>
@@ -41,9 +41,9 @@
         </p>
 
         <!-- Progress Indicator -->
-        <div v-if="currentPhase === 0 && ontologyProgress" class="flex items-center gap-3 p-3 rounded-xl bg-pitchy-violet/10 border border-pitchy-violet/20 animate-pulse">
-          <div class="w-4 h-4 border-2 border-pitchy-violet/30 border-t-pitchy-violet rounded-full animate-spin"></div>
-          <span class="text-[10px] font-bold text-pitchy-violet-light uppercase tracking-widest">
+        <div v-if="currentPhase === 0 && ontologyProgress" class="flex items-center gap-3 p-3 rounded-xl bg-white/10 border border-white/20 animate-pulse">
+          <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <span class="text-[10px] font-bold text-white/90 uppercase tracking-widest">
             {{ ontologyProgress.message || 'Синтез архитектуры общества...' }}
           </span>
         </div>
@@ -57,7 +57,7 @@
               :key="entity.name"
               @click="selectOntologyItem(entity, 'entity')"
               :title="entity.name"
-              class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-white/60 hover:text-white hover:border-pitchy-violet/50 transition-all"
+              class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-white/60 hover:text-white hover:border-white/50 transition-all"
             >
               {{ translateType(entity.name) }}
             </button>
@@ -73,7 +73,7 @@
               :key="rel.name" 
               @click="selectOntologyItem(rel, 'relation')"
               :title="rel.name"
-              class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-pitchy-violet-light/60 hover:text-white hover:border-pitchy-violet transition-all"
+              class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-white/60 hover:text-white hover:border-white/25 transition-all"
             >
               {{ translateType(rel.name) }}
             </button>
@@ -83,13 +83,13 @@
     </GlassCard>
 
     <!-- Step 02: Graph Build -->
-    <GlassCard :class="{ 'border-pitchy-cyan/30 bg-pitchy-cyan/5 shadow-glow-cyan/5': currentPhase === 1 }">
+    <GlassCard :class="{ 'border-white/30 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.12)]/5': currentPhase === 1 }">
       <div class="flex items-start justify-between mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Экземпляр процесса</span>
             <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-pitchy-cyan">POST /api/graph/build</span>
+            <span class="text-white/80">POST /api/graph/build</span>
           </div>
           <h3 class="text-lg font-bold text-white">Построение GraphRAG</h3>
         </div>
@@ -107,7 +107,7 @@
         <div v-if="currentPhase === 1" class="space-y-2">
           <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
             <div 
-              class="h-full bg-gradient-to-r from-pitchy-violet to-pitchy-cyan transition-all duration-500 shadow-glow shadow-pitchy-cyan" 
+              class="h-full bg-gradient-to-r from-white to-white/70 transition-all duration-500 shadow-glow shadow-white/25" 
               :style="{ width: `${buildProgress?.progress || 0}%` }"
             ></div>
           </div>
@@ -129,9 +129,9 @@
     </GlassCard>
 
     <!-- Step 03: Complete -->
-    <GlassCard v-if="currentPhase >= 2" class="border-pitchy-cyan bg-pitchy-cyan/10 animate-in zoom-in duration-500 shadow-glow-cyan/20">
+    <GlassCard v-if="currentPhase >= 2" class="border-white/20 bg-white/10 animate-in zoom-in duration-500 shadow-[0_0_20px_rgba(255,255,255,0.12)]/20">
       <div class="flex flex-col items-center text-center space-y-6">
-        <div class="w-12 h-12 rounded-full bg-pitchy-cyan/20 flex items-center justify-center text-pitchy-cyan shadow-glow shadow-pitchy-cyan">
+        <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25">
           <CheckIcon class="w-6 h-6" />
         </div>
         <div class="space-y-2">
@@ -143,7 +143,7 @@
         
         <PitchyButton 
           variant="primary" 
-          class="w-full max-w-xs shadow-glow-primary text-sm py-4" 
+          class="w-full max-w-xs shadow-[0_0_20px_rgba(255,255,255,0.15)] text-sm py-4" 
           @click="handleEnterEnvSetup"
           :loading="creatingSimulation"
         >

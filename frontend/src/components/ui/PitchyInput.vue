@@ -1,10 +1,10 @@
 <template>
   <div class="w-full flex flex-col gap-1.5 font-sans">
-    <label v-if="label" class="text-xs font-semibold text-white/40 uppercase tracking-widest pl-1">
+    <label v-if="label" class="text-[11px] font-bold text-white/40 uppercase tracking-widest pl-1 font-display">
       {{ label }}
     </label>
     <div class="relative flex items-center group">
-      <div v-if="$slots.icon" class="absolute left-4 text-white/30 group-focus-within:text-pitchy-violet transition-colors">
+      <div v-if="$slots.icon" class="absolute left-4 text-white/30 group-focus-within:text-white transition-colors">
         <slot name="icon"></slot>
       </div>
       <input

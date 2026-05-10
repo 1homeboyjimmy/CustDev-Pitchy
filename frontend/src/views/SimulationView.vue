@@ -20,7 +20,7 @@
             :key="mode"
             @click="viewMode = mode"
             class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-            :class="viewMode === mode ? 'bg-pitchy-violet text-white shadow-glow-primary' : 'text-white/40 hover:text-white/60'"
+            :class="viewMode === mode ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'text-white/40 hover:text-white/60'"
           >
             {{ mode === 'graph' ? 'Граф' : (mode === 'split' ? 'Разделение' : 'Рабочая зона') }}
           </button>

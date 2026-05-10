@@ -1,7 +1,7 @@
 <template>
   <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pitchy-violet/10 blur-[120px] rounded-full"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-pitchy-cyan/10 blur-[120px] rounded-full"></div>
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/10 blur-[120px] rounded-full"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/10 blur-[120px] rounded-full"></div>
     <div class="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px] opacity-10"></div>
   </div>
 
@@ -28,7 +28,7 @@
             :key="mode"
             @click="viewMode = mode"
             class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-            :class="viewMode === mode ? 'bg-pitchy-violet text-white shadow-glow-primary' : 'text-white/40 hover:text-white/60'"
+            :class="viewMode === mode ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'text-white/40 hover:text-white/60'"
           >
             {{ mode === 'graph' ? 'Граф' : (mode === 'split' ? 'Разделение' : 'Рабочая зона') }}
           </button>
@@ -113,13 +113,13 @@
           @click="isTerminalCollapsed = !isTerminalCollapsed"
         >
           <div class="flex items-center gap-2">
-            <TerminalIcon class="w-3 h-3 text-pitchy-cyan" />
+            <TerminalIcon class="w-3 h-3 text-white/80" />
             ТЕРМИНАЛ_СИСТЕМЫ_Pitchy_PRO [{{ isTerminalCollapsed ? 'СВЕРНУТ' : 'ПУЛЬС_РЕАЛЬНОГО_ВРЕМЕНИ' }}]
           </div>
           <div class="flex items-center gap-4">
             <span v-if="!isTerminalCollapsed">АДРЕС_ПРОЕКТА: {{ currentProjectId?.slice(0, 12) }}</span>
             <div class="flex items-center gap-2">
-              <span class="text-pitchy-cyan">{{ systemLogs.length }} ЗАПИСЕЙ</span>
+              <span class="text-white/80">{{ systemLogs.length }} ЗАПИСЕЙ</span>
               <ChevronUpIcon v-if="isTerminalCollapsed" class="w-3 h-3" />
               <ChevronDownIcon v-else class="w-3 h-3" />
             </div>
@@ -129,7 +129,7 @@
           <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-4 group/log">
             <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">{{ log.time }}</span>
             <span class="text-white/60 group-hover/log:text-white/80 transition-colors break-all">
-              <span class="text-pitchy-cyan mr-1">>></span> {{ log.msg }}
+              <span class="text-white/80 mr-1">>></span> {{ log.msg }}
             </span>
           </div>
           <div v-if="systemLogs.length === 0" class="h-full flex items-center justify-center text-[9px] text-white/10 uppercase tracking-[0.3em]">

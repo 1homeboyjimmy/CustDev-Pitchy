@@ -7,12 +7,12 @@
         :key="plt"
         :class="[
           'relative overflow-hidden group transition-all duration-500',
-          runStatus[`${plt}_running`] ? (plt === 'twitter' ? 'border-pitchy-cyan/40 bg-pitchy-cyan/5' : 'border-pitchy-violet/40 bg-pitchy-violet/5') : 'border-white/5 opacity-60'
+          runStatus[`${plt}_running`] ? (plt === 'twitter' ? 'border-white/40 bg-white/5' : 'border-white/40 bg-white/5') : 'border-white/5 opacity-60'
         ]"
       >
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <div :class="['w-8 h-8 rounded-xl flex items-center justify-center', plt === 'twitter' ? 'bg-pitchy-cyan/20 text-pitchy-cyan' : 'bg-pitchy-violet/20 text-pitchy-violet']">
+            <div :class="['w-8 h-8 rounded-xl flex items-center justify-center', plt === 'twitter' ? 'bg-white/20 text-white/80' : 'bg-white/20 text-white']">
               <component :is="plt === 'twitter' ? GlobeIcon : UsersIcon" class="w-4 h-4" />
             </div>
             <div class="space-y-0.5">
@@ -33,7 +33,7 @@
         </div>
 
         <!-- Glow effect on active -->
-        <div v-if="runStatus[`${plt}_running`]" :class="['absolute -inset-1 opacity-20 blur-2xl -z-10', plt === 'twitter' ? 'bg-pitchy-cyan' : 'bg-pitchy-violet']"></div>
+        <div v-if="runStatus[`${plt}_running`]" :class="['absolute -inset-1 opacity-20 blur-2xl -z-10', plt === 'twitter' ? 'bg-white/8' : 'bg-white/10']"></div>
       </GlassCard>
     </div>
 
@@ -41,7 +41,7 @@
     <div class="relative space-y-6 min-h-[400px]">
       <!-- Final Action Button (Visible when completed) -->
       <div v-if="phase === 2 || runStatus.twitter_completed" class="sticky top-0 z-30 pb-4 flex justify-center animate-in slide-in-from-top-4 duration-500">
-        <PitchyButton variant="primary" :loading="isGeneratingReport" @click="handleNextStep" class="shadow-glow-primary px-8 py-4">
+        <PitchyButton variant="primary" :loading="isGeneratingReport" @click="handleNextStep" class="shadow-[0_0_20px_rgba(255,255,255,0.15)] px-8 py-4">
           Синтезировать аналитический отчет
           <template #icon><ZapIcon class="w-4 h-4 fill-current" /></template>
         </PitchyButton>
@@ -50,7 +50,7 @@
       <!-- Timeline Feed -->
       <div class="relative pl-8 md:pl-0">
         <!-- Vertical Axis -->
-        <div class="absolute left-4 md:left-1/2 top-4 bottom-4 w-px bg-gradient-to-b from-pitchy-violet via-pitchy-cyan to-transparent opacity-20 hidden md:block"></div>
+        <div class="absolute left-4 md:left-1/2 top-4 bottom-4 w-px bg-gradient-to-b from-white via-white/70 to-transparent opacity-20 hidden md:block"></div>
         
         <div class="space-y-6 relative">
           <TransitionGroup name="action-fade">
@@ -58,8 +58,8 @@
               :class="['relative flex flex-col md:flex-row items-start md:items-center gap-6 group', idx % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse']">
               
               <!-- Center Marker -->
-              <div class="absolute left-4 md:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full border border-white/20 bg-[#0A0A0F] z-10 hidden md:block group-hover:border-pitchy-cyan transition-colors">
-                <div v-if="idx === chronologicalActions.length - 1" class="absolute inset-0 rounded-full bg-pitchy-cyan animate-ping opacity-50"></div>
+              <div class="absolute left-4 md:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full border border-white/20 bg-[#0A0A0F] z-10 hidden md:block group-hover:border-white/20 transition-colors">
+                <div v-if="idx === chronologicalActions.length - 1" class="absolute inset-0 rounded-full bg-white/8 animate-ping opacity-50"></div>
               </div>
 
               <!-- Content Card -->
@@ -71,9 +71,9 @@
                         {{ action.agent_name?.charAt(0) || 'A' }}
                       </div>
                       <div class="space-y-0.5">
-                        <div class="text-[11px] font-bold text-white group-hover:text-pitchy-cyan transition-colors">{{ action.agent_name }}</div>
+                        <div class="text-[11px] font-bold text-white group-hover:text-white/80 transition-colors">{{ action.agent_name }}</div>
                         <div class="flex items-center gap-1.5 font-mono text-[8px] text-white/30 uppercase tracking-tighter">
-                          <span :class="action.platform === 'twitter' ? 'text-pitchy-cyan' : 'text-pitchy-violet'">{{ action.platform }}</span>
+                          <span :class="action.platform === 'twitter' ? 'text-white/80' : 'text-white'">{{ action.platform }}</span>
                           <span>•</span>
                           <span>Р{{ action.round_num }}</span>
                           <span>•</span>
@@ -102,11 +102,11 @@
                     </div>
 
                     <!-- Actions Info (Likes, Votes, etc) -->
-                    <div v-if="['LIKE_POST', 'UPVOTE_POST', 'DOWNVOTE_POST', 'REPOST'].includes(action.action_type)" class="flex items-center gap-2 p-2 rounded-lg bg-pitchy-cyan/5 border border-pitchy-cyan/10">
-                      <HeartIcon v-if="action.action_type === 'LIKE_POST'" class="w-3 h-3 text-pitchy-cyan fill-current" />
-                      <ArrowUpIcon v-if="action.action_type === 'UPVOTE_POST'" class="w-3 h-3 text-pitchy-cyan" />
-                      <ArrowDownIcon v-if="action.action_type === 'DOWNVOTE_POST'" class="w-3 h-3 text-pitchy-violet" />
-                      <RepeatIcon v-if="action.action_type === 'REPOST'" class="w-3 h-3 text-pitchy-cyan" />
+                    <div v-if="['LIKE_POST', 'UPVOTE_POST', 'DOWNVOTE_POST', 'REPOST'].includes(action.action_type)" class="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10">
+                      <HeartIcon v-if="action.action_type === 'LIKE_POST'" class="w-3 h-3 text-white/80 fill-current" />
+                      <ArrowUpIcon v-if="action.action_type === 'UPVOTE_POST'" class="w-3 h-3 text-white/80" />
+                      <ArrowDownIcon v-if="action.action_type === 'DOWNVOTE_POST'" class="w-3 h-3 text-white" />
+                      <RepeatIcon v-if="action.action_type === 'REPOST'" class="w-3 h-3 text-white/80" />
                       <span class="text-[9px] font-bold text-white/50 uppercase">{{ getActionTypeLabel(action.action_type) }} НА СЛЕДЕ #{{ action.action_args?.post_id || 'ID_NULL' }}</span>
                     </div>
                   </div>
@@ -120,8 +120,8 @@
       <!-- Empty State / Searching -->
       <div v-if="allActions.length === 0" class="flex flex-col items-center justify-center py-20 space-y-4">
         <div class="relative">
-          <div class="w-16 h-16 rounded-full border-2 border-pitchy-cyan/20 animate-spin border-t-pitchy-cyan"></div>
-          <div class="absolute inset-4 rounded-full border-2 border-pitchy-violet/20 animate-spin-slow border-t-pitchy-violet"></div>
+          <div class="w-16 h-16 rounded-full border-2 border-white/20 animate-spin border-t-white/80"></div>
+          <div class="absolute inset-4 rounded-full border-2 border-white/20 animate-spin-slow border-t-white"></div>
         </div>
         <div class="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] animate-pulse">Синхронизация матрицы событий...</div>
       </div>
@@ -131,7 +131,7 @@
     <div class="rounded-2xl bg-[#0A0A0F]/90 border border-white/10 overflow-hidden shadow-2xl">
       <div class="h-10 bg-white/[0.02] border-b border-white/5 px-4 flex items-center justify-between text-[9px] font-mono font-bold tracking-[0.2em] text-white/30">
         <div class="flex items-center gap-2">
-          <ActivityIcon class="w-3 h-3 text-pitchy-cyan" />
+          <ActivityIcon class="w-3 h-3 text-white/80" />
           МОНИТОР_ОБОРУДОВАНИЯ_СИМУЛЯЦИИ
         </div>
         <div class="flex items-center gap-4">
@@ -151,7 +151,7 @@
         <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-4 group/log">
           <span class="text-white/20 group-hover/log:text-white/40 transition-colors shrink-0">{{ log.time }}</span>
           <span class="text-white/60 group-hover/log:text-white/80 transition-colors break-all">
-            <span class="text-pitchy-cyan mr-1">>></span> {{ log.msg }}
+            <span class="text-white/80 mr-1">>></span> {{ log.msg }}
           </span>
         </div>
       </div>

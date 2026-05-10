@@ -17,7 +17,7 @@
         v-for="project in projects" 
         :key="project.simulation_id"
         hover
-        class="group cursor-pointer border-white/5 hover:border-pitchy-violet/30 transition-all duration-500"
+        class="group cursor-pointer border-white/5 hover:border-white/30 transition-all duration-500"
         @click="navigateToProject(project)"
       >
         <div class="space-y-4">
@@ -28,12 +28,12 @@
             <div class="flex gap-1.5 text-xs">
               <div 
                 v-if="project.project_id" 
-                class="w-1.5 h-1.5 rounded-full bg-pitchy-cyan shadow-glow shadow-pitchy-cyan" 
+                class="w-1.5 h-1.5 rounded-full bg-white/8 shadow-glow shadow-white/25" 
                 title="Graph Built"
               ></div>
               <div 
                 v-if="project.report_id" 
-                class="w-1.5 h-1.5 rounded-full bg-pitchy-violet shadow-glow shadow-pitchy-violet" 
+                class="w-1.5 h-1.5 rounded-full bg-white/10 shadow-glow shadow-white/30" 
                 title="Report Ready"
               ></div>
             </div>
@@ -74,7 +74,7 @@
             <div class="flex items-start justify-between">
               <div class="space-y-1">
                 <div class="flex items-center gap-3">
-                  <span class="text-xs font-mono text-pitchy-violet uppercase tracking-widest">{{ formatSimulationId(selectedProject.simulation_id) }}</span>
+                  <span class="text-xs font-mono text-white uppercase tracking-widest">{{ formatSimulationId(selectedProject.simulation_id) }}</span>
                   <StatusBadge :type="getProgressType(selectedProject)">{{ formatRounds(selectedProject) }}</StatusBadge>
                 </div>
                 <h2 class="text-2xl font-bold text-white">{{ getSimulationTitle(selectedProject.simulation_requirement) }}</h2>
@@ -94,7 +94,7 @@
                   <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Files</span>
                   <div class="space-y-2">
                     <div v-for="file in selectedProject.files" :key="file.filename" class="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/5">
-                      <FileTextIcon class="w-3.5 h-3.5 text-pitchy-cyan" />
+                      <FileTextIcon class="w-3.5 h-3.5 text-white/80" />
                       <span class="text-xs font-mono text-white/60 truncate">{{ file.filename }}</span>
                     </div>
                   </div>
@@ -110,7 +110,7 @@
                   <span>Step 2: Environment Setup</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
-                <PitchyButton variant="primary" class="w-full justify-between shadow-glow-primary" @click="goToReport" :disabled="!selectedProject.report_id">
+                <PitchyButton variant="primary" class="w-full justify-between shadow-[0_0_20px_rgba(255,255,255,0.15)]" @click="goToReport" :disabled="!selectedProject.report_id">
                   <span>Step 4: View Analysis Report</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>

@@ -4,7 +4,7 @@
     <div class="w-full lg:w-1/3 flex flex-col space-y-6 overflow-y-auto custom-scrollbar pr-2">
       <div v-if="reportOutline" class="space-y-6">
         <div class="space-y-2">
-          <div class="text-[10px] font-bold text-pitchy-violet-light uppercase tracking-[0.2em] opacity-60">Исходный документ</div>
+          <div class="text-[10px] font-bold text-white/90 uppercase tracking-[0.2em] opacity-60">Исходный документ</div>
           <h2 class="text-xl font-bold text-white tracking-tight leading-snug">{{ reportOutline.title }}</h2>
         </div>
 
@@ -17,7 +17,7 @@
             <GlassCard 
               :class="[
                 'transition-all duration-500 overflow-hidden text-left p-4',
-                currentSectionIndex === idx + 1 ? 'border-pitchy-violet/40 bg-pitchy-violet/5' : 'border-white/5 opacity-80 hover:opacity-100'
+                currentSectionIndex === idx + 1 ? 'border-white/40 bg-white/5' : 'border-white/5 opacity-80 hover:opacity-100'
               ]"
             >
               <div 
@@ -55,7 +55,7 @@
         <div class="flex items-center gap-2">
           <button 
             @click="selectReportAgentChat"
-            :class="['px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2', activeTab === 'chat' && chatTarget === 'report_agent' ? 'bg-pitchy-violet text-white shadow-glow-primary' : 'text-white/40 hover:text-white/60']"
+            :class="['px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2', activeTab === 'chat' && chatTarget === 'report_agent' ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'text-white/40 hover:text-white/60']"
           >
             <ZapIcon class="w-3 h-3" />
             Агент отчета
@@ -64,7 +64,7 @@
           <div class="relative group">
             <button 
               @click="toggleAgentDropdown"
-              :class="['px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2', chatTarget === 'agent' ? 'bg-pitchy-cyan text-[#0A0A0F] font-black' : 'text-white/40 hover:text-white/60']"
+              :class="['px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2', chatTarget === 'agent' ? 'bg-white/8 text-[#0A0A0F] font-black' : 'text-white/40 hover:text-white/60']"
             >
               <UsersIcon class="w-3 h-3" />
               {{ selectedAgent ? selectedAgent.username : 'Сущности матрицы' }}
@@ -109,9 +109,9 @@
         <!-- Chat Interface -->
         <div v-if="activeTab === 'chat'" class="flex-1 flex flex-col overflow-hidden">
           <!-- Chat Context Overlay -->
-          <div v-if="chatTarget === 'report_agent' && showToolsDetail" class="px-6 py-3 bg-pitchy-violet/5 border-b border-pitchy-violet/10 flex items-center justify-between text-[10px]">
+          <div v-if="chatTarget === 'report_agent' && showToolsDetail" class="px-6 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between text-[10px]">
             <div class="flex items-center gap-6">
-               <div v-for="t in ['InsightForge', 'Panorama', 'QuickSync', 'Interviews']" :key="t" class="flex items-center gap-1.5 text-pitchy-violet-light font-bold uppercase tracking-tighter opacity-80">
+               <div v-for="t in ['InsightForge', 'Panorama', 'QuickSync', 'Interviews']" :key="t" class="flex items-center gap-1.5 text-white/90 font-bold uppercase tracking-tighter opacity-80">
                  <div class="w-1 h-1 rounded-full bg-current shadow-glow"></div>
                  {{ t }}
                </div>
@@ -130,7 +130,7 @@
 
             <div v-for="(msg, idx) in chatHistory" :key="idx" :class="['flex gap-4 group', msg.role === 'user' ? 'flex-row-reverse' : '']">
               <div :class="['w-8 h-8 rounded-xl shrink-0 border flex items-center justify-center text-[11px] font-black uppercase shadow-glow transition-all duration-500', 
-                msg.role === 'user' ? 'bg-white/5 border-white/20 text-white' : (chatTarget === 'report_agent' ? 'bg-pitchy-violet border-pitchy-violet/30 text-white' : 'bg-pitchy-cyan border-pitchy-cyan/30 text-[#0A0A0F]')]">
+                msg.role === 'user' ? 'bg-white/5 border-white/20 text-white' : (chatTarget === 'report_agent' ? 'bg-white/10 border-white/30 text-white' : 'bg-white/8 border-white/30 text-[#0A0A0F]')]">
                 {{ msg.role === 'user' ? 'U' : (chatTarget === 'report_agent' ? 'R' : (selectedAgent?.username?.charAt(0) || 'A')) }}
               </div>
               <div :class="['max-w-[85%] space-y-1', msg.role === 'user' ? 'text-right' : 'text-left']">
@@ -147,7 +147,7 @@
 
             <!-- Typing Indicator -->
             <div v-if="isSending" class="flex gap-4">
-              <div :class="['w-8 h-8 rounded-xl shrink-0 border flex items-center justify-center shadow-glow animate-pulse', chatTarget === 'report_agent' ? 'bg-pitchy-violet border-pitchy-violet/30' : 'bg-pitchy-cyan border-pitchy-cyan/30']">
+              <div :class="['w-8 h-8 rounded-xl shrink-0 border flex items-center justify-center shadow-glow animate-pulse', chatTarget === 'report_agent' ? 'bg-white/10 border-white/30' : 'bg-white/8 border-white/30']">
                 <div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
               </div>
               <div class="px-4 py-3 rounded-2xl bg-[#12121A] border border-white/5">
@@ -163,7 +163,7 @@
           <!-- Input Area -->
           <div class="p-6 shrink-0 bg-white/[0.02] border-t border-white/5">
             <div :class="['relative group transition-all duration-500 rounded-2xl border bg-[#0A0A0F]/50 backdrop-blur-xl', 
-              isSending ? 'opacity-50 pointer-events-none' : (focusInput ? (chatTarget === 'report_agent' ? 'border-pitchy-violet/50 shadow-glow-primary' : 'border-pitchy-cyan/50 shadow-glow-cyan') : 'border-white/10')]">
+              isSending ? 'opacity-50 pointer-events-none' : (focusInput ? (chatTarget === 'report_agent' ? 'border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.12)]') : 'border-white/10')]">
               <textarea 
                 v-model="chatInput" 
                 class="w-full bg-transparent border-none focus:ring-0 text-sm text-white px-5 py-4 min-h-[56px] max-h-40 custom-scrollbar placeholder:text-white/20"
@@ -177,7 +177,7 @@
                 @click="sendMessage"
                 :disabled="!chatInput.trim() || isSending"
                 :class="['absolute right-3 bottom-3 w-10 h-10 rounded-xl flex items-center justify-center transition-all', 
-                  chatInput.trim() ? (chatTarget === 'report_agent' ? 'bg-pitchy-violet text-white shadow-glow-primary' : 'bg-pitchy-cyan text-[#0A0A0F] shadow-glow-cyan') : 'bg-white/5 text-white/20']"
+                  chatInput.trim() ? (chatTarget === 'report_agent' ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'bg-white/8 text-[#0A0A0F] shadow-[0_0_20px_rgba(255,255,255,0.12)]') : 'bg-white/5 text-white/20']"
               >
                 <SendHorizonalIcon class="w-5 h-5" />
               </button>
@@ -194,7 +194,7 @@
                   <div class="flex items-center justify-between">
                     <h3 class="text-xs font-bold text-white uppercase tracking-[0.2em]">Целевые кластеры</h3>
                     <div class="flex gap-4">
-                      <button @click="selectAllAgents" class="text-[9px] font-bold text-pitchy-cyan uppercase hover:underline">Выбрать все</button>
+                      <button @click="selectAllAgents" class="text-[9px] font-bold text-white/80 uppercase hover:underline">Выбрать все</button>
                       <button @click="clearAgentSelection" class="text-[9px] font-bold text-white/30 uppercase hover:underline">Очистить</button>
                     </div>
                   </div>
@@ -204,17 +204,17 @@
                       :key="idx"
                       @click="toggleAgentSelection(idx)"
                       :class="['flex items-center gap-3 p-3 rounded-2xl border transition-all text-left group', 
-                        selectedAgents.has(idx) ? 'bg-pitchy-cyan/10 border-pitchy-cyan/30' : 'bg-white/[0.02] border-white/5 hover:border-white/10']"
+                        selectedAgents.has(idx) ? 'bg-white/10 border-white/30' : 'bg-white/[0.02] border-white/5 hover:border-white/10']"
                     >
                       <div :class="['w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black transition-colors', 
-                        selectedAgents.has(idx) ? 'bg-pitchy-cyan text-[#0A0A0F]' : 'bg-white/5 text-white/20 group-hover:bg-white/10']">
+                        selectedAgents.has(idx) ? 'bg-white/8 text-[#0A0A0F]' : 'bg-white/5 text-white/20 group-hover:bg-white/10']">
                         {{ agent.username?.charAt(0) }}
                       </div>
                       <div class="min-w-0 flex-1">
-                        <div :class="['text-[11px] font-bold truncate transition-colors', selectedAgents.has(idx) ? 'text-pitchy-cyan' : 'text-white/60']">{{ agent.username }}</div>
+                        <div :class="['text-[11px] font-bold truncate transition-colors', selectedAgents.has(idx) ? 'text-white/80' : 'text-white/60']">{{ agent.username }}</div>
                         <div class="text-[8px] text-white/20 uppercase truncate">{{ agent.profession }}</div>
                       </div>
-                      <div v-if="selectedAgents.has(idx)" class="w-4 h-4 rounded-full bg-pitchy-cyan flex items-center justify-center"><CheckIcon class="w-2.5 h-2.5 text-[#0A0A0F] font-bold" /></div>
+                      <div v-if="selectedAgents.has(idx)" class="w-4 h-4 rounded-full bg-white/8 flex items-center justify-center"><CheckIcon class="w-2.5 h-2.5 text-[#0A0A0F] font-bold" /></div>
                     </button>
                   </div>
                 </div>
@@ -225,14 +225,14 @@
                   <div class="relative group">
                     <textarea 
                       v-model="surveyQuestion"
-                      class="w-full bg-[#0A0A0F]/50 border border-white/10 rounded-2xl p-4 text-sm text-white min-h-[160px] focus:ring-0 focus:border-pitchy-cyan/50 transition-all placeholder:text-white/10"
+                      class="w-full bg-[#0A0A0F]/50 border border-white/10 rounded-2xl p-4 text-sm text-white min-h-[160px] focus:ring-0 focus:border-white/50 transition-all placeholder:text-white/10"
                       placeholder="Введите векторизованный вопрос для распространения по всем выбранным сущностям..."
                     ></textarea>
-                    <div class="absolute inset-0 pointer-events-none border border-pitchy-cyan/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="absolute inset-0 pointer-events-none border border-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </div>
                   <PitchyButton 
                     variant="primary" 
-                    class="w-full py-4 shadow-glow-cyan" 
+                    class="w-full py-4 shadow-[0_0_20px_rgba(255,255,255,0.12)]" 
                     :disabled="selectedAgents.size === 0 || !surveyQuestion?.trim() || isSurveying"
                     @click="submitSurvey"
                   >
@@ -251,7 +251,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <GlassCard v-for="(res, idx) in surveyResults" :key="idx" class="p-5 hover:border-white/20 transition-all">
                     <div class="flex items-center gap-3 mb-4">
-                      <div class="w-8 h-8 rounded-lg bg-pitchy-cyan/10 text-pitchy-cyan flex items-center justify-center text-[10px] font-black border border-pitchy-cyan/20">{{ res.agent_name?.charAt(0) }}</div>
+                      <div class="w-8 h-8 rounded-lg bg-white/10 text-white/80 flex items-center justify-center text-[10px] font-black border border-white/20">{{ res.agent_name?.charAt(0) }}</div>
                       <div>
                         <div class="text-[11px] font-bold text-white">{{ res.agent_name }}</div>
                         <div class="text-[8px] text-white/30 uppercase tracking-widest">{{ res.profession }}</div>
@@ -433,7 +433,7 @@ watch(() => props.simulationId, () => loadInitialData())
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-.shadow-glow-cyan { box-shadow: 0 0 20px -5px rgba(34, 211, 238, 0.3); }
+.shadow-glow-cyan-fx { box-shadow: 0 0 20px -5px rgba(34, 211, 238, 0.3); }
 .custom-markdown-small :deep(p) { margin: 0.5rem 0; line-height: 1.5; }
 .custom-markdown-chat :deep(p) { margin: 0.8rem 0; line-height: 1.6; }
 .custom-markdown-chat :deep(ul) { list-style: disc; padding-left: 1.2rem; margin: 0.5rem 0; }

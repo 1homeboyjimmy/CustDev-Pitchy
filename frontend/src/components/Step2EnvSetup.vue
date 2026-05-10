@@ -3,7 +3,7 @@
     <!-- Introduction -->
     <div class="space-y-2">
       <h2 class="text-2xl font-bold text-white tracking-tight italic">
-        <span class="text-pitchy-violet">02</span> / Активация общества
+        <span class="text-white">02</span> / Активация общества
       </h2>
     <p class="text-xs text-white/40 leading-relaxed max-w-xl">
       Настройка общества агентов и динамики социальных платформ на основе синтезированного графа знаний.
@@ -11,13 +11,13 @@
     </div>
 
     <!-- Step 01: Simulation Instance -->
-    <GlassCard :class="{ 'border-pitchy-violet/30 bg-pitchy-violet/5': phase === 0 }">
+    <GlassCard :class="{ 'border-white/30 bg-white/5': phase === 0 }">
       <div class="flex items-start justify-between mb-6">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Протокол экземпляра</span>
             <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-pitchy-violet">POST /api/simulation/create</span>
+            <span class="text-white">POST /api/simulation/create</span>
           </div>
           <h3 class="text-lg font-bold text-white">Инициализация экземпляра</h3>
         </div>
@@ -35,13 +35,13 @@
     </GlassCard>
 
     <!-- Step 02: Agent Personas -->
-    <GlassCard :class="{ 'border-pitchy-violet/30 bg-pitchy-violet/5': phase === 1 }">
+    <GlassCard :class="{ 'border-white/30 bg-white/5': phase === 1 }">
       <div class="flex items-start justify-between mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Активация агентов</span>
             <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-pitchy-violet">POST /api/simulation/prepare</span>
+            <span class="text-white">POST /api/simulation/prepare</span>
           </div>
           <h3 class="text-lg font-bold text-white">Синтез жителей общества</h3>
         </div>
@@ -79,7 +79,7 @@
               v-for="(profile, idx) in profiles" 
               :key="idx" 
               @click="selectProfile(profile)"
-              class="group p-4 rounded-2xl bg-[#0A0A0F]/40 border border-white/5 hover:border-pitchy-violet/50 transition-all cursor-pointer space-y-3 relative overflow-hidden"
+              class="group p-4 rounded-2xl bg-[#0A0A0F]/40 border border-white/5 hover:border-white/50 transition-all cursor-pointer space-y-3 relative overflow-hidden"
             >
               <!-- Delete Action -->
               <button 
@@ -93,7 +93,7 @@
 
               <div class="flex items-start justify-between">
                 <div class="space-y-0.5">
-                  <div class="text-sm font-bold text-white group-hover:text-pitchy-violet-light transition-colors">{{ profile.username }}</div>
+                  <div class="text-sm font-bold text-white group-hover:text-white/90 transition-colors">{{ profile.username }}</div>
                   <div class="flex items-center gap-2">
                     <div class="text-[10px] font-mono text-white/30">@{{ profile.name }}</div>
                     <span class="w-1 h-1 rounded-full bg-white/10"></span>
@@ -104,7 +104,7 @@
               </div>
               <p class="text-[11px] text-white/50 line-clamp-2 leading-relaxed italic">"{{ profile.bio }}"</p>
               <div class="flex flex-wrap gap-1.5">
-                <span v-for="topic in profile.interested_topics?.slice(0, 3)" :key="topic" class="px-2 py-0.5 rounded bg-pitchy-violet/5 text-[8px] font-bold text-pitchy-violet-light border border-pitchy-violet/10">
+                <span v-for="topic in profile.interested_topics?.slice(0, 3)" :key="topic" class="px-2 py-0.5 rounded bg-white/5 text-[8px] font-bold text-white/90 border border-white/10">
                   {{ topic }}
                 </span>
                 <span v-if="profile.interested_topics?.length > 3" class="text-[8px] text-white/20 align-middle leading-loose">+{{ profile.interested_topics.length - 3 }}</span>
@@ -116,13 +116,13 @@
     </GlassCard>
 
     <!-- Step 03: Configuration Details -->
-    <GlassCard v-if="simulationConfig" :class="{ 'border-pitchy-cyan/30 bg-pitchy-cyan/5': phase === 2 }">
+    <GlassCard v-if="simulationConfig" :class="{ 'border-white/30 bg-white/5': phase === 2 }">
       <div class="flex items-start justify-between mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Параметры матрицы</span>
             <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-pitchy-cyan">DYNAMIC_CALCULATION</span>
+            <span class="text-white/80">DYNAMIC_CALCULATION</span>
           </div>
           <h3 class="text-lg font-bold text-white">Конфигурация платформ</h3>
         </div>
@@ -133,7 +133,7 @@
         <!-- Time Config -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 px-1">
-            <ClockIcon class="w-3 h-3 text-pitchy-cyan" />
+            <ClockIcon class="w-3 h-3 text-white/80" />
             <span class="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]">Темпоральная механика</span>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -151,7 +151,7 @@
             <div class="absolute top-0 right-0 p-4 opacity-5 group-hover/plt:opacity-10 transition-opacity">
               <component :is="plt === 'twitter' ? TwitterIcon : LayoutIcon" class="w-20 h-20 text-white" />
             </div>
-            <div class="text-[10px] font-bold text-pitchy-cyan uppercase tracking-widest">{{ plt === 'twitter' ? 'Квадратная матрица' : 'Кластер сообщества' }}</div>
+            <div class="text-[10px] font-bold text-white/80 uppercase tracking-widest">{{ plt === 'twitter' ? 'Квадратная матрица' : 'Кластер сообщества' }}</div>
             <div class="space-y-2">
               <div v-for="(v, k) in simulationConfig[`${plt}_config`]" :key="k" class="flex items-center justify-between text-[10px]">
                 <span class="text-white/30 uppercase tracking-tighter">{{ k.replace('_weight', '').replace('_', ' ') }}</span>
@@ -164,13 +164,13 @@
     </GlassCard>
 
     <!-- Step 04: Narrative Arrangement -->
-    <GlassCard v-if="simulationConfig?.event_config" :class="{ 'border-pitchy-violet/30 bg-pitchy-violet/5': phase === 3 }">
+    <GlassCard v-if="simulationConfig?.event_config" :class="{ 'border-white/30 bg-white/5': phase === 3 }">
       <div class="flex items-start justify-between mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Слой оркестрации</span>
             <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-pitchy-violet">INITIAL_PULSE</span>
+            <span class="text-white">INITIAL_PULSE</span>
           </div>
           <h3 class="text-lg font-bold text-white">Активация нарратива</h3>
         </div>
@@ -178,10 +178,10 @@
       </div>
 
       <div class="space-y-8">
-        <div class="p-6 rounded-3xl bg-gradient-to-br from-pitchy-violet/10 to-transparent border border-pitchy-violet/20 space-y-4">
+        <div class="p-6 rounded-3xl bg-gradient-to-br from-white/10 to-transparent border border-white/20 space-y-4">
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-lg bg-pitchy-violet/20 flex items-center justify-center">
-              <CompassIcon class="w-3.5 h-3.5 text-pitchy-violet" />
+            <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+              <CompassIcon class="w-3.5 h-3.5 text-white" />
             </div>
             <span class="text-[10px] font-bold text-white uppercase tracking-widest">Направление вектора нарратива</span>
           </div>
@@ -192,11 +192,11 @@
           <span class="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em] px-1">Хронология начальной активации</span>
           <div class="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
             <div v-for="(post, idx) in simulationConfig.event_config.initial_posts" :key="idx" class="relative pl-10 group/post">
-              <div class="absolute left-2 top-2 w-2 h-2 rounded-full bg-pitchy-violet/20 border border-pitchy-violet/50 group-hover/post:bg-pitchy-violet transition-all"></div>
+              <div class="absolute left-2 top-2 w-2 h-2 rounded-full bg-white/20 border border-white/50 group-hover/post:bg-white/10 transition-all"></div>
               <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors space-y-2">
                 <div class="flex items-center justify-between text-[10px]">
                   <div class="flex items-center gap-2">
-                    <span class="px-1.5 py-0.5 rounded bg-pitchy-cyan/10 text-pitchy-cyan font-mono text-[8px] uppercase">{{ post.poster_type }}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-white/10 text-white/80 font-mono text-[8px] uppercase">{{ post.poster_type }}</span>
                     <span class="text-white/40 font-bold">Агент {{ post.poster_agent_id }}</span>
                   </div>
                   <span class="text-white/20 font-mono">@{{ getAgentUsername(post.poster_agent_id) }}</span>
@@ -210,11 +210,11 @@
     </GlassCard>
 
     <!-- Step 05: Final Launch -->
-    <GlassCard v-if="phase >= 4" class="border-pitchy-cyan bg-pitchy-cyan/10 shadow-glow-cyan/20 overflow-hidden">
+    <GlassCard v-if="phase >= 4" class="border-white/20 bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.12)]/20 overflow-hidden">
       <div class="flex flex-col items-center text-center space-y-8 pt-4">
-        <div class="w-16 h-16 rounded-full bg-pitchy-cyan/20 flex items-center justify-center text-pitchy-cyan shadow-glow shadow-pitchy-cyan relative">
+        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25 relative">
           <RocketIcon class="w-8 h-8" />
-          <div class="absolute inset-0 rounded-full border border-pitchy-cyan animate-ping opacity-20"></div>
+          <div class="absolute inset-0 rounded-full border border-white/20 animate-ping opacity-20"></div>
         </div>
         
         <div class="space-y-2">
@@ -232,14 +232,14 @@
             <label class="flex items-center gap-2 cursor-pointer group">
               <span class="text-[9px] font-bold text-white/30 group-hover:text-white/60">КАСТОМНЫЙ_ЛИМИТ</span>
               <input type="checkbox" v-model="useCustomRounds" class="sr-only peer" />
-              <div class="w-8 h-5 bg-white/10 rounded-full peer peer-checked:bg-pitchy-cyan relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-3"></div>
+              <div class="w-8 h-5 bg-white/10 rounded-full peer peer-checked:bg-white/8 relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-3"></div>
             </label>
           </div>
 
           <div v-if="useCustomRounds" class="space-y-4 animate-in slide-in-from-top-2 duration-300">
             <input 
               type="range" v-model.number="customMaxRounds" min="10" :max="autoGeneratedRounds" step="5"
-              class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-pitchy-cyan"
+              class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white"
             />
             <div class="flex justify-between text-[8px] font-mono text-white/20">
               <span>10 РНД (БЫСТРО)</span>
@@ -247,14 +247,14 @@
             </div>
           </div>
           
-          <p v-else class="text-[10px] text-pitchy-cyan/60 font-medium animate-pulse cursor-pointer" @click="useCustomRounds = true">
+          <p v-else class="text-[10px] text-white/60 font-medium animate-pulse cursor-pointer" @click="useCustomRounds = true">
             >> Рекомендуется ручное переопределение глубины для быстрого прототипирования.
           </p>
         </div>
         
         <div class="grid grid-cols-2 gap-4 w-full pt-4">
           <PitchyButton variant="secondary" @click="$emit('go-back')">Сбросить матрицу</PitchyButton>
-          <PitchyButton variant="primary" @click="handleStartSimulation" shadow class="shadow-glow-cyan shadow-pitchy-cyan/20">
+          <PitchyButton variant="primary" @click="handleStartSimulation" shadow class="shadow-[0_0_20px_rgba(255,255,255,0.12)] shadow-white/20">
             Запустить симуляцию
           </PitchyButton>
         </div>
@@ -269,7 +269,7 @@
           <GlassCard class="relative z-10 w-full max-w-2xl bg-[#0A0A0F] border-white/10 shadow-2xl p-0 overflow-hidden animate-in zoom-in duration-300">
             <div class="p-6 border-b border-white/5 flex items-start justify-between bg-white/[0.02]">
               <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-pitchy-violet to-pitchy-cyan flex items-center justify-center text-white font-bold text-xl">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-white/70 flex items-center justify-center text-white font-bold text-xl">
                   {{ selectedProfile.username?.charAt(0) }}
                 </div>
                 <div class="space-y-1">
@@ -277,7 +277,7 @@
                   <div class="flex items-center gap-2">
                     <span class="text-xs font-mono text-white/30">@{{ selectedProfile.name }}</span>
                     <span class="w-1 h-1 rounded-full bg-white/20"></span>
-                    <span class="text-[10px] font-bold text-pitchy-violet uppercase">{{ selectedProfile.profession }}</span>
+                    <span class="text-[10px] font-bold text-white uppercase">{{ selectedProfile.profession }}</span>
                   </div>
                 </div>
               </div>
@@ -300,14 +300,14 @@
                 </div>
 
                 <div v-if="selectedProfile.persona" class="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-4">
-                  <span class="text-[10px] font-bold text-pitchy-cyan uppercase tracking-widest">Когнитивный бэкграунд</span>
+                  <span class="text-[10px] font-bold text-white/80 uppercase tracking-widest">Когнитивный бэкграунд</span>
                   <p class="text-xs text-white/60 leading-relaxed">{{ selectedProfile.persona }}</p>
                 </div>
 
                 <div v-if="selectedProfile.interested_topics?.length" class="space-y-3">
                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Каналы архитектуры общества</span>
                    <div class="flex flex-wrap gap-2">
-                     <span v-for="topic in selectedProfile.interested_topics" :key="topic" class="px-3 py-1.5 rounded-xl bg-pitchy-violet/5 border border-pitchy-violet/10 text-[10px] text-pitchy-violet-light font-medium italic">
+                     <span v-for="topic in selectedProfile.interested_topics" :key="topic" class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[10px] text-white/90 font-medium italic">
                         #{{ topic }}
                      </span>
                    </div>
@@ -510,5 +510,5 @@ onUnmounted(stopAllTimers)
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-.shadow-glow-cyan { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.15)); }
+.shadow-glow-cyan-fx { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.15)); }
 </style>
