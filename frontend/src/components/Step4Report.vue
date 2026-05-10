@@ -53,7 +53,7 @@
                     <div class="w-12 h-1 border-2 border-white/20 rounded-full overflow-hidden relative">
                       <div class="absolute inset-0 bg-white/10 animate-progress-ind"></div>
                     </div>
-                    <span class="text-[10px] font-bold text-white/90 uppercase tracking-[0.3em] animate-pulse">Анализ потоков...</span>
+                    <span class="text-[10px] font-bold text-white/90 uppercase tracking-[0.3em] animate-pulse whitespace-nowrap">Анализ потоков...</span>
                   </div>
                 </div>
               </GlassCard>
@@ -67,7 +67,7 @@
              <div class="w-20 h-20 rounded-full border-2 border-white/10 animate-spin border-t-white"></div>
              <div class="absolute inset-4 rounded-full border-2 border-white/10 animate-spin-slow border-t-white/80"></div>
            </div>
-           <div class="text-xs font-bold text-white/20 uppercase tracking-[0.4em] animate-pulse">Установка аналитического ядра...</div>
+           <div class="text-xs font-bold text-white/20 uppercase tracking-[0.4em] animate-pulse whitespace-nowrap">Установка аналитического ядра...</div>
         </div>
       </div>
 

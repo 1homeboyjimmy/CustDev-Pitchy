@@ -1,6 +1,6 @@
 <template>
-  <button 
-    class="flex items-center justify-center gap-2 font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+  <button
+    class="inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
     :class="variants[variant]"
     :disabled="loading || disabled"
   >

@@ -212,19 +212,19 @@
 
     <!-- Step 05: Final Launch -->
     <GlassCard v-if="phase >= 4" class="border-white/20 bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.12)]/20 overflow-hidden">
-      <div class="flex flex-col items-center text-center space-y-8 pt-4">
-        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25 relative">
+      <div class="flex flex-col items-stretch text-center space-y-8 pt-4 w-full">
+        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25 relative mx-auto shrink-0">
           <RocketIcon class="w-8 h-8" />
           <div class="absolute inset-0 rounded-full border border-white/20 animate-ping opacity-20"></div>
         </div>
-        
-        <div class="space-y-2">
-          <h3 class="text-2xl font-bold text-white tracking-tight">Среда синхронизирована</h3>
-          <p class="text-xs text-white/50 max-w-sm">Модель мира и {{ profiles.length }} агентов готовы к запуску. Определите глубину симуляции ниже.</p>
+
+        <div class="w-full max-w-md mx-auto">
+          <h3 class="text-2xl font-bold text-white tracking-tight mb-2">Среда синхронизирована</h3>
+          <p class="text-sm text-white/50 leading-relaxed">Модель мира и {{ profiles.length }} агентов готовы к запуску. Определите глубину симуляции ниже.</p>
         </div>
 
         <!-- Custom Slider -->
-        <div class="w-full max-w-md bg-white/5 p-6 rounded-3xl border border-white/5 space-y-6">
+        <div class="w-full max-w-md mx-auto bg-white/5 p-6 rounded-3xl border border-white/5 space-y-6">
           <div class="flex items-center justify-between">
             <div class="text-left space-y-1">
               <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Глубина симуляции</span>

@@ -44,7 +44,7 @@
 
       <div v-else class="flex flex-col items-center justify-center py-20 opacity-20">
         <Loader2Icon class="w-8 h-8 animate-spin mb-4" />
-        <span class="text-[10px] font-bold uppercase tracking-widest">Ожидание синтеза...</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Ожидание синтеза...</span>
       </div>
     </div>
 
@@ -123,7 +123,7 @@
           <div class="flex-1 overflow-y-auto px-6 py-8 space-y-6 custom-scrollbar" ref="chatMessages">
             <div v-if="chatHistory.length === 0" class="h-full flex flex-col items-center justify-center space-y-6 opacity-20">
                <MessageSquareIcon class="w-12 h-12" />
-               <div class="text-sm font-bold uppercase tracking-[0.3em] text-center max-w-xs">
+               <div class="text-sm font-bold uppercase tracking-[0.3em] text-center w-full max-w-xs leading-relaxed">
                  {{ chatTarget === 'report_agent' ? 'Выскажите свои соображения по результатам отчета' : 'Запросите сущность ' + selectedAgent?.username + ' для синтеза перспективы' }}
                </div>
             </div>

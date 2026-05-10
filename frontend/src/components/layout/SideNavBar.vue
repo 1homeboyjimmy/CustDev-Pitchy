@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import logoUrl from '../../../logo/logo_pitchy_browser.png'
 import {
   LayoutDashboard,
   MessageSquare,
@@ -7,7 +8,6 @@ import {
   Users,
   Shield,
   HelpCircle,
-  Star,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next'
@@ -60,12 +60,17 @@ const items = [
       <div class="flex items-center gap-3 overflow-hidden">
         <a
           href="https://pitchy.pro/"
-          class="font-display tracking-tight text-white inline-flex items-baseline text-xl"
+          class="font-display tracking-tight text-white inline-flex items-center text-xl shrink-0"
         >
-          <template v-if="isCollapsed">P</template>
-          <template v-else>
+          <img
+            v-if="isCollapsed"
+            :src="logoUrl"
+            alt="Pitchy"
+            class="w-8 h-8 rounded-lg object-contain"
+          />
+          <span v-else class="inline-flex items-baseline">
             Pitchy<span class="text-white/30 italic">.pro</span>
-          </template>
+          </span>
         </a>
       </div>
       <button
@@ -117,19 +122,6 @@ const items = [
         </span>
       </a>
     </nav>
-
-    <!-- Tip card -->
-    <div v-if="!isCollapsed" class="px-5 mb-6 transition-all duration-500 opacity-100">
-      <div class="rounded-3xl p-5 flex flex-col gap-3 border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent">
-        <div class="flex items-center gap-2 text-white/40">
-          <Star :size="14" :stroke-width="2" />
-          <span class="font-mono text-[9px] uppercase tracking-[0.2em] font-bold">СОВЕТ</span>
-        </div>
-        <p class="font-sans text-[12px] text-white/40 leading-relaxed font-medium italic">
-          «Чем подробнее вы опишете проект в начале, тем точнее будет анализ.»
-        </p>
-      </div>
-    </div>
 
     <!-- Support -->
     <div

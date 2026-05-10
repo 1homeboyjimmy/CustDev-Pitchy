@@ -123,7 +123,7 @@
           <div class="w-16 h-16 rounded-full border-2 border-white/20 animate-spin border-t-white/80"></div>
           <div class="absolute inset-4 rounded-full border-2 border-white/20 animate-spin-slow border-t-white"></div>
         </div>
-        <div class="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] animate-pulse">Синхронизация матрицы событий...</div>
+        <div class="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] animate-pulse whitespace-nowrap">Синхронизация матрицы событий...</div>
       </div>
     </div>
 

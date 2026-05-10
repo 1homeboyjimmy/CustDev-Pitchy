@@ -131,20 +131,20 @@
 
     <!-- Step 03: Complete -->
     <GlassCard v-if="currentPhase >= 2" class="border-white/20 bg-white/10 animate-in zoom-in duration-500 shadow-[0_0_20px_rgba(255,255,255,0.12)]/20">
-      <div class="flex flex-col items-center text-center space-y-6">
-        <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25">
+      <div class="flex flex-col items-stretch text-center space-y-6 w-full">
+        <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25 mx-auto shrink-0">
           <CheckIcon class="w-6 h-6" />
         </div>
-        <div class="space-y-2">
-          <h3 class="text-xl font-bold text-white tracking-tight">Архитектура общества готова</h3>
-          <p class="text-xs text-white/50 max-w-sm leading-relaxed">
+        <div class="w-full max-w-md mx-auto">
+          <h3 class="text-xl font-bold text-white tracking-tight mb-2">Архитектура общества готова</h3>
+          <p class="text-sm text-white/50 leading-relaxed">
             Архитектура общества успешно секвенирована. Модель мира теперь стабильна и готова к активации агентов.
           </p>
         </div>
-        
-        <PitchyButton 
-          variant="primary" 
-          class="w-full max-w-xs shadow-[0_0_20px_rgba(255,255,255,0.15)] text-sm py-4" 
+
+        <PitchyButton
+          variant="primary"
+          class="w-full max-w-xs mx-auto shadow-[0_0_20px_rgba(255,255,255,0.15)] text-sm py-4"
           @click="handleEnterEnvSetup"
           :loading="creatingSimulation"
         >
