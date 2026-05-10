@@ -173,14 +173,7 @@ body {
   color: var(--color-on-background);
 }
 
-@layer base {
-  h1, h2 {
-    font-family: 'Fraunces', 'Newsreader', Georgia, serif;
-    font-optical-sizing: auto;
-    font-variation-settings: "opsz" 100, "SOFT" 50;
-  }
-}
-
+/* h1/h2 inherit body Barlow by default — opt into serif explicitly via .font-serif */
 .font-serif {
   font-family: 'Fraunces', 'Newsreader', Georgia, serif;
   font-optical-sizing: auto;

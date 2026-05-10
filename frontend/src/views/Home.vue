@@ -9,9 +9,9 @@
             <StatusBadge type="primary">Общество агентов</StatusBadge>
           </div>
 
-          <h1 class="text-5xl md:text-8xl font-bold tracking-tight text-white leading-[1.1]">
+          <h1 class="font-serif text-5xl md:text-8xl tracking-tight text-white leading-[1.05]">
             Анализируй реальность.<br />
-            <span class="text-gradient">Симулируй будущее.</span>
+            <span class="text-gradient italic">Симулируй будущее.</span>
           </h1>
 
           <p class="text-xl md:text-2xl text-white/60 leading-relaxed mx-auto">
@@ -42,7 +42,7 @@
         <!-- Left: Status & Workflow -->
         <div class="lg:col-span-5 space-y-8">
           <div class="space-y-4">
-            <h2 class="text-3xl font-bold text-white">Режим ожидания</h2>
+            <h2 class="font-serif text-3xl text-white tracking-tight">Режим ожидания</h2>
             <p class="text-white/50 leading-relaxed">
               Локальный движок предсказаний инициализирован. Загрузите ваш питч-дек (PDF, MD, TXT), чтобы засеять новую рыночную симуляцию и проверить жизнеспособность вашего стартапа.
             </p>

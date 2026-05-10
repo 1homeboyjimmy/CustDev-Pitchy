@@ -1,11 +1,12 @@
 <template>
   <div class="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
     <!-- Introduction -->
-    <div class="space-y-2">
-      <h2 class="text-2xl font-bold text-white tracking-tight italic">
-        <span class="text-white">01</span> / Синтез знаний
+    <div class="block">
+      <span class="block text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans mb-2">01 / Этап</span>
+      <h2 class="block font-sans not-italic text-2xl font-semibold text-white tracking-tight mb-3">
+        Синтез знаний
       </h2>
-      <p class="text-xs text-white/40 leading-relaxed max-w-xl">
+      <p class="block text-sm text-white/55 leading-relaxed max-w-2xl">
         Движок извлекает архитектуру общества из ваших неструктурированных данных. Этот процесс создает фундаментальную онтологию и многомерный граф знаний, который станет основой симуляции.
       </p>
     </div>
