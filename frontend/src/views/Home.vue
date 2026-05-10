@@ -67,7 +67,7 @@
             :viewport="{ once: true, amount: 0.4 }"
             :transition="{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }"
           >
-            <h2 class="font-serif text-3xl text-white tracking-tight">Режим ожидания</h2>
+            <h2 class="text-3xl font-semibold text-white tracking-tight">Режим ожидания</h2>
             <p class="text-white/50 leading-relaxed">
               Локальный движок предсказаний инициализирован. Загрузите ваш питч-дек (PDF, MD, TXT), чтобы засеять новую рыночную симуляцию и проверить жизнеспособность вашего стартапа.
             </p>
@@ -119,7 +119,7 @@
               <div class="flex items-end justify-between">
                 <div class="space-y-1">
                   <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">01 / Источник</span>
-                  <h3 class="font-serif text-3xl text-white leading-none">Ваш питч-дек</h3>
+                  <h3 class="text-3xl font-semibold text-white leading-none tracking-tight">Ваш питч-дек</h3>
                 </div>
                 <span class="text-[10px] font-mono text-white/30 hidden sm:block">PDF · MD · TXT</span>
               </div>
@@ -165,7 +165,7 @@
             <div class="space-y-5">
               <div class="space-y-1">
                 <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">02 / Запрос</span>
-                <h3 class="font-serif text-3xl text-white leading-none">Цели анализа</h3>
+                <h3 class="text-3xl font-semibold text-white leading-none tracking-tight">Цели анализа</h3>
               </div>
 
               <div class="relative group">
