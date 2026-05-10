@@ -1,5 +1,5 @@
 <template>
-  <AppLayout>
+  <StageShell active-id="custdev">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Specialized Workflow Header -->
       <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
@@ -79,13 +79,13 @@
         </div>
       </main>
     </div>
-  </AppLayout>
+  </StageShell>
 </template>
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppLayout from '../components/layout/AppLayout.vue'
+import StageShell from '../components/layout/StageShell.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step4Report from '../components/Step4Report.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'

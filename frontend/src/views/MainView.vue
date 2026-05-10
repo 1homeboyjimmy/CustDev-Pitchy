@@ -5,8 +5,9 @@
     <div class="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px] opacity-10"></div>
   </div>
 
-  <div class="fixed inset-0 pt-20 flex flex-col overflow-hidden bg-transparent z-10 pointer-events-auto">
-    <div class="flex-1 flex flex-col overflow-hidden">
+  <div class="fixed inset-0 pt-20 flex bg-transparent z-10 pointer-events-auto">
+    <SideNavBar active-id="custdev" />
+    <div class="flex-1 flex flex-col overflow-hidden min-w-0">
       <!-- Specialized Workflow Header -->
       <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20 relative w-full">
         <!-- Left Section -->
@@ -153,6 +154,7 @@ const props = defineProps({
 })
 
 import StatusBadge from '../components/ui/StatusBadge.vue'
+import SideNavBar from '../components/layout/SideNavBar.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'

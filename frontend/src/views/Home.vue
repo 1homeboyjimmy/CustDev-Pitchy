@@ -4,20 +4,40 @@
       <!-- Hero Section -->
       <section class="relative space-y-12">
         <div class="space-y-8 text-center">
-          <div class="flex items-center justify-center gap-3">
+          <motion.div
+            class="flex items-center justify-center gap-3"
+            :initial="{ opacity: 0, y: 16 }"
+            :animate="{ opacity: 1, y: 0 }"
+            :transition="{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }"
+          >
             <StatusBadge type="primary">Общество агентов</StatusBadge>
-          </div>
+          </motion.div>
 
-          <h1 class="font-serif text-5xl md:text-8xl tracking-tight text-white leading-[1.05]">
+          <motion.h1
+            class="font-serif text-5xl md:text-8xl tracking-tight text-white leading-[1.05]"
+            :initial="{ opacity: 0, y: 24 }"
+            :animate="{ opacity: 1, y: 0 }"
+            :transition="{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }"
+          >
             Анализируй реальность.<br />
             <span class="text-gradient italic">Симулируй будущее.</span>
-          </h1>
+          </motion.h1>
 
-          <p class="text-xl md:text-2xl text-white/60 leading-relaxed mx-auto">
+          <motion.p
+            class="text-xl md:text-2xl text-white/60 leading-relaxed mx-auto"
+            :initial="{ opacity: 0, y: 24 }"
+            :animate="{ opacity: 1, y: 0 }"
+            :transition="{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }"
+          >
             <span class="text-white font-semibold">Pitchy.Pro</span> анализирует ваши инвестиционные презентации и рыночные гипотезы. Мы строим цифровую модель рынка, населенную автономными ИИ-агентами (инвесторами, экспертами, клиентами). Наблюдайте, как они реагируют на ваш питч, предсказывайте рыночные барьеры и тестируйте стратегии — быстро и эффективно.
-          </p>
+          </motion.p>
 
-          <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-6 uppercase tracking-[0.2em] text-[10px] font-bold text-white/40">
+          <motion.div
+            class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-6 uppercase tracking-[0.2em] text-[10px] font-bold text-white/40"
+            :initial="{ opacity: 0, y: 16 }"
+            :animate="{ opacity: 1, y: 0 }"
+            :transition="{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }"
+          >
             <div class="flex items-center gap-2">
               <ShieldCheckIcon class="w-4 h-4 text-white/80" />
               <span>100% Приватно</span>
@@ -32,7 +52,7 @@
               <ZapIcon class="w-4 h-4 text-white/80" />
               <span>Мгновенный инсайт</span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -40,34 +60,59 @@
       <section class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pt-12 border-t border-white/5">
         <!-- Left: Status & Workflow -->
         <div class="lg:col-span-5 space-y-8">
-          <div class="space-y-4">
+          <motion.div
+            class="space-y-4"
+            :initial="{ opacity: 0, y: 32 }"
+            :while-in-view="{ opacity: 1, y: 0 }"
+            :viewport="{ once: true, amount: 0.4 }"
+            :transition="{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }"
+          >
             <h2 class="font-serif text-3xl text-white tracking-tight">Режим ожидания</h2>
             <p class="text-white/50 leading-relaxed">
               Локальный движок предсказаний инициализирован. Загрузите ваш питч-дек (PDF, MD, TXT), чтобы засеять новую рыночную симуляцию и проверить жизнеспособность вашего стартапа.
             </p>
-          </div>
+          </motion.div>
 
-
-
-          <GlassCard class="space-y-6">
-            <h3 class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-              <LayersIcon class="w-4 h-4" />
-              Последовательность процесса
-            </h3>
-            <div class="space-y-6">
-              <div v-for="(step, i) in steps" :key="i" class="flex gap-4 group">
-                <span class="text-2xl font-bold text-white/10 group-hover:text-white transition-colors">{{ step.num }}</span>
-                <div class="space-y-1">
-                  <div class="text-sm font-bold text-white/80 transition-colors">{{ step.title }}</div>
-                  <div class="text-xs text-white/40 leading-relaxed">{{ step.desc }}</div>
-                </div>
+          <motion.div
+            :initial="{ opacity: 0, y: 32 }"
+            :while-in-view="{ opacity: 1, y: 0 }"
+            :viewport="{ once: true, amount: 0.2 }"
+            :transition="{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }"
+          >
+            <GlassCard class="space-y-6">
+              <h3 class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                <LayersIcon class="w-4 h-4" />
+                Последовательность процесса
+              </h3>
+              <div class="space-y-6">
+                <motion.div
+                  v-for="(step, i) in steps"
+                  :key="i"
+                  class="flex gap-4 group"
+                  :initial="{ opacity: 0, x: -16 }"
+                  :while-in-view="{ opacity: 1, x: 0 }"
+                  :viewport="{ once: true, amount: 0.6 }"
+                  :transition="{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }"
+                >
+                  <span class="text-2xl font-bold text-white/10 group-hover:text-white transition-colors">{{ step.num }}</span>
+                  <div class="space-y-1">
+                    <div class="text-sm font-bold text-white/80 transition-colors">{{ step.title }}</div>
+                    <div class="text-xs text-white/40 leading-relaxed">{{ step.desc }}</div>
+                  </div>
+                </motion.div>
               </div>
-            </div>
-          </GlassCard>
+            </GlassCard>
+          </motion.div>
         </div>
 
         <!-- Right: Interactive Console -->
-        <div class="lg:col-span-7">
+        <motion.div
+          class="lg:col-span-7"
+          :initial="{ opacity: 0, y: 40 }"
+          :while-in-view="{ opacity: 1, y: 0 }"
+          :viewport="{ once: true, amount: 0.15 }"
+          :transition="{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }"
+        >
           <div class="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-8 md:p-10 space-y-10">
             <!-- Step 01: Upload -->
             <div class="space-y-5">
@@ -145,11 +190,19 @@
               Запустить симуляцию
             </button>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       <!-- History DB Placeholder -->
-      <HistoryDatabase v-if="projectData?.projects?.length" />
+      <motion.div
+        v-if="projectData?.projects?.length"
+        :initial="{ opacity: 0, y: 32 }"
+        :while-in-view="{ opacity: 1, y: 0 }"
+        :viewport="{ once: true, amount: 0.2 }"
+        :transition="{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }"
+      >
+        <HistoryDatabase />
+      </motion.div>
     </div>
   </AppLayout>
 </template>
@@ -157,6 +210,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { motion } from 'motion-v'
 import AppLayout from '../components/layout/AppLayout.vue'
 import GlassCard from '../components/ui/GlassCard.vue'
 import PitchyButton from '../components/ui/PitchyButton.vue'
