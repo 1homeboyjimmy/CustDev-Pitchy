@@ -24,8 +24,10 @@ RUN uv sync --no-dev --no-install-project
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install minimal Node.js runtime and process management for concurrently
+# Install minimal Node.js runtime, process management for concurrently, and
+# Tesseract OCR (rus+eng) so scanned-PDF uploads can be parsed into a graph.
 RUN apt-get update && apt-get install -y --no-install-recommends curl procps \
+    tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng \
   && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
   && apt-get install -y --no-install-recommends nodejs \
   && npm install -g concurrently \

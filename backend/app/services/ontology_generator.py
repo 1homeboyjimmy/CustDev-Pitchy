@@ -46,6 +46,7 @@ Please output JSON format with the following structure:
         {
             "name": "Entity type name (English, PascalCase)",
             "description": "Brief description (English, no more than 100 characters)",
+            "default_agent_role": "target_audience | internal_team | expert_advisor | investor | competitor | regulator | media | observer | institutional",
             "attributes": [
                 {
                     "name": "Attribute name (English, snake_case)",
@@ -69,6 +70,22 @@ Please output JSON format with the following structure:
     "analysis_summary": "Brief analysis and explanation of text content"
 }
 ```
+
+## Agent Role Taxonomy (CRITICAL — affects whether entity participates as customer-dev audience)
+
+Every entity type MUST be assigned a `default_agent_role`. This determines how a profile for this type behaves in the social simulation. Pick the **single** best-fitting role for each type:
+
+- `internal_team` — The PRODUCT OWNER itself: the startup/company being analyzed, its founders, co-founders, employees, advisors paid by the company. **These entities will NOT be used as target-audience agents in the customer-dev simulation** (they would distort the signal by speaking from inside the product). Use for: the analyzed product's name, its founders, its team. Example: if the pitch is about "Pitchy" → `Pitchy` (Organization), `Founder` (Person who founded Pitchy) → both `internal_team`.
+- `target_audience` — Potential CUSTOMERS or USERS of the analyzed product. These are the people whose reactions matter for customer development. Example: if the pitch is for a tool for marketplace sellers → `MarketplaceSeller` → `target_audience`.
+- `expert_advisor` — Independent industry experts, mentors, academics, technical specialists who would comment on the product but are NOT customers themselves. Example: `IndustryExpert`, `TechMentor`.
+- `investor` — Venture capitalists, angels, grant fund representatives — people who evaluate the product financially. Example: `Investor`, `GrantFund`.
+- `competitor` — Companies/products that compete with the analyzed product. Example: `CompetingPlatform`.
+- `regulator` — Government bodies and regulators relevant to the product's domain. Example: `GovernmentAgency`, `Ministry`.
+- `media` — Journalists, bloggers, media outlets that would report on or review the product. Example: `Journalist`, `TechMediaOutlet`.
+- `observer` — Fallback for individuals who don't clearly fit the above. Use for the `Person` fallback type.
+- `institutional` — Fallback for organizations that don't clearly fit. Use for the `Organization` fallback type.
+
+**Inference rule**: read the simulation requirement and pitch text. Identify what product/company is being analyzed (this is `internal_team`). Identify who the pitch claims as target users (this is `target_audience`). Everyone else fills the remaining roles.
 
 ## Design Guidelines (Extremely Important!)
 
@@ -254,6 +271,75 @@ Based on the above content, design entity types and relationship types suitable 
 
         return message
     
+    # Canonical set of agent roles. Anything else gets coerced to a safe default
+    # so downstream code can rely on the field always being one of these strings.
+    VALID_AGENT_ROLES = {
+        "internal_team",
+        "target_audience",
+        "expert_advisor",
+        "investor",
+        "competitor",
+        "regulator",
+        "media",
+        "observer",
+        "institutional",
+    }
+
+    @classmethod
+    def _coerce_agent_role(cls, raw_role: Optional[str], entity_name: str) -> str:
+        """Map whatever the LLM produced to a canonical role.
+
+        LLMs sometimes invent synonyms ("user", "potential_user", "founder")
+        or leave the field blank. We normalise here so callers don't have to
+        special-case every variant.
+        """
+        if not raw_role:
+            # Heuristic fallback by name when LLM forgot the field.
+            lower = entity_name.lower()
+            if lower in {"person"}:
+                return "observer"
+            if lower in {"organization"}:
+                return "institutional"
+            return "target_audience"
+
+        normalised = raw_role.strip().lower().replace("-", "_").replace(" ", "_")
+        if normalised in cls.VALID_AGENT_ROLES:
+            return normalised
+
+        # Common synonyms we've seen LLMs produce
+        aliases = {
+            "founder": "internal_team",
+            "team": "internal_team",
+            "product_owner": "internal_team",
+            "startup": "internal_team",
+            "user": "target_audience",
+            "customer": "target_audience",
+            "client": "target_audience",
+            "potential_customer": "target_audience",
+            "potential_user": "target_audience",
+            "buyer": "target_audience",
+            "audience": "target_audience",
+            "expert": "expert_advisor",
+            "mentor": "expert_advisor",
+            "advisor": "expert_advisor",
+            "vc": "investor",
+            "fund": "investor",
+            "grant_fund": "investor",
+            "rival": "competitor",
+            "competing_product": "competitor",
+            "gov": "regulator",
+            "government": "regulator",
+            "ministry": "regulator",
+            "journalist": "media",
+            "press": "media",
+            "person": "observer",
+            "individual": "observer",
+            "org": "institutional",
+            "organisation": "institutional",
+            "organization": "institutional",
+        }
+        return aliases.get(normalised, "target_audience")
+
     def _validate_and_process(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and post-process result"""
 
@@ -274,6 +360,10 @@ Based on the above content, design entity types and relationship types suitable 
             # Ensure description doesn't exceed 100 characters
             if len(entity.get("description", "")) > 100:
                 entity["description"] = entity["description"][:97] + "..."
+            # Normalise default_agent_role into our canonical taxonomy
+            entity["default_agent_role"] = self._coerce_agent_role(
+                entity.get("default_agent_role"), entity.get("name", "")
+            )
 
         # Validate relationship types
         for edge in result["edge_types"]:
@@ -292,6 +382,7 @@ Based on the above content, design entity types and relationship types suitable 
         person_fallback = {
             "name": "Person",
             "description": "Any individual person not fitting other specific person types.",
+            "default_agent_role": "observer",
             "attributes": [
                 {"name": "full_name", "type": "text", "description": "Full name of the person"},
                 {"name": "role", "type": "text", "description": "Role or occupation"}
@@ -302,6 +393,7 @@ Based on the above content, design entity types and relationship types suitable 
         organization_fallback = {
             "name": "Organization",
             "description": "Any organization not fitting other specific organization types.",
+            "default_agent_role": "institutional",
             "attributes": [
                 {"name": "org_name", "type": "text", "description": "Name of the organization"},
                 {"name": "org_type", "type": "text", "description": "Type of organization"}

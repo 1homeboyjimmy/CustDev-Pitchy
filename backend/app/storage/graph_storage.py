@@ -80,6 +80,16 @@ class GraphStorage(ABC):
     def get_nodes_by_label(self, graph_id: str, label: str) -> List[Dict[str, Any]]:
         """Get nodes filtered by entity type label."""
 
+    # --- Merge nodes (deduplication) ---
+
+    @abstractmethod
+    def merge_nodes(self, keep_uuid: str, drop_uuid: str) -> Dict[str, Any]:
+        """Merge two duplicate entity nodes.
+
+        All edges from the ``drop`` node are redirected to the ``keep`` node,
+        then the ``drop`` node is deleted. Returns metadata about the merge.
+        """
+
     # --- Read edges ---
 
     @abstractmethod

@@ -100,15 +100,18 @@
   --font-size-mono-label: 12px;
   --font-size-code: 13px;
 
-  /* ── Spacing (4px baseline) ── */
-  --spacing-unit: 4px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 48px;
-  --spacing-gutter: 16px;
-  --spacing-container-max: 1440px;
+  /* ── Spacing (4px baseline) ──
+     NOTE: do NOT define `--spacing-xs/sm/md/lg/xl` here. In Tailwind v4 those
+     tokens are consumed by sizing utilities (`max-w-md`, `max-w-xs`, etc.),
+     which would silently collapse `max-w-md` to 16px and break layouts. */
+  --pitchy-spacing-unit: 4px;
+  --pitchy-spacing-xs: 4px;
+  --pitchy-spacing-sm: 8px;
+  --pitchy-spacing-md: 16px;
+  --pitchy-spacing-lg: 24px;
+  --pitchy-spacing-xl: 48px;
+  --pitchy-spacing-gutter: 16px;
+  --pitchy-spacing-container-max: 1440px;
 
   /* ── Border Radius ── */
   --radius-sm: 0.125rem;

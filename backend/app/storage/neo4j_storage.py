@@ -470,6 +470,69 @@ class Neo4jStorage(GraphStorage):
             return self._call_with_retry(session.execute_read, _read)
 
     # ----------------------------------------------------------------
+    # Merge duplicate nodes
+    # ----------------------------------------------------------------
+
+    def merge_nodes(self, keep_uuid: str, drop_uuid: str) -> Dict[str, Any]:
+        """Merge two entity nodes: redirect ALL edges from drop → keep, then delete drop.
+
+        The destination node keeps its own properties and labels. Edges that
+        already exist between the keep node and a neighbour are left alone so
+        we don't lose facts; the duplicate's edge is rewritten to point at the
+        keep node and any redundant duplicates settle out at the entity level
+        (a deduplicated rebuild is acceptable here).
+
+        Returns ``{"merged_edges": N, "kept": uuid, "dropped": uuid}``.
+        """
+        def _write(tx):
+            # Move all RELATION edges from drop → keep
+            result = tx.run(
+                """
+                MATCH (drop:Entity {uuid: $drop_uuid})-[r:RELATION]->(other:Entity)
+                WHERE other.uuid <> $keep_uuid
+                MATCH (keep:Entity {uuid: $keep_uuid})
+                MERGE (keep)-[new_r:RELATION {uuid: r.uuid}]->(other)
+                SET new_r += properties(r)
+                DELETE r
+                RETURN count(new_r) AS moved_out
+                """,
+                drop_uuid=drop_uuid,
+                keep_uuid=keep_uuid,
+            )
+            moved_out = result.single()["moved_out"]
+
+            # Move all incoming edges
+            result = tx.run(
+                """
+                MATCH (other:Entity)-[r:RELATION]->(drop:Entity {uuid: $drop_uuid})
+                WHERE other.uuid <> $keep_uuid
+                MATCH (keep:Entity {uuid: $keep_uuid})
+                MERGE (other)-[new_r:RELATION {uuid: r.uuid}]->(keep)
+                SET new_r += properties(r)
+                DELETE r
+                RETURN count(new_r) AS moved_in
+                """,
+                drop_uuid=drop_uuid,
+                keep_uuid=keep_uuid,
+            )
+            moved_in = result.single()["moved_in"]
+
+            # Drop self-loops introduced by the merge and any remaining edges
+            tx.run(
+                "MATCH (drop:Entity {uuid: $drop_uuid})-[r]-() DELETE r",
+                drop_uuid=drop_uuid,
+            )
+            tx.run(
+                "MATCH (drop:Entity {uuid: $drop_uuid}) DELETE drop",
+                drop_uuid=drop_uuid,
+            )
+
+            return {"merged_edges": moved_out + moved_in, "kept": keep_uuid, "dropped": drop_uuid}
+
+        with self._driver.session() as session:
+            return self._call_with_retry(session.execute_write, _write)
+
+    # ----------------------------------------------------------------
     # Read edges
     # ----------------------------------------------------------------
 

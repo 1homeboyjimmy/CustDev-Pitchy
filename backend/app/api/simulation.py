@@ -590,6 +590,7 @@ def prepare_simulation():
                     progress_callback=progress_callback,
                     parallel_profile_count=parallel_profile_count,
                     storage=storage,
+                    ontology=project.ontology,
                 )
                 
                 # Task complete

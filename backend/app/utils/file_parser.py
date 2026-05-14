@@ -93,22 +93,102 @@ class FileParser:
 
         raise ValueError(f"Cannot handle file format: {suffix}")
 
+    # Minimum non-whitespace chars per page before we treat the page as a scan
+    # and fall back to OCR. PDFs that are pure images return only stray newlines
+    # from `page.get_text()` (we've seen ~4 chars/page for whitespace-only pages),
+    # so anything under this threshold is almost certainly an image-only page.
+    _OCR_FALLBACK_THRESHOLD = 20
+
     @staticmethod
     def _extract_from_pdf(file_path: str) -> str:
-        """Extract text from PDF"""
+        """Extract text from PDF.
+
+        Tries the native text layer first (fast, lossless). For scanned/image-only
+        pages PyMuPDF returns near-empty strings, so we fall back to OCR via
+        Tesseract when available. If OCR is needed but unavailable, raises a
+        ValueError so the API can surface a clear "PDF is a scan; OCR not
+        configured" message instead of silently building an empty graph.
+        """
         try:
             import fitz  # PyMuPDF
         except ImportError:
             raise ImportError("PyMuPDF required: pip install PyMuPDF")
 
-        text_parts = []
-        with fitz.open(file_path) as doc:
-            for page in doc:
-                text = page.get_text()
-                if text.strip():
-                    text_parts.append(text)
+        text_parts: List[str] = []
+        ocr_needed_pages: List[int] = []
 
-        return "\n\n".join(text_parts)
+        with fitz.open(file_path) as doc:
+            for page_index, page in enumerate(doc):
+                text = page.get_text() or ""
+                meaningful_len = len(text.strip())
+                if meaningful_len >= FileParser._OCR_FALLBACK_THRESHOLD:
+                    text_parts.append(text)
+                else:
+                    ocr_needed_pages.append(page_index)
+
+            if ocr_needed_pages:
+                ocr_results = FileParser._ocr_pages(doc, ocr_needed_pages)
+                # Insert OCR'd text in original page order
+                if ocr_results:
+                    indexed = {p: t for p, t in ocr_results}
+                    # Rebuild in page order: native + OCR
+                    final = []
+                    for page_index, page in enumerate(doc):
+                        if page_index in indexed:
+                            final.append(indexed[page_index])
+                        else:
+                            native = page.get_text() or ""
+                            if native.strip():
+                                final.append(native)
+                    text_parts = final
+
+        joined = "\n\n".join(t for t in text_parts if t and t.strip())
+
+        if not joined.strip() and ocr_needed_pages:
+            raise ValueError(
+                "PDF appears to be a scan (no extractable text). "
+                "Install Tesseract (`apt-get install tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng`) "
+                "and `pip install pytesseract`, or upload a text-based PDF / .txt / .md instead."
+            )
+
+        return joined
+
+    @staticmethod
+    def _ocr_pages(doc, page_indices: List[int]) -> List[tuple]:
+        """Run Tesseract OCR on the listed pages of an open fitz document.
+
+        Returns a list of (page_index, ocr_text). Returns [] if OCR is not
+        available; the caller surfaces a clearer error in that case.
+        """
+        try:
+            import pytesseract  # type: ignore
+            from PIL import Image  # noqa: F401  (pytesseract requires PIL)
+        except ImportError:
+            return []
+
+        import io
+        from PIL import Image
+
+        # Russian + English covers the common Pitchy upload mix; if a language
+        # pack is missing Tesseract raises, which we swallow per-page so a
+        # partial scan still yields some text.
+        lang = "rus+eng"
+        results: List[tuple] = []
+
+        for idx in page_indices:
+            try:
+                page = doc[idx]
+                # 200 DPI is a good balance of quality vs. speed for typed scans
+                pix = page.get_pixmap(dpi=200)
+                img = Image.open(io.BytesIO(pix.tobytes("png")))
+                text = pytesseract.image_to_string(img, lang=lang)
+                if text and text.strip():
+                    results.append((idx, text))
+            except Exception:
+                # Skip the page rather than aborting the whole document
+                continue
+
+        return results
 
     @staticmethod
     def _extract_from_md(file_path: str) -> str:

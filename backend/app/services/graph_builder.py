@@ -235,6 +235,102 @@ class GraphBuilderService:
         logger.info(f"[graph_build] All {total_chunks} chunks processed successfully")
         return episode_uuids
 
+    # --------------------------------------------------------------
+    # Deduplication
+    # --------------------------------------------------------------
+
+    @staticmethod
+    def _normalise_name_for_dedupe(name: str) -> str:
+        """Lowercase + strip honorifics/punctuation for fuzzy matching."""
+        import re
+        if not name:
+            return ""
+        # Drop common Russian honorifics that don't carry identity
+        n = name.lower()
+        for prefix in ("г-н ", "г-жа ", "доктор ", "профессор ", "проф. "):
+            if n.startswith(prefix):
+                n = n[len(prefix):]
+        # Drop punctuation and collapse whitespace
+        n = re.sub(r"[^\w\s]", " ", n, flags=re.UNICODE)
+        n = re.sub(r"\s+", " ", n).strip()
+        return n
+
+    def deduplicate_entities(self, graph_id: str) -> Dict[str, Any]:
+        """Merge obvious duplicate entities within the same type.
+
+        Strategy (heuristic, no LLM): group nodes by entity type, then within
+        each group find pairs where one normalised name is a strict superset
+        of the other (token-wise) AND they share at least one full token. This
+        catches the common ``Егор Фигурняк`` vs ``Егор Сергеевич Фигурняк``
+        pattern without needing embeddings.
+
+        Why heuristic only: an embedding-based pass would need every node
+        embedded against every other O(n²) and is fragile when the embedding
+        provider is down (as we observed with the 401 from routerai.ru). The
+        token-superset rule covers the dominant duplication mode in NER
+        output for personal names and organisations.
+
+        Returns: ``{"merged": N, "kept": [...], "dropped": [...]}``.
+        """
+        all_nodes = self.storage.get_all_nodes(graph_id)
+        # Group by entity type label (excluding generic Entity/Node labels)
+        groups: Dict[str, List[Dict[str, Any]]] = {}
+        for node in all_nodes:
+            labels = [l for l in node.get("labels", []) if l not in ("Entity", "Node")]
+            etype = labels[0] if labels else "_unknown"
+            groups.setdefault(etype, []).append(node)
+
+        merged = 0
+        kept_log: List[str] = []
+        dropped_log: List[str] = []
+
+        for etype, nodes in groups.items():
+            if len(nodes) < 2:
+                continue
+            # Pair-by-pair check. Number of nodes per type is small (≤10s),
+            # so quadratic is fine here.
+            # Pre-compute normalised name token sets.
+            decorated = []
+            for n in nodes:
+                tokens = set(self._normalise_name_for_dedupe(n.get("name", "")).split())
+                tokens.discard("")
+                decorated.append((n, tokens))
+
+            # Greedy: pick richer node (more tokens, or longer summary) as winner.
+            decorated.sort(key=lambda x: (len(x[1]), len(x[0].get("summary") or "")), reverse=True)
+
+            consumed: set = set()
+            for i, (keep_node, keep_tokens) in enumerate(decorated):
+                if keep_node["uuid"] in consumed or len(keep_tokens) < 1:
+                    continue
+                for j in range(i + 1, len(decorated)):
+                    drop_node, drop_tokens = decorated[j]
+                    if drop_node["uuid"] in consumed or not drop_tokens:
+                        continue
+                    # Strict subset AND at least 1 shared token of length ≥ 3
+                    if drop_tokens.issubset(keep_tokens) and any(len(t) >= 3 for t in drop_tokens):
+                        try:
+                            res = self.storage.merge_nodes(
+                                keep_uuid=keep_node["uuid"],
+                                drop_uuid=drop_node["uuid"],
+                            )
+                            merged += 1
+                            kept_log.append(f"{keep_node['name']} ({etype})")
+                            dropped_log.append(f"{drop_node['name']} → into {keep_node['name']}")
+                            consumed.add(drop_node["uuid"])
+                            logger.info(
+                                f"[dedupe] Merged duplicate: kept '{keep_node['name']}' (uuid={keep_node['uuid'][:8]}), "
+                                f"dropped '{drop_node['name']}' (uuid={drop_node['uuid'][:8]}), moved {res.get('merged_edges', 0)} edges"
+                            )
+                        except Exception as e:
+                            logger.warning(f"[dedupe] Failed to merge {drop_node['uuid']} into {keep_node['uuid']}: {e}")
+
+        if merged:
+            logger.info(f"[dedupe] Done — merged {merged} duplicate entities in graph {graph_id}")
+        else:
+            logger.info(f"[dedupe] No duplicates found in graph {graph_id}")
+        return {"merged": merged, "kept": kept_log, "dropped": dropped_log}
+
     def _get_graph_info(self, graph_id: str) -> GraphInfo:
         """Get graph information"""
         info = self.storage.get_graph_info(graph_id)

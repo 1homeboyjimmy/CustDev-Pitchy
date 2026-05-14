@@ -237,6 +237,7 @@ class SimulationManager:
         progress_callback: Optional[callable] = None,
         parallel_profile_count: int = 3,
         storage: 'GraphStorage' = None,
+        ontology: Optional[Dict[str, Any]] = None,
     ) -> SimulationState:
         """
         Prepare simulation environment (fully automated)
@@ -271,18 +272,40 @@ class SimulationManager:
             sim_dir = self._get_simulation_dir(simulation_id)
             
             # ========== Phase 0: Get Market Context from RAG ==========
+            # We pull structured chunks (with source + score metadata) and
+            # format them into a single string that the profile generator
+            # injects into each persona's system prompt. Including sources
+            # gives the LLM something concrete to cite when justifying a
+            # persona's pain point or scepticism, instead of inventing facts.
             if progress_callback:
                 progress_callback("reading", 5, "Получение контекста рынка через RAG...")
-            
+
             import asyncio
             market_context = ""
             try:
-                # We use asyncio.run because this is running in a background thread
-                market_context = asyncio.run(RagService.get_market_context(simulation_requirement))
-                if market_context:
-                    logger.info(f"Successfully injected market context (length: {len(market_context)})")
+                rag_result = asyncio.run(
+                    RagService.search(query=simulation_requirement, top_k=8)
+                )
+                if rag_result.chunks:
+                    # Format as numbered list with source attribution so the
+                    # downstream LLM can cite (and we can verify) which fact
+                    # came from where.
+                    lines = []
+                    for i, ch in enumerate(rag_result.chunks, 1):
+                        src = ch.metadata.get("source") or ch.metadata.get("url") or ""
+                        cat = ch.metadata.get("collection") or ch.metadata.get("category") or ""
+                        label = f"{cat}: {src}" if src and cat else (src or cat or "источник не указан")
+                        lines.append(f"[{i}] ({label}, score={ch.score:.2f})\n{ch.text}")
+                    market_context = "\n\n".join(lines)
+                    logger.info(
+                        f"RAG market context: {len(rag_result.chunks)} chunks, "
+                        f"{len(market_context)} chars formatted"
+                    )
+                elif rag_result.context:
+                    market_context = rag_result.context
+                    logger.info(f"RAG legacy context: {len(market_context)} chars")
                 else:
-                    logger.warning("No market context returned from RAG service")
+                    logger.warning("RAG returned no context for simulation_requirement")
             except Exception as rag_e:
                 logger.warning(f"RAG context lookup failed (non-critical): {rag_e}")
             
@@ -297,12 +320,44 @@ class SimulationManager:
             if progress_callback:
                 progress_callback("reading", 30, "Анализ архитектуры общества...")
             
+            # Build entity_type → agent_role map from ontology so each EntityNode
+            # carries its role through the rest of the pipeline.
+            entity_type_role_map: Dict[str, str] = {}
+            if ontology and isinstance(ontology, dict):
+                for et in ontology.get("entity_types", []) or []:
+                    et_name = et.get("name")
+                    et_role = et.get("default_agent_role")
+                    if et_name and et_role:
+                        entity_type_role_map[et_name] = et_role
+                logger.info(f"Loaded agent roles for {len(entity_type_role_map)} entity types from ontology")
+
             filtered = reader.filter_defined_entities(
                 graph_id=state.graph_id,
                 defined_entity_types=defined_entity_types,
-                enrich_with_edges=True
+                enrich_with_edges=True,
+                entity_type_role_map=entity_type_role_map or None,
             )
-            
+
+            # Hard filter: internal_team entities (the product itself, its founders,
+            # its team) MUST NOT participate as customer-dev agents. Their voice
+            # would be the product speaking about itself, which distorts the
+            # signal we're trying to capture. We log what's excluded so the user
+            # can verify the role classification looked right.
+            if entity_type_role_map:
+                before_count = len(filtered.entities)
+                kept, excluded = [], []
+                for ent in filtered.entities:
+                    if ent.agent_role == "internal_team":
+                        excluded.append(f"{ent.name} ({ent.get_entity_type()})")
+                    else:
+                        kept.append(ent)
+                if excluded:
+                    logger.info(
+                        f"Excluded {len(excluded)}/{before_count} internal_team entities from simulation: {excluded[:5]}{'…' if len(excluded) > 5 else ''}"
+                    )
+                filtered.entities = kept
+                filtered.filtered_count = len(kept)
+
             # Intelligent Ranking: prioritize "Human" entities for the "Society of Agents"
             def get_entity_actor_score(entity) -> int:
                 etype = (entity.get_entity_type() or "").lower()

@@ -286,8 +286,17 @@ const handleNewProject = async () => {
       addLog(`Ошибка при синтезе: ${error.value}`)
     }
   } catch (err) {
-    error.value = err.message
-    addLog(`Исключение в конвейере синтеза: ${err.message}`)
+    // Surface the backend's actual reason (e.g. "PDF appears to be a scan, no extractable text")
+    // instead of axios's generic "Request failed with status code 400".
+    const backendMsg = err?.response?.data?.error || err?.response?.data?.message
+    const status = err?.response?.status
+    const reason = backendMsg || err.message || 'неизвестная ошибка'
+    error.value = reason
+    addLog(`✗ Не удалось обработать документы${status ? ` (HTTP ${status})` : ''}: ${reason}`)
+    if (/scan|extractable text|OCR/i.test(reason)) {
+      addLog('⚠ Похоже, PDF — это скан. Загрузите текстовый PDF, .txt или .md, либо обратитесь к администратору, чтобы включить OCR на сервере.')
+    }
+    ontologyProgress.value = null
   } finally {
     loading.value = false
   }

@@ -223,7 +223,16 @@ const doStartSimulation = async () => {
       phase.value = 1; runStatus.value = res.data
       startPolling()
     }
-  } catch (err) { addLog(`✗ Ошибка матрицы: ${err.message}`); emit('update-status', 'error') }
+  } catch (err) {
+    const backendMsg = err?.response?.data?.error || err?.response?.data?.message
+    const status = err?.response?.status
+    const reason = backendMsg || err.message || 'неизвестная ошибка'
+    addLog(`✗ Не удалось запустить симуляцию${status ? ` (HTTP ${status})` : ''}: ${reason}`)
+    if (status === 400 && /not ready|prepare/i.test(reason)) {
+      addLog('⚠ Среда не готова. Вернитесь на Шаг 2 и завершите подготовку агентов.')
+    }
+    emit('update-status', 'error')
+  }
 }
 
 let statusTimer, detailTimer

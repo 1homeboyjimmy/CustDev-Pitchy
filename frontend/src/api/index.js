@@ -51,13 +51,17 @@ service.interceptors.response.use(
   }
 )
 
-// Request function with retry
+// Request function with retry — only retries network failures and 5xx errors.
+// 4xx client errors (e.g. simulation not ready, validation failed) are surfaced
+// immediately so the UI can show a real message instead of "retrying… retrying…".
 export const requestWithRetry = async (requestFn, maxRetries = 3, delay = 1000) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await requestFn()
     } catch (error) {
-      if (i === maxRetries - 1) throw error
+      const status = error?.response?.status
+      const isClientError = typeof status === 'number' && status >= 400 && status < 500
+      if (isClientError || i === maxRetries - 1) throw error
 
       console.warn(`Request failed, retrying (${i + 1}/${maxRetries})...`)
       await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)))

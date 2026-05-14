@@ -26,6 +26,13 @@ class EntityNode:
     related_edges: List[Dict[str, Any]] = field(default_factory=list)
     # Related other nodes
     related_nodes: List[Dict[str, Any]] = field(default_factory=list)
+    # Agent role inherited from the ontology entry for this entity's type.
+    # One of: internal_team | target_audience | expert_advisor | investor |
+    # competitor | regulator | media | observer | institutional.
+    # Used by the profile generator and simulation to decide whether this entity
+    # should participate as a customer-dev audience (target_audience etc.) or
+    # speak as the product itself (internal_team).
+    agent_role: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -36,6 +43,7 @@ class EntityNode:
             "attributes": self.attributes,
             "related_edges": self.related_edges,
             "related_nodes": self.related_nodes,
+            "agent_role": self.agent_role,
         }
 
     def get_entity_type(self) -> Optional[str]:
@@ -126,7 +134,8 @@ class EntityReader:
         self,
         graph_id: str,
         defined_entity_types: Optional[List[str]] = None,
-        enrich_with_edges: bool = True
+        enrich_with_edges: bool = True,
+        entity_type_role_map: Optional[Dict[str, str]] = None,
     ) -> FilteredEntities:
         """
         Filter and extract nodes with meaningful entity types.
@@ -180,6 +189,13 @@ class EntityReader:
 
             entity_types_found.add(entity_type)
 
+            # Look up the agent role declared by the ontology for this entity
+            # type. Falls back to None if the ontology was built before roles
+            # were introduced; downstream code treats None as "target_audience".
+            role = None
+            if entity_type_role_map:
+                role = entity_type_role_map.get(entity_type)
+
             # Create entity node object
             entity = EntityNode(
                 uuid=node["uuid"],
@@ -187,6 +203,7 @@ class EntityReader:
                 labels=labels,
                 summary=node.get("summary", ""),
                 attributes=node.get("attributes", {}),
+                agent_role=role,
             )
 
             # Get related edges and nodes

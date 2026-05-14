@@ -373,6 +373,70 @@ class InterviewResult:
         return "\n".join(text_parts)
 
 
+@dataclass
+class MarketResearchChunk:
+    """Single retrieved chunk from the external Pitchy RAG.
+
+    Mirrors :class:`RagChunk` but lives here so report-agent ReACT loop
+    keeps its tool result types in one place.
+    """
+    text: str
+    score: float = 0.0
+    source: str = ""
+    category: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "text": self.text,
+            "score": self.score,
+            "source": self.source,
+            "category": self.category,
+        }
+
+
+@dataclass
+class MarketResearchResult:
+    """Aggregated response from the external RAG, formatted for the report
+    agent's ReACT loop. ``to_text`` is what the LLM sees as Observation."""
+    query: str
+    chunks: List[MarketResearchChunk] = field(default_factory=list)
+    context: str = ""
+    count: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query": self.query,
+            "context": self.context,
+            "count": self.count,
+            "chunks": [c.to_dict() for c in self.chunks],
+        }
+
+    def to_text(self) -> str:
+        if not self.chunks and not self.context.strip():
+            return (
+                f"## Внешний рынок (RAG)\n"
+                f"Запрос: {self.query}\n"
+                f"Результат: ничего не найдено в базе pitchy.pro по этому запросу.\n"
+            )
+
+        lines = [
+            "## Внешний рынок РФ (RAG pitchy.pro)",
+            f"**Запрос:** {self.query}",
+            f"**Найдено фрагментов:** {self.count}",
+            "",
+        ]
+        if self.chunks:
+            lines.append("### Фрагменты с источниками")
+            for i, chunk in enumerate(self.chunks, 1):
+                src = chunk.source or chunk.category or "источник не указан"
+                lines.append(f"\n**[{i}] {src}** _(score={chunk.score:.2f})_")
+                lines.append(f"> {chunk.text}")
+        elif self.context:
+            lines.append("### Контекст")
+            lines.append(self.context)
+        return "\n".join(lines)
+
+
 class GraphToolsService:
     """
     Graph Retrieval Tools Service (via GraphStorage / Neo4j)
@@ -1078,6 +1142,63 @@ Return the sub-questions as a JSON list."""
         )
 
         logger.info(f"QuickSearch complete: {result.total_count} results")
+        return result
+
+    def market_research(
+        self,
+        query: str,
+        top_k: int = 5,
+        categories: Optional[List[str]] = None,
+    ) -> MarketResearchResult:
+        """[MarketResearch - External RAG over pitchy.pro knowledge base]
+
+        Pulls real Russian-market facts (gov-funds, marketplaces, regulatory
+        docs, juicy figures) into a report section. This is the tool the
+        report agent uses to ground simulation outcomes against actual data
+        instead of only the agents' invented reactions.
+
+        The endpoint is the same one the profile generator hits at startup,
+        but here we surface chunks WITH metadata so the agent can cite
+        sources in the body of the report.
+        """
+        from .rag_service import RagService
+        import asyncio
+
+        result = MarketResearchResult(query=query)
+        if not query or not query.strip():
+            return result
+
+        try:
+            rag = asyncio.run(
+                RagService.search(query=query, top_k=top_k, categories=categories)
+            )
+        except RuntimeError:
+            # asyncio.run can fail when called from inside an existing loop
+            # (e.g. some test runners). Fall back to a manual loop.
+            loop = asyncio.new_event_loop()
+            try:
+                rag = loop.run_until_complete(
+                    RagService.search(query=query, top_k=top_k, categories=categories)
+                )
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.warning(f"market_research: RAG call failed: {e}")
+            return result
+
+        result.context = rag.context
+        result.count = rag.count
+        for ch in rag.chunks:
+            result.chunks.append(MarketResearchChunk(
+                text=ch.text,
+                score=ch.score,
+                source=str(ch.metadata.get("source") or ch.metadata.get("url") or ""),
+                category=str(ch.metadata.get("collection") or ch.metadata.get("category") or ""),
+            ))
+
+        logger.info(
+            f"market_research returned {result.count} chunks for query='{query[:60]}…'"
+        )
         return result
 
     def interview_agents(

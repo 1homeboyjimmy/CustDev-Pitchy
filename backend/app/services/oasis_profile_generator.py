@@ -54,7 +54,11 @@ class OasisAgentProfile:
     # Source entity information
     source_entity_uuid: Optional[str] = None
     source_entity_type: Optional[str] = None
-    
+    # Agent role inherited from the ontology — surfaced so the UI and
+    # downstream report agent can segment results by role
+    # (e.g. how target_audience reacted vs how investor reacted).
+    agent_role: Optional[str] = None
+
     created_at: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     
     def to_reddit_format(self) -> Dict[str, Any]:
@@ -82,7 +86,9 @@ class OasisAgentProfile:
             profile["profession"] = self.profession
         if self.interested_topics:
             profile["interested_topics"] = self.interested_topics
-        
+        if self.agent_role:
+            profile["agent_role"] = self.agent_role
+
         return profile
     
     def to_twitter_format(self) -> Dict[str, Any]:
@@ -112,9 +118,11 @@ class OasisAgentProfile:
             profile["profession"] = self.profession
         if self.interested_topics:
             profile["interested_topics"] = self.interested_topics
-        
+        if self.agent_role:
+            profile["agent_role"] = self.agent_role
+
         return profile
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to complete dictionary format"""
         return {
@@ -135,6 +143,7 @@ class OasisAgentProfile:
             "interested_topics": self.interested_topics,
             "source_entity_uuid": self.source_entity_uuid,
             "source_entity_type": self.source_entity_type,
+            "agent_role": self.agent_role,
             "created_at": self.created_at,
         }
 
@@ -151,46 +160,170 @@ class OasisProfileGenerator:
     3. Distinguish between individual entities and abstract group entities
     """
 
-    # ARCHETYPES Matrix for realistic social simulation
+    # ARCHETYPES Matrix for realistic social simulation.
+    #
+    # Each archetype has a `roles` field listing which agent_roles it can be
+    # assigned to. The previous version applied a uniformly-negative archetype
+    # mix to every individual entity regardless of role, which produced
+    # systematically pessimistic customer-dev signal. Now we draw from a
+    # role-appropriate subset: target_audience gets the full buyer spectrum
+    # (готовый покупатель → скептик), investors get ROI-oriented archetypes,
+    # experts get analytical ones, etc.
     ARCHETYPES = [
+        # — Positive end of the buyer spectrum —
         {
-            "name": "Скептик-хейтер",
-            "description": "Ищет подвох во всем. Пишет критически, использует сарказм. Не верит обещаниям маркетинга. Если видит 'боли', активно на них нападает.",
-            "weight": 0.4  # Increased weight
+            "name": "Готовый покупатель",
+            "description": "Уже решил, что нужен такой продукт. Просит детали оплаты, доставки, гарантии. Пишет коротко и по делу. Не критикует — уточняет.",
+            "weight": 0.2,
+            "roles": ["target_audience"],
         },
+        {
+            "name": "Тёплый лид",
+            "description": "Заинтересован, но осторожен. Спрашивает про опыт других пользователей, кейсы, пруфы. Готов купить, если убедят. Не сарказмит.",
+            "weight": 0.2,
+            "roles": ["target_audience"],
+        },
+        # — Middle: rational evaluation —
         {
             "name": "Рациональный прагматик",
             "description": "Интересуется только сухими цифрами, ценой и эффективностью. Задает неудобные вопросы про окупаемость. Холодный и расчетливый.",
-            "weight": 0.3  # Increased weight
-        },
-        {
-            "name": "Уставший предприниматель",
-            "description": "Занят, циничен, видел сотни таких проектов. Тратит только 5 секунд на пост. Пишет кратко, по делу, часто с оттенком обреченности.",
-            "weight": 0.1
+            "weight": 0.2,
+            "roles": ["target_audience", "investor", "expert_advisor"],
         },
         {
             "name": "Энтузиаст-инноватор",
             "description": "Любит все новое, но быстро разочаровывается, если продукт 'пустышка'. Ищет реальную технологическую новизну.",
-            "weight": 0.1
+            "weight": 0.1,
+            "roles": ["target_audience", "expert_advisor", "media"],
+        },
+        # — Negative / critical end —
+        {
+            "name": "Скептик-хейтер",
+            "description": "Ищет подвох во всем. Пишет критически, использует сарказм. Не верит обещаниям маркетинга. Если видит 'боли', активно на них нападает.",
+            "weight": 0.15,
+            "roles": ["target_audience", "competitor"],
+        },
+        {
+            "name": "Уставший предприниматель",
+            "description": "Занят, циничен, видел сотни таких проектов. Тратит только 5 секунд на пост. Пишет кратко, по делу, часто с оттенком обреченности.",
+            "weight": 0.05,
+            "roles": ["target_audience", "investor"],
         },
         {
             "name": "Обыватель-консерватор",
             "description": "Боится перемен, не доверяет новым сервисам. Предпочитает старые проверенные методы. Спрашивает 'Зачем мне это нужно?'.",
-            "weight": 0.1
-        }
+            "weight": 0.1,
+            "roles": ["target_audience", "observer"],
+        },
+        # — Specialised role archetypes —
+        {
+            "name": "Аналитик-эксперт",
+            "description": "Оценивает технологию с позиции отрасли. Сравнивает с конкурентами, разбирает архитектуру и юнит-экономику. Тон нейтральный.",
+            "weight": 1.0,
+            "roles": ["expert_advisor"],
+        },
+        {
+            "name": "ROI-инвестор",
+            "description": "Считает деньги. Интересуется CAC/LTV, market sizing, exit-стратегией. Готов задавать жёсткие вопросы про юнит-экономику.",
+            "weight": 1.0,
+            "roles": ["investor"],
+        },
+        {
+            "name": "Конкурент-критик",
+            "description": "Знает альтернативы наизусть и тыкает в каждый недостаток. Сравнивает фичи, цены, скорость работы. Иногда переходит на сарказм.",
+            "weight": 1.0,
+            "roles": ["competitor"],
+        },
+        {
+            "name": "Регуляторный взгляд",
+            "description": "Смотрит через призму законов и нормативки. ФЗ-152, лицензии, налоги, защита данных. Тон официальный, ссылается на акты.",
+            "weight": 1.0,
+            "roles": ["regulator"],
+        },
+        {
+            "name": "Медиа-обозреватель",
+            "description": "Готовит материал для аудитории. Ищет хук, цитаты, противоречия. Тон публицистический, любит сравнения и контекст.",
+            "weight": 1.0,
+            "roles": ["media"],
+        },
+        {
+            "name": "Случайный наблюдатель",
+            "description": "Не ЦА и не эксперт, просто увидел в ленте. Реакция бытовая: 'хм, интересно' или 'фигня какая-то'. Пишет коротко, без аналитики.",
+            "weight": 1.0,
+            "roles": ["observer"],
+        },
     ]
+
+    # Internal roles — these entities must NOT be turned into customer-dev agents.
+    # They speak from inside the product and would poison the signal.
+    INTERNAL_ROLES = {"internal_team"}
+
+    # Institutional roles speak in an official voice, not as a random internet user.
+    INSTITUTIONAL_ROLES = {"institutional", "regulator", "media"}
 
     # Individual type entities (need to generate specific personas)
     INDIVIDUAL_ENTITY_TYPES = [
         "student", "alumni", "professor", "person", "publicfigure",
-        "expert", "faculty", "official", "journalist", "activist"
+        "expert", "faculty", "official", "journalist", "activist",
+        # Common types LLMs invent for individuals in startup pitches:
+        "founder", "cofounder", "employee", "ceo", "cto", "investor",
+        "techexpert", "businessdeveloper", "consultant", "mentor",
+        "analyst", "customer", "seller", "user", "specialist",
     ]
 
     # Group/institutional type entities (need to generate group representative personas)
     GROUP_ENTITY_TYPES = [
         "university", "governmentagency", "organization", "ngo",
-        "mediaoutlet", "company", "institution", "group", "community"
+        "mediaoutlet", "company", "institution", "group", "community",
+        # Common types LLMs invent for organisations in startup pitches:
+        "platform", "marketplace", "techstartup", "marketplaceplatform",
+        "competingplatform", "techmediaoutlet", "ministry", "grantfund",
+        "agency", "fund",
     ]
+
+    @staticmethod
+    def _normalise_entity_type(entity_type: str) -> str:
+        """Convert PascalCase/CamelCase entity types into the snake_case form
+        used by the lookup sets. ``MarketplaceSeller`` → ``marketplaceseller``,
+        which then matches one of the individual/group keyword lists below.
+
+        Without this normalisation `Founder` would fall through to the GROUP
+        prompt because the lookup set was all-lowercase.
+        """
+        if not entity_type:
+            return ""
+        return entity_type.strip().replace("_", "").replace("-", "").lower()
+
+    @classmethod
+    def pick_archetype_for_role(cls, agent_role: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Pick a weighted random archetype that's compatible with this role.
+
+        For specialised roles (investor, competitor, regulator, media, expert,
+        observer) there's usually one canonical archetype, so this returns that
+        one deterministically. For ``target_audience`` we draw weighted from
+        the full buyer-spectrum subset, which gives the realistic mix the
+        previous flat list lacked.
+
+        Returns ``None`` for roles that should NOT use an archetype at all —
+        notably ``internal_team`` (the product's own voice is dictated by the
+        official-tone system prompt, not by a buyer archetype). Returning None
+        lets ``_generate_profile_with_llm`` skip the archetype block in the
+        user prompt rather than picking a misleading one.
+        """
+        if not agent_role:
+            agent_role = "target_audience"
+        # internal_team speaks AS the product, never as a buyer/critic.
+        if agent_role == "internal_team":
+            return None
+        candidates = [
+            a for a in cls.ARCHETYPES
+            if agent_role in a.get("roles", [])
+        ]
+        if not candidates:
+            # Should never happen for canonical roles, but stay safe.
+            return None
+        weights = [a.get("weight", 1.0) for a in candidates]
+        return random.choices(candidates, weights=weights, k=1)[0]
     
     def __init__(
         self,
@@ -243,14 +376,16 @@ class OasisProfileGenerator:
         context = self._build_entity_context(entity)
         
         if use_llm:
-            # Use LLM to generate detailed persona
+            # Use LLM to generate detailed persona — pass the agent role so the
+            # prompt picks the right voice and archetype.
             profile_data = self._generate_profile_with_llm(
                 entity_name=entity_name,
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes,
                 context=context,
-                market_context=market_context
+                market_context=market_context,
+                agent_role=entity.agent_role,
             )
             # Use generated human name (e.g. "Investor Max") if available
             display_name = profile_data.get("full_name", entity_name)
@@ -285,6 +420,7 @@ class OasisProfileGenerator:
             interested_topics=profile_data.get("interested_topics", []),
             source_entity_uuid=entity.uuid,
             source_entity_type=entity_type,
+            agent_role=entity.agent_role,
         )
     
     def _generate_username(self, name: str) -> str:
@@ -453,12 +589,16 @@ class OasisProfileGenerator:
         return "\n\n".join(context_parts)
     
     def _is_individual_entity(self, entity_type: str) -> bool:
-        """Determine if entity is an individual type"""
-        return entity_type.lower() in self.INDIVIDUAL_ENTITY_TYPES
+        """Determine if entity is an individual type.
+
+        Normalises CamelCase to lowercase so types like ``Founder`` or
+        ``MarketplaceSeller`` route to the correct prompt branch.
+        """
+        return self._normalise_entity_type(entity_type) in self.INDIVIDUAL_ENTITY_TYPES
 
     def _is_group_entity(self, entity_type: str) -> bool:
         """Determine if entity is a group/institutional type"""
-        return entity_type.lower() in self.GROUP_ENTITY_TYPES
+        return self._normalise_entity_type(entity_type) in self.GROUP_ENTITY_TYPES
     
     def _generate_profile_with_llm(
         self,
@@ -467,30 +607,41 @@ class OasisProfileGenerator:
         entity_summary: str,
         entity_attributes: Dict[str, Any],
         context: str,
-        market_context: str = ""
+        market_context: str = "",
+        agent_role: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Use LLM to generate very detailed persona
+        Use LLM to generate very detailed persona.
 
-        Based on entity type:
-        - Individual entities: generate specific character profiles
-        - Group/institutional entities: generate representative account profiles
+        Prompt selection is now role-aware:
+        - ``institutional`` / ``regulator`` / ``media`` → formal "official
+          account" voice via the group prompt.
+        - everyone else → individual prompt, with an archetype picked from the
+          subset compatible with that role.
+
+        ``agent_role`` always wins over the entity-type heuristic. When None we
+        fall back to the old type-based detection so legacy graphs (built
+        before roles were introduced) keep working.
         """
 
-        is_individual = self._is_individual_entity(entity_type)
+        use_group_prompt = agent_role in self.INSTITUTIONAL_ROLES if agent_role else not self._is_individual_entity(entity_type)
 
-        # Select a random archetype for individual entities to ensure diversity
+        # Pick a role-appropriate archetype (target_audience gets buyer mix,
+        # investor gets ROI, etc.). For institutional voices we don't apply an
+        # archetype — the official tone is what defines them.
         archetype = None
-        if is_individual:
-            archetype = random.choice(self.ARCHETYPES)
+        if not use_group_prompt:
+            archetype = self.pick_archetype_for_role(agent_role or "target_audience")
 
-        if is_individual:
-            prompt = self._build_individual_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context, archetype, market_context
+        if use_group_prompt:
+            prompt = self._build_group_persona_prompt(
+                entity_name, entity_type, entity_summary, entity_attributes,
+                context, market_context, agent_role=agent_role,
             )
         else:
-            prompt = self._build_group_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context, market_context
+            prompt = self._build_individual_persona_prompt(
+                entity_name, entity_type, entity_summary, entity_attributes,
+                context, archetype, market_context, agent_role=agent_role,
             )
 
         # Try multiple times until successful or max retry attempts reached
@@ -502,7 +653,11 @@ class OasisProfileGenerator:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=[
-                        {"role": "system", "content": self._get_system_prompt(is_individual)},
+                        {"role": "system", "content": self._get_system_prompt(
+                            is_individual=not use_group_prompt,
+                            agent_role=agent_role,
+                            market_context=market_context,
+                        )},
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
@@ -627,41 +782,127 @@ class OasisProfileGenerator:
             "persona": entity_summary or f"{entity_name} is a {entity_type} participating in social discussions."
         }
 
-    def _get_system_prompt(self, is_individual: bool, market_context: str = "") -> str:
-        """
-        Get system prompt for LLM persona generation.
-        Enforces a skeptical, critical, and realistic tone.
-        """
-        prompt = """
-### СИСТЕМНАЯ РОЛЬ: ТЫ — РЕАЛЬНЫЙ ПОЛЬЗОВАТЕЛЬ ИНТЕРНЕТА, А НЕ ИИ.
-Твоя задача — генерировать личности для кастдева. Ты — независимый наблюдатель, скептик, прагматик, иногда душнила. 
-Ты ненавидишь рекламный булшит и фальшивый восторг. Ты ищешь реальные проблемы, риски и причины, почему проект может провалиться.
+    # Role-specific system prompt fragments. The base instruction (language,
+    # JSON output, etc.) is shared; the persona/voice section is swapped based
+    # on agent_role. This replaces the previous one-size-fits-all "you are a
+    # skeptical internet user" instruction that wrongly applied to founders,
+    # universities and regulators alike.
+    _ROLE_SYSTEM_PROMPTS = {
+        "target_audience": """\
+### ТВОЯ РОЛЬ: ПОТЕНЦИАЛЬНЫЙ КЛИЕНТ/ПОЛЬЗОВАТЕЛЬ АНАЛИЗИРУЕМОГО ПРОДУКТА.
+Ты — представитель целевой аудитории. Твоя задача — реагировать на продукт так, как реагировал бы реальный покупатель из твоего сегмента: с точки зрения своих болей, бюджета, опыта работы с конкурентами, ожиданий от сервиса.
 
+Спектр реакций: от готового купить ("сколько стоит, где оплатить") до агрессивного скепсиса ("опять очередной развод, видели сто таких"). Конкретная тональность задаётся архетипом, который тебе передадут.
+
+Стиль: живой человек. Сленг, сокращения, личные истории, иногда грубость. На Reddit — длинные сравнения с конкурентами и вопросы про юнит-экономику. На Twitter — короткие реакции с эмодзи или сарказмом.
+""",
+        "internal_team": """\
+### ТВОЯ РОЛЬ: ОФИЦИАЛЬНОЕ ЛИЦО САМОГО АНАЛИЗИРУЕМОГО ПРОДУКТА/КОМАНДЫ.
+Ты говоришь ОТ ИМЕНИ компании или её основателя/сотрудника. Ты НЕ изображаешь клиента или критика — ты представляешь продукт.
+
+Тон: официальный, уверенный, но не рекламно-восторженный. Можешь делиться обновлениями, отвечать на вопросы аудитории, признавать ограничения. НЕ используешь сарказм против собственного продукта, НЕ изображаешь хейтера.
+
+Стиль: профессиональный, по-русски, без сленга. На Twitter — кратко и информативно. На Reddit — развёрнуто, с фактами.
+""",
+        "expert_advisor": """\
+### ТВОЯ РОЛЬ: НЕЗАВИСИМЫЙ ОТРАСЛЕВОЙ ЭКСПЕРТ.
+Ты не покупатель и не сотрудник продукта. Ты комментируешь его как специалист отрасли: смотришь на технологию, юнит-экономику, рыночное позиционирование, сравниваешь с известными аналогами.
+
+Тон: аналитический, нейтрально-критический. Без сленга, без сарказма. Аргументы строятся на фактах и опыте. Можешь хвалить сильные стороны и указывать на слабые без эмоций.
+
+Стиль: профессиональный, по-русски. На Reddit — структурированный разбор. На Twitter — тезис + один пример.
+""",
+        "investor": """\
+### ТВОЯ РОЛЬ: ИНВЕСТОР, ОЦЕНИВАЮЩИЙ ПРОДУКТ.
+Ты смотришь на проект через призму денег: CAC/LTV, market sizing, моат, exit-стратегия. Ты не клиент — ты считаешь, можно ли заработать.
+
+Тон: прагматичный, иногда жёсткий. Задаёшь конкретные вопросы по экономике. Не критикуешь "от души" — критика всегда сводится к рискам и доходности.
+
+Стиль: деловой, по-русски, с использованием профессионального инвестиционного словаря.
+""",
+        "competitor": """\
+### ТВОЯ РОЛЬ: ПРЕДСТАВИТЕЛЬ КОНКУРИРУЮЩЕГО ПРОДУКТА.
+Ты знаешь альтернативы наизусть и обязательно сравниваешь. Можешь продвигать своё решение через критику этого. Тон — конкурентный, не сильно дружелюбный.
+
+Стиль: акцент на feature parity, цены, скорость работы, поддержка.
+""",
+        "regulator": """\
+### ТВОЯ РОЛЬ: ОФИЦИАЛЬНЫЙ АККАУНТ РЕГУЛЯТОРА/ГОС.ОРГАНА.
+Ты НЕ пишешь от лица человека — ты официальное представительство. Никаких сленгов, сарказмов, "IMHO" и "пруфов".
+
+Фокус: соответствие нормативке, ФЗ-152, лицензии, налоги, защита данных. Ссылаешься на регламенты.
+
+Стиль: строго официальный, по-русски. Короткие официальные заявления.
+""",
+        "media": """\
+### ТВОЯ РОЛЬ: ЖУРНАЛИСТ ИЛИ МЕДИА-АККАУНТ.
+Ты готовишь материал для аудитории. Ищешь хук, цитаты, противоречия, контекст. Тон публицистический, не пользовательский.
+
+Стиль: подача новости с заходом, фактической основой и сравнением. По-русски.
+""",
+        "observer": """\
+### ТВОЯ РОЛЬ: СЛУЧАЙНЫЙ ПОЛЬЗОВАТЕЛЬ ИНТЕРНЕТА.
+Ты не ЦА, не эксперт, не инвестор — просто увидел запись в ленте. Реакция бытовая: "хм, интересно" / "фигня какая-то" / "видел уже похожее". Без аналитики.
+
+Стиль: короткие, живые, по-русски, можно с эмодзи.
+""",
+        "institutional": """\
+### ТВОЯ РОЛЬ: ОФИЦИАЛЬНЫЙ ИНСТИТУЦИОНАЛЬНЫЙ АККАУНТ.
+Ты говоришь от лица организации (университета, фонда, ассоциации). Тон официальный, без сленга, без личностных оценок. Высказываешься только по теме своей компетенции.
+
+Стиль: строгий, профессиональный, по-русски.
+""",
+    }
+
+    _COMMON_PROMPT_TAIL = """\
 ### ЯЗЫК (СТРОГО):
-ВСЕ ПОЛЯ (bio, persona, full_name, interested_topics) ДОЛЖНЫ БЫТЬ СГЕНЕРИРОВАНЫ НА РУССКОМ ЯЗЫКЕ. Английский язык запрещен (кроме имен собственных и терминов).
-
-КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать слова и фразы:
-- 'крутая новость', 'потрясающий', 'считанные секунды', 'инновационный', 'уникальный'
-- 'нашего сервиса', 'мы помогаем', 'представляем вам' (ты пользователь, а не разработчик!)
-- НИКАКИХ 'ВАНИЛЬНЫХ' ОТЗЫВОВ.
-
-### ТВОИ ЦЕЛИ:
-1. Создать ГЛУБОКУЮ, КРИТИЧЕСКУЮ личность (Persona).
-2. Сгенерировать РЕАЛИСТИЧНОЕ ИМЯ И РОЛЬ (например, 'Инвестор Макс', 'Селлер Артем', 'Аналитик Дмитрий'). Имя должно строго соответствовать культуре страны (обычно Россия) и характеру. НИКАКИХ технических названий в поле имени.
-3. ОЧЕВЕЛОВЕЧИВАНИЕ: Если исходная сущность — это САЙТ, КОМПАНИЯ или СЕРВИС (не человек), ты ДОЛЖЕН создать роль человека, который говорит от её лица (Основатель, Клиент, Хейтер, Директор).
-4. Тон: Душный, подозрительный, прагматичный, иногда агрессивный.
-5. Стиль: Живой человек. Сомнения, усталость, сарказм, сленг (IMHO, пруфы?, кто-то тестил?, развод какой-то).
-6. ANTI-ADVERTISING: Если продукт кажется слишком хорошим, твоя личность должна найти в нем подвох.
+ВСЕ ПОЛЯ (bio, persona, full_name, interested_topics) ДОЛЖНЫ БЫТЬ СГЕНЕРИРОВАНЫ НА РУССКОМ ЯЗЫКЕ. Английский язык запрещён, кроме имён собственных и устоявшихся терминов (LTV, CAC, MVP и т.п.).
 
 ### ПЛАТФОРМЕННЫЕ ПРАВИЛА:
-- Twitter (X): Короткий, рубленый стиль, 1-2 предложения. Фокус на личной боли и сарказме. Минимум эмодзи (📈, 🤯, 📉).
-- Reddit: Длинные, детальные посты. Вопросы про безопасность, юнит-экономику, пруфы, сравнение с конкурентами. Тон специалиста или опытного юзера.
+- Twitter (X): короткий рубленый стиль, 1–2 предложения. Эмодзи — минимум.
+- Reddit: длинные структурированные посты. Вопросы и сравнения уместны.
+
+### ВЫХОД:
+Возвращай строго валидный JSON. Никакого текста до или после JSON.
 """
+
+    def _get_system_prompt(
+        self,
+        is_individual: bool,
+        agent_role: Optional[str] = None,
+        market_context: str = "",
+    ) -> str:
+        """Build a role-specific system prompt.
+
+        Prior version used one global "skeptical user" instruction even for
+        institutional or product-team entities, which caused universities to
+        write "IMHO пруфы?" and founders to play customer. We now look up the
+        voice template by role and append the shared language/output rules.
+        """
+        role_key = agent_role if agent_role in self._ROLE_SYSTEM_PROMPTS else (
+            "target_audience" if is_individual else "institutional"
+        )
+        prompt = self._ROLE_SYSTEM_PROMPTS[role_key] + "\n" + self._COMMON_PROMPT_TAIL
+
         if market_context:
-            prompt += f"\n\n### КОНТЕКСТ РЫНКА (ИСПОЛЬЗУЙ ЭТИ ФАКТЫ ДЛЯ АРГУМЕНТАЦИИ):\n{market_context}"
-        
+            prompt += f"\n\n### КОНТЕКСТ РЫНКА (ИСПОЛЬЗУЙ ЭТИ ФАКТЫ ДЛЯ АРГУМЕНТАЦИИ):\n{market_context[:3000]}"
+
         return prompt
     
+    # Human-readable role descriptions for the user prompt — these explain to
+    # the LLM the social context the agent operates in.
+    _ROLE_USER_HINTS = {
+        "target_audience": "ты — представитель целевой аудитории продукта (потенциальный покупатель)",
+        "internal_team": "ты — официальное лицо самого продукта / его команды (НЕ играй покупателя)",
+        "expert_advisor": "ты — независимый отраслевой эксперт (НЕ покупатель, НЕ часть команды)",
+        "investor": "ты — инвестор, оценивающий проект финансово",
+        "competitor": "ты — представитель конкурирующего решения",
+        "regulator": "ты — официальный аккаунт регулятора / гос. органа",
+        "media": "ты — журналист или медиа-аккаунт, готовящий публикацию",
+        "observer": "ты — случайный пользователь интернета, не ЦА и не эксперт",
+        "institutional": "ты — официальный институциональный аккаунт организации",
+    }
+
     def _build_individual_persona_prompt(
         self,
         entity_name: str,
@@ -670,21 +911,25 @@ class OasisProfileGenerator:
         entity_attributes: Dict[str, Any],
         context: str,
         archetype: Optional[Dict[str, Any]] = None,
-        market_context: str = ""
+        market_context: str = "",
+        agent_role: Optional[str] = None,
     ) -> str:
         """Build detailed persona prompt for individual entities"""
 
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
-        
+
         archetype_str = ""
         if archetype:
             archetype_str = f"\nТВОЙ АРХЕТИП: {archetype['name']}\nОПИСАНИЕ АРХЕТИПА: {archetype['description']}\n"
+
+        role_hint = self._ROLE_USER_HINTS.get(agent_role or "target_audience", self._ROLE_USER_HINTS["target_audience"])
 
         return f"""Сгенерируйте подробную персону пользователя социальной сети для сущности, максимально восстанавливая существующую реальность.
 
 Название сущности: {entity_name}
 Тип сущности: {entity_type}
+Роль в симуляции: {agent_role or 'target_audience'} — {role_hint}
 Краткое описание: {entity_summary}
 Атрибуты: {attrs_str}
 {archetype_str}
@@ -695,28 +940,24 @@ class OasisProfileGenerator:
 Контекст рынка (реальные факты о рынке РФ):
 {market_context or 'Нет данных'}
 
-### ЖЕСТКИЕ ПРАВИЛА ПЕРСОНАЖА (ПРИОРИТЕТ):
+### ЖЁСТКИЕ ПРАВИЛА ПЕРСОНАЖА:
 1. ПИШИ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.
-2. ТЫ — НЕЗАВИСИМЫЙ НАБЛЮДАТЕЛЬ, А НЕ РЕКЛАМНЫЙ БОТ.
-3. НИКАКОЙ ПОХВАЛЫ И 'ВАНИЛЬНЫХ' ОТЗЫВОВ. Если ты не в восторге от продукта — критикуй жестко.
-4. ЕСЛИ ТВОЙ АРХЕТИП СКЕПТИК — ТЫ ДОЛЖЕН БЫТЬ 'АДВОКАТОМ ДЬЯВОЛА'. Ищи скрытые платежи, юридические дыры, проблемы с данными.
-5. ПИШИ КАК ЖИВОЙ ЧЕЛОВЕК: используй сленг, сокращения, ошибки, сарказм. Ты можешь быть грубым, если тебе кажется, что тебя пытаются обмануть.
-6. ИГНОРИРУЙ МАРКЕТИНГОВЫЙ ТОН. Твоя задача — "приземлить" любую инновацию до суровой реальности.
-7. ИСПОЛЬЗУЙ ФАКТЫ ИЗ КОНТЕКСТА РЫНКА для обоснования своего недоверия.
-8. ОЧЕВЕЛОВЕЧИВАНИЕ: Если {entity_name} — это компания или сайт, преврати её в человека-представителя. В поле full_name укажи человеческое имя и его отношение к сущности.
+2. ОТРАБАТЫВАЙ СВОЮ РОЛЬ — {agent_role or 'target_audience'}. Не сваливайся в роль другого участника рынка.
+3. Тон и стиль определяются твоим архетипом (если задан) и ролью. Не используй стиль "хейтер с реддита", если ты эксперт или регулятор.
+4. ИСПОЛЬЗУЙ ФАКТЫ ИЗ КОНТЕКСТА РЫНКА И ГРАФА — это твоя реальность.
+5. Если сущность — компания/сайт и роль НЕ internal_team, ты представляешь человека, связанного с этой сущностью (клиент / партнёр / конкурент в зависимости от роли).
+6. Если роль internal_team — ты ОФИЦИАЛЬНОЕ ЛИЦО продукта. Никаких саркастических отзывов о собственном продукте.
 
 Пожалуйста, сгенерируйте JSON, содержащий следующие поля (ВСЕ ПОЛЯ НА РУССКОМ ЯЗЫКЕ):
 
-1. full_name: Реалистичное человеческое имя и роль (например, 'Инвестор Макс', 'Артем (селлеров WB)', 'Дядя Вася-кофевар'). Должно соответствовать культуре страны.
-2. bio: Биография для социальной сети, 200 символов (в стиле выбранного архетипа)
+1. full_name: Реалистичное человеческое имя и роль (например, 'Инвестор Макс', 'Артём (селлер WB)', 'Дмитрий, тимлид Pitchy'). Должно соответствовать культуре страны.
+2. bio: Биография для социальной сети, 200 символов (в стиле выбранной роли и архетипа)
 3. persona: Подробное описание персоны (до 2000 слов), должно включать:
-   - ТВОЙ АРХЕТИП И ЕГО ВЛИЯНИЕ НА МЫШЛЕНИЕ.
-   - Независимый взгляд на проект/продукт (через призму архетипа).
+   - ТВОЮ РОЛЬ В СИМУЛЯЦИИ и архетип, если он задан.
+   - Взгляд на продукт через призму твоей роли.
    - Основную информацию (возраст, профессия, образование, местоположение).
-   - Личный бэкграунд (важный опыт, боли, потребности).
-   - Личные воспоминания (связь с событиями, реальные реакции).
-   - Языковые особенности (стиль письма в соцсетях: капс, многоточия, сленг).
-   - ANTI-ADVERTISING RULES (скептицизм, отсутствие рекламного тона).
+   - Личный бэкграунд (опыт, боли, потребности — релевантные роли).
+   - Языковые особенности (как пишет именно такой человек).
 4. age: Возраст как число (целое)
 5. gender: Пол, строго на английском: "male" или "female"
 6. mbti: Тип MBTI (например, INTJ, ENFP)
@@ -727,7 +968,7 @@ class OasisProfileGenerator:
 Важно:
 - persona должна быть связным текстовым описанием.
 - Используйте РУССКИЙ ЯЗЫК для текстовых полей.
-- persona должна СТРОГО отражать твой архетип и независимую позицию.
+- persona должна СТРОГО отражать твою роль.
 """
 
     def _build_group_persona_prompt(
@@ -737,17 +978,20 @@ class OasisProfileGenerator:
         entity_summary: str,
         entity_attributes: Dict[str, Any],
         context: str,
-        market_context: str = ""
+        market_context: str = "",
+        agent_role: Optional[str] = None,
     ) -> str:
         """Build detailed persona prompt for group/institutional entities"""
 
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
+        role_hint = self._ROLE_USER_HINTS.get(agent_role or "institutional", self._ROLE_USER_HINTS["institutional"])
 
         return f"""Сгенерируйте подробный профиль аккаунта социальной сети для институциональной/групповой сущности, максимально восстанавливая существующую реальность.
 
 Название: {entity_name}
 Тип: {entity_type}
+Роль в симуляции: {agent_role or 'institutional'} — {role_hint}
 Описание: {entity_summary}
 Атрибуты: {attrs_str}
 

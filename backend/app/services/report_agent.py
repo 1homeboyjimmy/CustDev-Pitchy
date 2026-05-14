@@ -26,7 +26,8 @@ from .graph_tools import (
     SearchResult,
     InsightForgeResult,
     PanoramaResult,
-    InterviewResult
+    InterviewResult,
+    MarketResearchResult,
 )
 
 logger = get_logger('pitchy.report_agent')
@@ -546,13 +547,37 @@ TOOL_DESC_INTERVIEW_AGENTS = """\
 
 [Важно] Эта функция требует, чтобы среда симуляции OASIS была запущена!"""
 
+TOOL_DESC_MARKET_RESEARCH = """\
+[Внешняя RAG-база pitchy.pro — реальные факты о рынке РФ]
+Запрашивает базу знаний pitchy.pro (Фонд содействия инновациям, маркетплейсы РФ, IT-стартапы, юнит-экономика, регуляторика).
+Возвращает релевантные фрагменты с источниками и score'ами — их можно цитировать в отчёте как реальные рыночные данные.
+
+[Когда использовать]
+- Нужно сравнить прогноз симуляции с реальным состоянием рынка РФ.
+- Нужны конкретные цифры/факты (объём рынка, госпрограммы, кейсы конкурентов).
+- Нужна привязка к нормативке (ФЗ-152, лицензии и т.п.).
+
+[Параметры]
+- query (обязателен): текст запроса на русском, конкретный.
+- top_k (опционально): сколько фрагментов вернуть (1–20, по умолчанию 5).
+- categories (опционально): фильтр по разделам RAG (например ["finance", "platform_manual"]).
+
+[Что вернётся]
+- count: сколько фрагментов найдено.
+- chunks: список { text, score, source, category } — используй для прямого цитирования с указанием источника.
+- context: объединённый текст всех фрагментов.
+
+[Цитирование в отчёте]
+Если используешь фрагмент, ОБЯЗАТЕЛЬНО упоминай источник в формате:
+> «Текст фрагмента…» — *источник: <source>*"""
+
 # ── Outline Planning Prompt ──
 
 PLAN_SYSTEM_PROMPT = """\
-You are an expert in writing "future prediction reports" with a "god's eye view" of the simulated world - you can gain insights into the behavior, statements, and interactions of every agent in the simulation.
+Ты — эксперт по написанию «отчётов о прогнозировании будущего» с «точкой зрения бога» на симулированный мир — ты видишь поведение, высказывания и взаимодействия каждого агента в симуляции.
 
-[Core Concept]
-We built a simulated world and injected specific "simulation requirements" as variables into it. The evolution result of the simulated world is a prediction of what might happen in the future. What you're observing is not "experimental data" but a "rehearsal of the future".
+[Основная концепция]
+Мы построили симулированный мир и инжектировали в него специфические «симуляционные требования» как переменные. Эволюция симулированного мира — это прогноз того, что может произойти в будущем. То, что ты наблюдаешь, — это не «экспериментальные данные», а «репетиция будущего».
 
 [Задача]
 Напишите «отчет о прогнозировании будущего», который отвечает на вопросы:
@@ -588,52 +613,52 @@ We built a simulated world and injected specific "simulation requirements" as va
 ВАЖНО: Весь план отчета (заголовок, резюме, названия разделов и описания) ДОЛЖЕН быть на русском языке. Никогда не используй английский или другие языки. """
 
 PLAN_USER_PROMPT_TEMPLATE = """\
-[Prediction Scenario Settings]
-Variable (simulation requirement) injected into the simulated world: {simulation_requirement}
+[Параметры сценария прогнозирования]
+Переменная (требование к симуляции), инжектированная в симулированный мир: {simulation_requirement}
 
-[Simulated World Scale]
-- Number of entities participating in simulation: {total_nodes}
-- Number of relationships generated between entities: {total_edges}
-- Entity type distribution: {entity_types}
-- Number of active agents: {total_entities}
+[Масштаб симулированного мира]
+- Количество сущностей, участвующих в симуляции: {total_nodes}
+- Количество связей, сгенерированных между сущностями: {total_edges}
+- Распределение типов сущностей: {entity_types}
+- Количество активных агентов: {total_entities}
 
-[Sample of Some Future Facts Predicted by Simulation]
+[Выборка фактов будущего, предсказанных симуляцией]
 {related_facts_json}
 
-Please examine this future rehearsal from a "god's eye view":
-1. What state does the future present under the conditions we set?
-2. How do various groups (agents) react and act?
-3. What future trends does this simulation reveal that deserve attention?
+Проанализируй эту репетицию будущего с «точки зрения бога»:
+1. В каком состоянии оказывается будущее при заданных нами условиях?
+2. Как реагируют и действуют различные группы (агенты)?
+3. Какие будущие тренды выявляет эта симуляция, заслуживающие внимания?
 
-Based on the prediction results, design the most appropriate report section structure.
+Исходя из результатов прогнозирования, спроектируй наиболее подходящую структуру разделов отчёта.
 
-[Reminder] Report section count: minimum 2, maximum 5, content should be concise and focused on core prediction findings."""
+[Напоминание] Количество разделов: минимум 2, максимум 5. Контент должен быть сжатым и сосредоточенным на ключевых выводах прогноза. Весь план отчёта должен быть на русском языке."""
 
 # ── Section Generation Prompt ──
 
 SECTION_SYSTEM_PROMPT_TEMPLATE = """\
-You are an expert in writing "future prediction reports" and are writing a section of the report.
+Ты — эксперт по написанию «отчётов о прогнозировании будущего» и сейчас пишешь один из разделов отчёта.
 
-Report Title: {report_title}
-Report Summary: {report_summary}
-Prediction Scenario (Simulation Requirement): {simulation_requirement}
+Название отчёта: {report_title}
+Краткое содержание: {report_summary}
+Сценарий прогнозирования (требование к симуляции): {simulation_requirement}
 
-Current Section to Write: {section_title}
+Текущий раздел: {section_title}
 
 ═══════════════════════════════════════════════════════════════
-[Core Concept]
+[Основная концепция]
 ═══════════════════════════════════════════════════════════════
 
-The simulated world is a rehearsal of the future. We injected specific conditions (simulation requirements) into the simulated world.
-The behavior and interactions of agents in the simulation are predictions of future human behavior.
+Симулированный мир — это репетиция будущего. Мы инжектировали в него специфические условия (требования к симуляции).
+Поведение и взаимодействия агентов в симуляции — это прогноз будущего поведения людей.
 
-Your task is to:
-- Reveal what happens in the future under the set conditions
-- Predict how various groups (agents) react and act
-- Discover future trends, risks, and opportunities worth paying attention to
+Твоя задача:
+- Раскрыть, что произойдёт в будущем при заданных условиях.
+- Предсказать, как реагируют и действуют различные группы (агенты).
+- Выявить будущие тренды, риски и возможности, на которые стоит обратить внимание.
 
-❌ Don't write it as an analysis of the current state of the real world
-✅ Focus on "how the future will unfold" - simulation results are the predicted future
+❌ Не пиши анализ текущего состояния реального мира.
+✅ Сосредоточься на «как развернётся будущее» — результаты симуляции и есть предсказанное будущее.
 
 ═══════════════════════════════════════════════════════════════
 [Most Important Rules - Must Follow]
@@ -665,197 +690,199 @@ Your task is to:
    - Если информации недостаточно в каких-то аспектах, заявляйте об этом правдиво.
 
 ═══════════════════════════════════════════════════════════════
-[⚠️ Format Specification - Extremely Important!]
+[⚠️ Спецификация формата — крайне важно]
 ═══════════════════════════════════════════════════════════════
 
-[One Section = Minimum Content Unit]
-- Each section is the minimum content unit of the report
-- ❌ Forbidden to use any Markdown titles (#, ##, ###, ####, etc.) within the section
-- ❌ Forbidden to add section titles at the beginning of content
-- ✅ Section titles are added automatically by the system, just write pure body text
-- ✅ Use **bold**, paragraph separation, quotes, and lists to organize content, but don't use titles
+[Один раздел = минимальная единица контента]
+- Каждый раздел — это минимальная единица контента отчёта.
+- ❌ Запрещено использовать любые Markdown-заголовки (#, ##, ###, #### и т.д.) внутри раздела.
+- ❌ Запрещено добавлять заголовок раздела в начале контента.
+- ✅ Заголовки разделов добавляются системой автоматически — просто пиши чистый основной текст.
+- ✅ Используй **полужирный**, разделение абзацев, цитаты и списки для организации контента, но не заголовки.
 
-[Correct Example]
+[Корректный пример]
 ```
-This section analyzes how the regulatory shift reshaped corporate strategy. Through in-depth analysis of simulation data, we found...
+В этом разделе рассматривается, как сдвиг в регуляторике переформатировал стратегию компаний. Глубокий анализ данных симуляции показал...
 
-**Initial Industry Response**
+**Первая реакция отрасли**
 
-Major tech companies moved quickly to reassess their compliance posture:
+Крупные IT-компании быстро пересмотрели свою позицию по соответствию требованиям:
 
-> "OpenAI and Anthropic scrambled to meet the new transparency requirements..."
+> «OpenAI и Anthropic в спешке готовили инфраструктуру под новые требования прозрачности...»
 
-**Emerging Strategic Divergence**
+**Стратегическое расхождение**
 
-A clear split emerged between companies embracing regulation and those resisting it:
+Чётко обозначился раскол между компаниями, принявшими регулирование, и теми, кто ему сопротивлялся:
 
-- Proactive compliance as competitive advantage
-- Lobbying efforts to soften enforcement
+- Проактивный комплаенс как конкурентное преимущество.
+- Лоббистские усилия по смягчению правоприменения.
 ```
 
-[Incorrect Example]
+[Некорректный пример]
 ```
-## Executive Summary          ← Wrong! Don't add any titles
-### 1. Initial Phase         ← Wrong! Don't use ### for subsections
-#### 1.1 Detailed Analysis   ← Wrong! Don't use #### for subdivisions
+## Резюме                     ← Неправильно — не добавляй заголовков
+### 1. Начальная фаза         ← Неправильно — не используй ### для подразделов
+#### 1.1 Детальный анализ     ← Неправильно — не используй ####
 
-This section analyzes...
+В этом разделе...
 ```
 
 ═══════════════════════════════════════════════════════════════
-[Available Retrieval Tools] (call 3-5 times per section)
+[Доступные инструменты получения данных] (вызывай 3–5 раз на раздел)
 ═══════════════════════════════════════════════════════════════
 
 {tools_description}
 
-[Tool Usage Suggestions - Please Mix Different Tools, Don't Use Only One]
-- insight_forge: Deep insight analysis, automatically decompose problems and retrieve facts and relationships from multiple dimensions
-- panorama_search: Wide-angle panoramic search, understand complete event view, timeline, and evolution process
-- quick_search: Quick verification of specific information points
-- interview_agents: Interview simulated agents, get first-person perspectives and real reactions from different roles
+[Рекомендации по инструментам — обязательно микшируй, не используй один и тот же всё время]
+- insight_forge: Глубокий анализ — автоматическая декомпозиция вопросов и многомерное извлечение фактов и связей.
+- panorama_search: Широкоугольный панорамный поиск — полная картина события, таймлайн, эволюция.
+- quick_search: Быстрая проверка конкретного факта.
+- interview_agents: Интервью с симулированными агентами — получаешь реакции от первого лица по разным ролям.
+- market_research: Внешняя база pitchy.pro RAG — реальные факты о рынке РФ (фонды, маркетплейсы, регуляторика). Используй для сверки прогнозов симуляции с реальностью и для цитирования внешних источников.
 
 ═══════════════════════════════════════════════════════════════
-[Workflow]
+[Рабочий процесс]
 ═══════════════════════════════════════════════════════════════
 
-Each reply you can only do one of two things (cannot do both):
+В каждом ответе ты можешь сделать ТОЛЬКО ОДНО из двух (нельзя совместить):
 
-Option A - Call Tool:
-Output your thinking, then call a tool using the following format:
+Вариант A — Вызов инструмента:
+Опубликуй свои размышления, затем вызови инструмент в следующем формате:
 <tool_call>
-{{"name": "Tool Name", "parameters": {{"parameter_name": "parameter_value"}}}}
+{{"name": "Название инструмента", "parameters": {{"parameter_name": "parameter_value"}}}}
 </tool_call>
-The system will execute the tool and return the result to you. You don't need to and cannot write tool return results yourself.
+Система выполнит инструмент и вернёт результат. Тебе НЕ нужно и НЕЛЬЗЯ самому писать «Observation» — это делает система.
 
-Option B - Output Final Content:
-When you have gathered enough information through tools, start with "Final Answer:" and output section content.
+Вариант B — Финальный контент:
+Когда собрано достаточно информации, начни ответ с «Final Answer:» и выдай тело раздела.
 
-⚠️ Strictly Forbidden:
-- Forbidden to include both tool calls and Final Answer in one reply
-- Forbidden to fabricate tool return results (Observation), all tool results are injected by the system
-- At most one tool call per reply
+⚠️ Строго запрещено:
+- Совмещать в одном ответе вызов инструмента и Final Answer.
+- Имитировать ответ инструмента (Observation) — все результаты подаёт система.
+- Делать больше одного вызова инструмента за ответ.
 
 ═══════════════════════════════════════════════════════════════
-[Section Content Requirements]
+[Требования к контенту раздела]
 ═══════════════════════════════════════════════════════════════
 
-1. Content must be based on simulation data retrieved by tools
-2. Heavily quote original text to demonstrate simulation effects
-3. Use Markdown format (but forbidden to use titles):
-   - Use **bold text** to mark key points (replacing sub-titles)
-   - Use lists (- or 1.2.3.) to organize points
-   - Use blank lines to separate paragraphs
-   - ❌ Forbidden to use any title syntax like #, ##, ###, ####
-4. [Quote Format Specification - Must Be Separate Paragraph]
-   Quotes must be standalone paragraphs with blank lines before and after, cannot be mixed in paragraphs:
+1. Контент основан на данных симуляции, полученных через инструменты.
+2. Обильно цитируй оригинальные высказывания агентов — это доказательная база прогноза.
+3. Используй Markdown-форматирование (но БЕЗ заголовков):
+   - **полужирный** для ключевых моментов вместо подзаголовков.
+   - списки (- или 1.2.3.) для тезисов.
+   - пустые строки для разделения абзацев.
+   - ❌ запрет на синтаксис #, ##, ###, ####.
+4. [Формат цитат — обязательно отдельным абзацем]
+   Цитаты должны быть отдельным абзацем с пустыми строками до и после:
 
-   ✅ Correct Format:
+   ✅ Правильно:
    ```
-   School officials' response was considered lacking substantive content.
+   Реакция администрации показалась недостаточно содержательной.
 
-   > "School's response pattern appears rigid and slow in the rapidly changing social media environment."
+   > «Шаблон ответа администрации выглядит ригидным и медленным в условиях быстро меняющейся социальной среды.»
 
-   This assessment reflects widespread public dissatisfaction.
+   Эта оценка отражает массовое общественное недовольство.
    ```
 
-   ❌ Incorrect Format:
+   ❌ Неправильно:
    ```
-   School officials' response was considered lacking substantive content.> "School's response pattern..." This assessment reflects...
+   Реакция администрации показалась недостаточно содержательной.> «Шаблон ответа...» Эта оценка...
    ```
-5. Maintain logical coherence with other sections
-6. [Avoid Duplication] Carefully read the completed section content below, don't repeat describing the same information
-7. [Emphasis Again] Don't add any titles! Use **bold** instead of section sub-titles"""
+5. Логическая когерентность с другими разделами.
+6. [Избегай дублирования] Внимательно прочитай уже написанные разделы, не повторяй описанное.
+7. [Ещё раз] Никаких заголовков. **Полужирный** вместо подзаголовков."""
 
 SECTION_USER_PROMPT_TEMPLATE = """\
-Completed Section Content (Please Read Carefully to Avoid Duplication):
+Уже написанные разделы (внимательно прочитай, чтобы не дублировать):
 {previous_content}
 
 ═══════════════════════════════════════════════════════════════
-[Current Task] Write Section: {section_title}
+[Текущая задача] Написать раздел: {section_title}
 ═══════════════════════════════════════════════════════════════
 
-[Important Reminders]
-1. Carefully read the completed sections above to avoid repeating the same content!
-2. You must call tools to get simulation data before starting
-3. Please mix different tools, don't use only one
-4. Report content must come from retrieval results, don't use your own knowledge
+[Важные напоминания]
+1. Внимательно прочитай уже написанные разделы, чтобы не повторяться.
+2. Прежде чем писать раздел, вызови инструменты и собери данные симуляции.
+3. Микшируй разные инструменты, не используй один и тот же.
+4. Контент основан на результатах инструментов, не на собственных знаниях.
 
-[⚠️ Format Warning - Must Follow]
-- ❌ Don't write any titles (#, ##, ###, #### none allowed)
-- ❌ Don't write "{section_title}" as the opening
-- ✅ Section titles are added automatically by the system
-- ✅ Write the body directly, use **bold** instead of sub-section titles
+[⚠️ Формат — строго]
+- ❌ Никаких заголовков (#, ##, ###, ####).
+- ❌ Не начинай раздел с «{section_title}» в качестве заголовка.
+- ✅ Заголовок раздела добавляется системой автоматически.
+- ✅ Сразу пиши тело раздела, **полужирный** вместо подзаголовков.
 
-Please start:
-1. First think (Thought) what information this section needs
-2. Then call tools (Action) to get simulation data
-3. After collecting enough information, output Final Answer (pure body text, no titles)"""
+Начни так:
+1. Сначала Thought — какие данные нужны для этого раздела.
+2. Затем Action — вызови инструмент.
+3. Когда данных достаточно — Final Answer (чистый текст без заголовков)."""
 
-# ── ReACT Loop Message Templates ──
+# ── Шаблоны сообщений ReACT-цикла ──
 
 REACT_OBSERVATION_TEMPLATE = """\
-Observation (Retrieval Result):
+Observation (результат инструмента):
 
-═══ Tool {tool_name} Returned ═══
+═══ Инструмент {tool_name} вернул ═══
 {result}
 
 ═══════════════════════════════════════════════════════════════
-Called tools {tool_calls_count}/{max_tool_calls} times (Used: {used_tools_str}){unused_hint}
-- If information is sufficient: Start with "Final Answer:" and output section content (must quote the above original text)
-- If more information is needed: Call a tool to continue retrieving
+Инструментов вызвано: {tool_calls_count}/{max_tool_calls} (использованы: {used_tools_str}){unused_hint}
+- Если данных хватает: начни ответ с «Final Answer:» и выдай тело раздела (обязательно цитируй оригинальный текст).
+- Если данных мало: вызови ещё один инструмент.
 ═══════════════════════════════════════════════════════════════"""
 
 REACT_INSUFFICIENT_TOOLS_MSG = (
-    "[Notice] You have only called {tool_calls_count} tools, need at least {min_tool_calls}. "
-    "Please call tools again to get more simulation data, then output Final Answer. {unused_hint}"
+    "[Замечание] Ты вызвал только {tool_calls_count} инструментов, нужно минимум {min_tool_calls}. "
+    "Вызови инструмент ещё раз для получения дополнительных данных симуляции, потом выдай Final Answer. {unused_hint}"
 )
 
 REACT_INSUFFICIENT_TOOLS_MSG_ALT = (
-    "Currently called {tool_calls_count} tools, need at least {min_tool_calls}. "
-    "Please call tools to get simulation data. {unused_hint}"
+    "Вызвано инструментов: {tool_calls_count}, нужно минимум {min_tool_calls}. "
+    "Вызови инструмент, чтобы получить данные симуляции. {unused_hint}"
 )
 
 REACT_TOOL_LIMIT_MSG = (
-    "Tool call count has reached the limit ({tool_calls_count}/{max_tool_calls}), cannot call tools anymore. "
-    'Please immediately start with "Final Answer:" and output section content based on acquired information.'
+    "Лимит вызовов инструментов исчерпан ({tool_calls_count}/{max_tool_calls}), больше вызывать нельзя. "
+    "Сразу начни ответ с «Final Answer:» и выдай тело раздела на основе уже собранных данных."
 )
 
-REACT_UNUSED_TOOLS_HINT = "\n💡 You haven't used yet: {unused_list}, suggest trying different tools to get multi-perspective information"
+REACT_UNUSED_TOOLS_HINT = "\n💡 Ещё не использовал: {unused_list}. Попробуй разные инструменты, чтобы получить разносторонний взгляд."
 
-REACT_FORCE_FINAL_MSG = "Tool call limit reached, please directly output Final Answer: and generate section content."
+REACT_FORCE_FINAL_MSG = "Лимит инструментов исчерпан — сразу выдай Final Answer: и сгенерируй контент раздела."
 
 # ── Chat Prompt ──
 
 CHAT_SYSTEM_PROMPT_TEMPLATE = """\
-You are a concise and efficient simulation prediction assistant.
+Ты — лаконичный и эффективный ассистент по прогнозам симуляции.
 
-[Background]
-Prediction Condition: {simulation_requirement}
+[Контекст]
+Условие прогноза: {simulation_requirement}
 
-[Generated Analysis Report]
+[Сгенерированный аналитический отчёт]
 {report_content}
 
-[Rules]
-1. Prioritize answering questions based on the above report content
-2. Answer questions directly, avoid lengthy deliberation
-3. Only call tools to retrieve more data if the report content is insufficient to answer
-4. Answers should be concise, clear, and well-organized
+[Правила]
+1. Приоритетно отвечай на вопросы по содержанию отчёта выше.
+2. Отвечай напрямую, без растянутых рассуждений.
+3. Вызывай инструменты только если в отчёте нет нужной информации.
+4. Ответы — короткие, чёткие, структурированные.
 
-[Available Tools] (use only when needed, call at most 1-2 times)
+[Доступные инструменты] (используй по необходимости, не более 1–2 раз)
 {tools_description}
 
-[Tool Call Format]
+[Формат вызова инструмента]
 <tool_call>
-{{"name": "Tool Name", "parameters": {{"parameter_name": "parameter_value"}}}}
+{{"name": "Название инструмента", "parameters": {{"parameter_name": "parameter_value"}}}}
 </tool_call>
 
-[Answer Style]
-- Concise and direct, don't write lengthy passages
-- Use > format to quote key content
-- Give conclusions first, then explain reasons
-- ВСЕГДА отвечайте на русском языке, независимо от языка, используемого в исходных материалах или содержании отчета """
+[Стиль ответа]
+- Кратко и по делу, без длинных пассажей.
+- Цитируй ключевое через формат `>`.
+- Сначала вывод, потом обоснование.
+- ВСЕГДА отвечай на русском языке, независимо от языка исходных материалов и отчёта.
+"""
 
-CHAT_OBSERVATION_SUFFIX = "\n\nPlease answer the question concisely."
+CHAT_OBSERVATION_SUFFIX = "\n\nОтветь на вопрос кратко."
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -911,9 +938,15 @@ class ReportAgent:
                 "Create it via GraphToolsService(storage=...) and pass it in."
             )
         self.graph_tools = graph_tools
-        
+
         # Tool definitions
         self.tools = self._define_tools()
+
+        # Market context fetched once from the pitchy.pro RAG endpoint when the
+        # report starts. Injected into each section's system prompt so the
+        # agent can ground claims in real RU market data instead of only the
+        # simulation. Lazily populated by ``generate_report``.
+        self.market_context: str = ""
 
         # Logger (initialized in generate_report)
         self.report_logger: Optional[ReportLogger] = None
@@ -921,6 +954,25 @@ class ReportAgent:
         self.console_logger: Optional[ReportConsoleLogger] = None
 
         logger.info(f"ReportAgent initialization complete: graph_id={graph_id}, simulation_id={simulation_id}")
+
+    def _fetch_market_context(self) -> str:
+        """Pull RU market context from the pitchy.pro RAG once per report.
+
+        Best-effort: if RAG is down or returns nothing we just proceed with an
+        empty string. We don't want a flaky external dependency to block
+        report generation.
+        """
+        try:
+            import asyncio
+            from .rag_service import RagService
+            ctx = asyncio.run(RagService.get_market_context(self.simulation_requirement))
+            if ctx:
+                logger.info(f"Market context for report fetched ({len(ctx)} chars)")
+                return ctx
+            logger.info("Market context empty (RAG returned nothing)")
+        except Exception as e:
+            logger.warning(f"Market context fetch failed (non-fatal): {e}")
+        return ""
     
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
         """Define available tools"""
@@ -955,6 +1007,15 @@ class ReportAgent:
                 "parameters": {
                     "interview_topic": "Interview topic or requirement description (e.g. 'understand students' views on the dorm formaldehyde incident')",
                     "max_agents": "Maximum number of agents to interview (optional, default 5, max 10)"
+                }
+            },
+            "market_research": {
+                "name": "market_research",
+                "description": TOOL_DESC_MARKET_RESEARCH,
+                "parameters": {
+                    "query": "Конкретный поисковый запрос на русском (например, 'юнит-экономика SaaS для маркетплейсов РФ')",
+                    "top_k": "Сколько фрагментов вернуть, 1–20 (опционально, по умолчанию 5)",
+                    "categories": "Фильтр по разделам RAG, список строк (опционально)"
                 }
             }
         }
@@ -1025,7 +1086,23 @@ class ReportAgent:
                     max_agents=max_agents
                 )
                 return result.to_text()
-            
+
+            elif tool_name == "market_research":
+                # External Pitchy RAG — real RU market facts with citations
+                query = parameters.get("query", "")
+                top_k_raw = parameters.get("top_k", 5)
+                try:
+                    top_k = int(top_k_raw)
+                except (TypeError, ValueError):
+                    top_k = 5
+                categories = parameters.get("categories")
+                if isinstance(categories, str):
+                    categories = [c.strip() for c in categories.split(",") if c.strip()]
+                result = self.graph_tools.market_research(
+                    query=query, top_k=top_k, categories=categories
+                )
+                return result.to_text()
+
             # ========== Backward Compatibility: Old Tools (Internal Redirect to New Tools) ==========
 
             elif tool_name == "search_graph":
@@ -1265,6 +1342,18 @@ class ReportAgent:
             section_title=section.title,
             tools_description=self._get_tools_description(),
         )
+
+        # Append real-market context (RAG) so the report grounds prediction
+        # against actual RU market facts rather than only simulation output.
+        if self.market_context:
+            system_prompt += (
+                "\n\n═══════════════════════════════════════════════════════════════\n"
+                "[Контекст реального рынка РФ — из RAG pitchy.pro]\n"
+                "═══════════════════════════════════════════════════════════════\n"
+                f"{self.market_context[:4000]}\n"
+                "Используй эти факты как реальную почву для выводов отчёта. "
+                "Если симуляция говорит одно, а рынок — другое, отметь расхождение явно.\n"
+            )
 
         # Build user prompt - pass maximum 4000 characters for each completed section
         if previous_sections:
@@ -1584,7 +1673,11 @@ class ReportAgent:
         try:
             # Initialize: Create report folder and save initial state
             ReportManager._ensure_report_folder(report_id)
-            
+
+            # Fetch real-market context from pitchy.pro RAG once; sections will
+            # inject it into their system prompt below.
+            self.market_context = self._fetch_market_context()
+
             # Initialize logslogger（structured logs agent_log.jsonl）
             self.report_logger = ReportLogger(report_id)
             self.report_logger.log_start(

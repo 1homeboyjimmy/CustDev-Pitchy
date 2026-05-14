@@ -24,27 +24,38 @@ from .entity_reader import EntityNode
 
 logger = get_logger('pitchy.simulation_config')
 
-# Time zone configuration for Chinese work schedules (Beijing Time)
-CHINA_TIMEZONE_CONFIG = {
+# Activity time-of-day profile for Russian/CIS social-media users (MSK).
+# Differs from the previous Chinese profile in two important ways:
+#   1. Adds an explicit lunch peak around 12:00–14:00 (common in RU office life).
+#   2. Slightly later evening peak — Russians stay up later than the original
+#      Beijing-time defaults assumed.
+# Multipliers are normalised so a "typical" hour ≈ 0.7 and peak ≈ 1.5.
+RUSSIA_TIMEZONE_CONFIG = {
     # Dead hours (almost no activity)
     "dead_hours": [0, 1, 2, 3, 4, 5],
-    # Morning hours (gradually waking up)
-    "morning_hours": [6, 7, 8],
-    # Work hours
-    "work_hours": [9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
-    # Evening peak (most active)
-    "peak_hours": [19, 20, 21, 22],
-    # Night hours (activity decreases)
-    "night_hours": [23],
+    # Morning hours (commuting + first coffee)
+    "morning_hours": [6, 7, 8, 9],
+    # Lunch hours (typical office lunch surge in RU)
+    "lunch_hours": [12, 13, 14],
+    # Work hours (excluding lunch)
+    "work_hours": [10, 11, 15, 16, 17, 18],
+    # Evening peak — RU users tend to peak slightly later than CN profile
+    "peak_hours": [20, 21, 22, 23],
+    # Night hours (activity decreases but not zero, RU late-night users)
+    "night_hours": [19],
     # Activity multipliers
     "activity_multipliers": {
-        "dead": 0.05,      # Almost no one in early morning
-        "morning": 0.4,    # Gradually active in morning
-        "work": 0.7,       # Medium activity during work hours
-        "peak": 1.5,       # Evening peak
-        "night": 0.5       # Activity decreases at night
+        "dead": 0.05,      # 00–05: почти никого
+        "morning": 0.5,    # 06–09: дорога на работу, утренний скроллинг
+        "lunch": 1.1,      # 12–14: обед, активный пик
+        "work": 0.7,       # рабочее время — средняя активность
+        "peak": 1.5,       # 20–23: главный вечерний пик
+        "night": 0.6       # 19: переход к вечеру
     }
 }
+
+# Backwards-compatible alias — old code may still import CHINA_TIMEZONE_CONFIG.
+CHINA_TIMEZONE_CONFIG = RUSSIA_TIMEZONE_CONFIG
 
 
 @dataclass
@@ -81,7 +92,11 @@ class AgentActivityConfig:
 
 @dataclass
 class TimeSimulationConfig:
-    """Time simulation configuration (based on Chinese work schedule habits)"""
+    """Time simulation configuration calibrated for a Russian/MSK audience.
+
+    Differs from the original Chinese profile by adding an explicit lunch
+    surge (12–14) and shifting the evening peak slightly later (20–23).
+    """
     # Total simulation time (simulation hours)
     total_simulation_hours: int = 72  # Default 72 hours (3 days)
 
@@ -92,20 +107,24 @@ class TimeSimulationConfig:
     agents_per_hour_min: int = 5
     agents_per_hour_max: int = 20
 
-    # Peak hours (evening 19-22, most active time for Chinese people)
-    peak_hours: List[int] = field(default_factory=lambda: [19, 20, 21, 22])
+    # Peak hours (evening, RU users)
+    peak_hours: List[int] = field(default_factory=lambda: [20, 21, 22, 23])
     peak_activity_multiplier: float = 1.5
 
-    # Off-peak hours (early morning 0-5, almost no activity)
+    # Off-peak hours (early morning, almost no activity)
     off_peak_hours: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4, 5])
-    off_peak_activity_multiplier: float = 0.05  # Very low activity in early morning
+    off_peak_activity_multiplier: float = 0.05
 
-    # Morning hours
-    morning_hours: List[int] = field(default_factory=lambda: [6, 7, 8])
-    morning_activity_multiplier: float = 0.4
+    # Morning hours (commute + morning scroll)
+    morning_hours: List[int] = field(default_factory=lambda: [6, 7, 8, 9])
+    morning_activity_multiplier: float = 0.5
 
-    # Work hours
-    work_hours: List[int] = field(default_factory=lambda: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+    # Lunch hours (Russian office lunch surge)
+    lunch_hours: List[int] = field(default_factory=lambda: [12, 13, 14])
+    lunch_activity_multiplier: float = 1.1
+
+    # Work hours (excluding lunch)
+    work_hours: List[int] = field(default_factory=lambda: [10, 11, 15, 16, 17, 18])
     work_activity_multiplier: float = 0.7
 
 
@@ -548,12 +567,13 @@ class SimulationConfigGenerator:
 Please generate time configuration JSON.
 
 ### Basic principles (for reference only, adjust flexibly based on event nature and participant characteristics):
-- User base is Chinese people, must follow Beijing Time work schedule habits
+- User base is Russian/CIS audience, follow Moscow Time (MSK) work schedule habits
 - 0-5am almost no activity (activity coefficient 0.05)
-- 6-8am gradually active (activity coefficient 0.4)
-- 9-18 work time moderately active (activity coefficient 0.7)
-- 19-22 evening is peak period (activity coefficient 1.5)
-- After 23 activity decreases (activity coefficient 0.5)
+- 6-9am gradually active — commute and morning scroll (activity coefficient 0.5)
+- 10-11, 15-18 work hours, moderate activity (activity coefficient 0.7)
+- 12-14 lunch surge — Russian office workers are active (activity coefficient 1.1)
+- 20-23 evening peak — main activity window (activity coefficient 1.5)
+- 19 transition to evening (activity coefficient 0.6)
 - General rule: low activity early morning, gradually increasing morning, moderate work time, evening peak
 - **Important**: Example values below are for reference only, adjust specific time periods based on event nature and participant characteristics
   - Example: student peak may be 21-23; media active all day; official institutions only during work hours
@@ -585,26 +605,27 @@ Field description:
 - work_hours (int array): Work hours
 - reasoning (string): Brief explanation for this configuration"""
 
-        system_prompt = "You are a social media simulation expert. Return pure JSON format, time configuration must follow Chinese work schedule habits."
+        system_prompt = "You are a social media simulation expert. Return pure JSON format. Time configuration must follow Russian (Moscow Time) work schedule habits."
 
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
         except Exception as e:
             logger.warning(f"Time config LLM generation failed: {e}, using default configuration")
             return self._get_default_time_config(num_entities)
-    
+
     def _get_default_time_config(self, num_entities: int) -> Dict[str, Any]:
-        """Get default time configuration (Chinese work schedule)"""
+        """Default time configuration calibrated for a Russian/MSK audience."""
         return {
             "total_simulation_hours": 72,
             "minutes_per_round": 60,  # 1 hour per round, speed up time
             "agents_per_hour_min": max(1, num_entities // 15),
             "agents_per_hour_max": max(5, num_entities // 5),
-            "peak_hours": [19, 20, 21, 22],
+            "peak_hours": [20, 21, 22, 23],
             "off_peak_hours": [0, 1, 2, 3, 4, 5],
-            "morning_hours": [6, 7, 8],
-            "work_hours": [9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
-            "reasoning": "Using default Chinese work schedule configuration (1 hour per round)"
+            "morning_hours": [6, 7, 8, 9],
+            "lunch_hours": [12, 13, 14],
+            "work_hours": [10, 11, 15, 16, 17, 18],
+            "reasoning": "Default Russian/MSK work-schedule profile (1 hour per round, lunch surge + late evening peak)"
         }
 
     def _parse_time_config(self, result: Dict[str, Any], num_entities: int) -> TimeSimulationConfig:
@@ -889,7 +910,7 @@ Return JSON format (no markdown):
     ]
 }}"""
 
-        system_prompt = "You are a social media behavior analysis expert. Return pure JSON, configuration must follow Chinese work schedule habits."
+        system_prompt = "You are a social media behavior analysis expert. Return pure JSON. Configuration must follow Russian (Moscow Time) work schedule habits."
 
         try:
             result = self._call_llm_with_retry(prompt, system_prompt)

@@ -193,6 +193,9 @@ def generate_ontology():
         # Save files and extract text
         document_texts = []
         all_text = ""
+        # Track per-file extraction failures so we can surface them to the user
+        # with a single 400 instead of a generic 500 traceback.
+        extraction_errors: list[str] = []
 
         for file in uploaded_files:
             if file and file.filename and allowed_file(file.filename):
@@ -207,17 +210,31 @@ def generate_ontology():
                     "size": file_info["size"]
                 })
 
-                # Extract text
-                text = FileParser.extract_text(file_info["path"])
+                # Extract text — `extract_text` raises `ValueError` for known
+                # user-recoverable cases (scan PDF, unsupported format, etc.)
+                try:
+                    text = FileParser.extract_text(file_info["path"])
+                except ValueError as ve:
+                    extraction_errors.append(f"{file_info['original_filename']}: {ve}")
+                    continue
                 text = TextProcessor.preprocess_text(text)
-                document_texts.append(text)
-                all_text += f"\n\n=== {file_info['original_filename']} ===\n{text}"
+                if text and text.strip():
+                    document_texts.append(text)
+                    all_text += f"\n\n=== {file_info['original_filename']} ===\n{text}"
+                else:
+                    extraction_errors.append(
+                        f"{file_info['original_filename']}: file contains no extractable text"
+                    )
 
         if not document_texts:
             ProjectManager.delete_project(project.project_id)
+            user_msg = (
+                "No documents successfully processed. "
+                + ("; ".join(extraction_errors) if extraction_errors else "Please check file format")
+            )
             return jsonify({
                 "success": False,
-                "error": "No documents successfully processed. Please check file format"
+                "error": user_msg
             }), 400
 
         # Save extracted text
@@ -452,6 +469,26 @@ def build_graph():
                     message="Text processing completed, generating graph data...",
                     progress=90
                 )
+
+                # Deduplicate near-duplicate entities (e.g. "Егор Фигурняк"
+                # vs "Егор Сергеевич Фигурняк"). NER produces these often
+                # when the same person is mentioned in different forms across
+                # chunks. Merging here keeps downstream profile generation
+                # from creating two competing personas for one real person.
+                try:
+                    task_manager.update_task(
+                        task_id,
+                        message="Объединение дублирующихся сущностей...",
+                        progress=92,
+                    )
+                    dedupe_result = builder.deduplicate_entities(graph_id)
+                    if dedupe_result.get("merged"):
+                        build_logger.info(
+                            f"[{task_id}] Dedupe merged {dedupe_result['merged']} duplicates"
+                        )
+                except Exception as dedupe_err:
+                    # Dedupe is best-effort — never block graph completion on it.
+                    build_logger.warning(f"[{task_id}] Dedupe pass failed (non-fatal): {dedupe_err}")
 
                 # Get graph data
                 task_manager.update_task(
