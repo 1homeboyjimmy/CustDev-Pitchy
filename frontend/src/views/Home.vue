@@ -137,21 +137,33 @@
             <!-- Режим: Гипотеза -->
             <template v-if="entryMode === 'hypothesis'">
               <div class="space-y-5">
-                <div class="flex items-end justify-between">
-                  <div class="space-y-1">
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">01 / Гипотеза</span>
-                    <h3 class="text-3xl font-semibold text-white leading-none tracking-tight">Гипотеза стартапа</h3>
-                  </div>
-                  <button
-                    type="button"
-                    @click="generateFromFolder"
-                    class="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white flex items-center gap-1.5 transition-colors"
-                    :title="folderHint"
-                  >
-                    <FolderInputIcon class="w-3.5 h-3.5" /> Из паспорта проекта
-                  </button>
+                <div class="space-y-1">
+                  <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">01 / Гипотеза</span>
+                  <h3 class="text-3xl font-semibold text-white leading-none tracking-tight">Гипотеза стартапа</h3>
                 </div>
-                <p v-if="folderNote" class="text-[11px] text-white/40 -mt-3">{{ folderNote }}</p>
+
+                <!-- Явный путь: подтянуть из паспорта проекта Pitchy -->
+                <button
+                  type="button"
+                  @click="generateFromFolder"
+                  :disabled="loading"
+                  class="w-full flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/30 px-5 py-4 text-left transition-all group"
+                  :title="folderHint"
+                >
+                  <div class="w-11 h-11 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+                    <FolderInputIcon class="w-5 h-5 text-white" />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold text-white">Сгенерировать из паспорта проекта</div>
+                    <div class="text-[12px] text-white/45">Подтянуть боль, решение и сегменты из вашего проекта Pitchy</div>
+                  </div>
+                  <ArrowRightIcon class="w-4 h-4 text-white/30 ml-auto shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+                <p v-if="folderNote" class="text-[12px] text-amber-300/80 leading-relaxed">{{ folderNote }}</p>
+
+                <div class="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-white/25">
+                  <div class="h-px flex-1 bg-white/10"></div> или заполните вручную <div class="h-px flex-1 bg-white/10"></div>
+                </div>
 
                 <div class="space-y-4">
                   <input v-model="hyp.name" type="text" :disabled="loading" placeholder="Название / суть — напр.: сервис подбора грантов" class="w-full rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors" />
@@ -293,7 +305,8 @@ import {
   Sparkles as SparklesIcon,
   Lightbulb as LightbulbIcon,
   Target as TargetIcon,
-  FolderInput as FolderInputIcon
+  FolderInput as FolderInputIcon,
+  ArrowRight as ArrowRightIcon
 } from 'lucide-vue-next'
 
 const steps = [
