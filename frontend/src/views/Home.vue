@@ -374,14 +374,18 @@ const startSimulation = async () => {
   if (!canSubmit.value || loading.value) return
   loading.value = true
   try {
-    const { setPendingUpload } = await import('../store/pendingUpload.js')
+    const { setPendingUpload, setHypothesisContext } = await import('../store/pendingUpload.js')
     if (entryMode.value === 'hypothesis') {
       const { file, requirement } = buildHypothesisSeed()
       setPendingUpload([file], requirement)
+      // Запрос для разведки сигналов — это боль/тема, плюс сегменты ЦА.
+      const sigQuery = (hyp.value.problem || hyp.value.name || hyp.value.question).trim()
+      setHypothesisContext(sigQuery, segments.value)
+      router.push({ name: 'Signals' })
     } else {
       setPendingUpload(files.value, formData.value.simulationRequirement)
+      router.push({ name: 'Process', params: { projectId: 'new' } })
     }
-    router.push({ name: 'Process', params: { projectId: 'new' } })
   } catch (err) {
     console.error('Failed to start simulation:', err)
   } finally {

@@ -1,9 +1,11 @@
-"""Signals API Routes — pain-mining реальных сигналов рынка через Exa."""
+"""Signals API Routes — pain-mining реальных сигналов рынка (рой агентов)."""
 
 from flask import request, jsonify
 
 from . import signals_bp
 from ..services.signals_service import SignalsService
+from ..services.signals_research import start_research
+from ..models.task import TaskManager
 from ..utils.logger import get_logger
 from ..utils.auth import login_required
 
@@ -32,3 +34,38 @@ def scan_signals():
     except Exception as e:
         logger.error(f"Signals scan failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@signals_bp.route('/research', methods=['POST'])
+@login_required
+def start_signals_research():
+    """Запускает рой research-агентов (фон). Возвращает task_id для опроса.
+
+    Request (JSON): { "query": str, "segments"?: [str] }
+    """
+    try:
+        data = request.get_json() or {}
+        query = (data.get('query') or '').strip()
+        if not query:
+            return jsonify({"success": False, "error": "Please provide query"}), 400
+        segments = data.get('segments') or []
+        if not isinstance(segments, list):
+            segments = []
+        task_id = start_research(query, segments)
+        return jsonify({"success": True, "data": {"task_id": task_id}})
+    except Exception as e:
+        logger.error(f"Signals research start failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@signals_bp.route('/research/status', methods=['GET'])
+@login_required
+def signals_research_status():
+    """Статус задачи разведки: прогресс агентов + итоговый результат."""
+    task_id = request.args.get('task_id')
+    if not task_id:
+        return jsonify({"success": False, "error": "Please provide task_id"}), 400
+    task = TaskManager().get_task(task_id)
+    if not task:
+        return jsonify({"success": False, "error": "Task not found"}), 404
+    return jsonify({"success": True, "data": task.to_dict()})

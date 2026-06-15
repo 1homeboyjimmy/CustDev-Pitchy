@@ -8,3 +8,17 @@ import service, { requestWithRetry } from './index'
 export const scanSignals = (data) => {
   return requestWithRetry(() => service.post('/api/signals/scan', data), 2, 1000)
 }
+
+/**
+ * Запустить рой research-агентов (фон). data: { query, segments? } → { task_id }
+ */
+export const startSignalsResearch = (data) => {
+  return requestWithRetry(() => service.post('/api/signals/research', data), 2, 1000)
+}
+
+/**
+ * Статус разведки (опрос): прогресс агентов + итоговый результат.
+ */
+export const getSignalsResearchStatus = (taskId) => {
+  return service.get('/api/signals/research/status', { params: { task_id: taskId } })
+}
