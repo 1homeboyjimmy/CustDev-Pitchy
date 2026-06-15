@@ -58,6 +58,8 @@
               :chatHistory="chatHistory"
               :sending="chatSending"
               :running="interviewRunning"
+              :interviewDone="interviewDone"
+              :warmth="warmthMap"
               @select-agent="onSelectAgent"
               @send="onSendToAgent"
               @run-interview="runInterview"
@@ -134,6 +136,23 @@ const selectedAgent = ref(null)
 const chatHistory = ref([])
 const chatSending = ref(false)
 const interviewRunning = ref(false)
+const interviewDone = ref(false)
+
+// «Температура» персоны из её ответов (позитив/готовность → hot, скепсис → cold).
+const POS = ['готов плат', 'куплю', 'подпиш', 'очень нужно', 'давно ищу', 'сразу возьм', 'удобно', 'сэконом', 'интересно', 'это боль', 'не хватает', 'жду такое']
+const NEG = ['не нужно', 'не буду', 'не интересно', 'дорого', 'сомнева', 'вряд ли', 'не вижу смысл', 'не критич', 'и так норм', 'не плач']
+const warmthMap = computed(() => {
+  const byAgent = {}
+  interviews.value.forEach((i) => { (byAgent[i.agent_name] || (byAgent[i.agent_name] = [])).push((i.response || '').toLowerCase()) })
+  const map = {}
+  for (const [name, arr] of Object.entries(byAgent)) {
+    const t = arr.join(' ')
+    const pos = POS.filter((k) => t.includes(k)).length
+    const neg = NEG.filter((k) => t.includes(k)).length
+    map[name] = neg > pos ? 'cold' : (pos >= 2 ? 'hot' : 'warm')
+  }
+  return map
+})
 
 // Стандартный список CustDev-вопросов (Mom Test) — фиксированный, без итераций.
 const CUSTDEV_QUESTIONS = [
@@ -222,6 +241,7 @@ const pushInterviewResults = (results, question) => {
 const runInterview = async () => {
   if (interviewRunning.value || profiles.value.length === 0) return
   interviewRunning.value = true
+  interviewDone.value = false
   interviews.value = []
   interviewQuestions.value = [...CUSTDEV_QUESTIONS]
   const agentIdxs = profiles.value.map((_, i) => i)
@@ -239,6 +259,7 @@ const runInterview = async () => {
       }
     }
     addLog('CustDev-интервью завершено.')
+    interviewDone.value = true
   } finally {
     interviewRunning.value = false
   }
@@ -249,17 +270,26 @@ const onSelectAgent = (p) => {
   chatHistory.value = []
 }
 
-// Личный 1-на-1 чат с выбранным агентом.
+// Личный 1-на-1 чат с выбранным агентом (только после интервью; агент помнит свои ответы).
 const onSendToAgent = async (text) => {
-  if (!selectedAgent.value || chatSending.value) return
+  if (!selectedAgent.value || chatSending.value || !interviewDone.value) return
   const idx = profiles.value.indexOf(selectedAgent.value)
+  const name = selectedAgent.value.username || selectedAgent.value.name
   chatHistory.value.push({ role: 'user', content: text })
   chatSending.value = true
+  // Контекст: реплики этого агента из интервью — чтобы он не противоречил себе.
+  const prior = interviews.value
+    .filter((i) => i.agent_name === name)
+    .map((i) => `Вопрос: ${i.question}\nТвой ответ: ${i.response}`)
+    .join('\n\n')
+  const prompt = (prior
+    ? `Ранее в CustDev-интервью ты отвечал так:\n${prior}\n\nОтвечай в том же характере и не противоречь своим ответам.\n\nВопрос собеседника: ${text}`
+    : text)
   try {
     const res = await interviewAgents({
       simulation_id: currentSimulationId.value,
       platform: 'reddit',
-      interviews: [{ agent_id: idx, prompt: text }],
+      interviews: [{ agent_id: idx, prompt }],
     })
     if (res.success) {
       const results = res.data?.results || res.data || {}
