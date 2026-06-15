@@ -89,6 +89,23 @@ class Config:
     MAIN_SERVER_RAG_URL = os.environ.get('MAIN_SERVER_RAG_URL', '')
     RAG_API_KEY = os.environ.get('RAG_API_KEY', '')
 
+    # «Сигналы»: pain-mining реальных болей. Провайдер подключаемый.
+    # SIGNAL_PROVIDER: ddg (бесплатно, без ключей) | searxng | exa | google_cse | brave
+    SIGNAL_PROVIDER = os.environ.get('SIGNAL_PROVIDER', 'ddg').lower()
+    SIGNAL_DOMAINS = [d.strip() for d in os.environ.get(
+        'SIGNAL_DOMAINS', 'habr.com,vc.ru,pikabu.ru'
+    ).split(',') if d.strip()]
+    # Reddit как опережающий (западный) сигнал — бесплатный публичный поиск.
+    ENABLE_REDDIT_SIGNALS = os.environ.get('ENABLE_REDDIT_SIGNALS', '1') not in ('0', 'false', 'False', '')
+    REDDIT_USER_AGENT = os.environ.get('REDDIT_USER_AGENT', 'pitchy-custdev-signals/1.0')
+    # Ключи провайдеров (нужны только если выбран соответствующий SIGNAL_PROVIDER).
+    EXA_API_KEY = os.environ.get('EXA_API_KEY', '')
+    GOOGLE_CSE_KEY = os.environ.get('GOOGLE_CSE_KEY', '')
+    GOOGLE_CSE_CX = os.environ.get('GOOGLE_CSE_CX', '')
+    BRAVE_API_KEY = os.environ.get('BRAVE_API_KEY', '')
+    # SearXNG: self-hosted метапоиск (free, OSS). URL своего инстанса, напр. http://localhost:8080
+    SEARXNG_URL = os.environ.get('SEARXNG_URL', '')
+
     @classmethod
     def validate(cls):
         """Validate required configuration"""

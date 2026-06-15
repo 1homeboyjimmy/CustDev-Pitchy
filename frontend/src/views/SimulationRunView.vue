@@ -10,21 +10,16 @@
           <div class="h-4 w-px bg-white/10"></div>
           <div class="flex items-center gap-3">
             <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 3/5</span>
-            <span class="text-sm font-bold text-white tracking-tight">Активная симуляция мультивселенной</span>
+            <span class="text-sm font-bold text-white tracking-tight">Фокус-группа общества</span>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
-          <button 
-            v-for="mode in ['graph', 'split', 'workbench']" 
-            :key="mode"
-            @click="viewMode = mode"
-            class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
-            :class="viewMode === mode ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'text-white/40 hover:text-white/60'"
-          >
-            {{ mode === 'graph' ? 'Граф' : (mode === 'split' ? 'Разделение' : 'Рабочая зона') }}
-          </button>
-        </div>
+        <button
+          @click="graphCollapsed = !graphCollapsed"
+          class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all bg-white/5 border border-white/5 text-white/50 hover:text-white"
+        >
+          {{ graphCollapsed ? 'Показать граф' : 'Свернуть граф' }}
+        </button>
 
         <div class="flex items-center gap-4">
           <div class="flex flex-col items-end">
@@ -36,18 +31,14 @@
         </div>
       </header>
 
-      <!-- Main Layout -->
-      <main class="flex-1 flex overflow-hidden relative">
-        <!-- Left Panel: Graph (Real-time updates) -->
-        <div 
-          class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
-          :class="{
-            'w-full opacity-100': viewMode === 'graph',
-            'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
-            'w-1/2 opacity-100': viewMode === 'split'
-          }"
+      <!-- Main Layout: граф сверху (сворачивается) → фокус-группа → движок -->
+      <main class="flex-1 flex flex-col overflow-hidden">
+        <!-- Граф (реал-тайм) -->
+        <div
+          class="border-b border-white/5 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden shrink-0"
+          :class="graphCollapsed ? 'h-0 opacity-0' : 'h-[42vh] opacity-100'"
         >
-          <GraphPanel 
+          <GraphPanel
             :graphData="graphData"
             :loading="graphLoading"
             :currentPhase="3"
@@ -56,30 +47,41 @@
           />
         </div>
 
-        <!-- Right Panel: Simulation Feed & Controls -->
-        <div 
-          class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
-          :class="{
-            'w-full opacity-100': viewMode === 'workbench',
-            'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
-            'w-1/2 opacity-100': viewMode === 'split'
-          }"
-        >
-          <div class="h-full overflow-y-auto custom-scrollbar">
-            <div class="p-8 max-w-5xl mx-auto space-y-8">
-              <Step3Simulation
-                :simulationId="currentSimulationId"
-                :maxRounds="maxRounds"
-                :minutesPerRound="minutesPerRound"
-                :projectData="projectData"
-                :graphData="graphData"
-                :systemLogs="systemLogs"
-                @go-back="handleGoBack"
-                @next-step="handleNextStep"
-                @add-log="addLog"
-                @update-status="updateStatus"
-              />
-            </div>
+        <!-- Фокус-группа + движок -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar bg-pitchy-bg/30">
+          <div class="p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+            <FocusGroupPanel
+              :profiles="profiles"
+              :interviewQuestions="interviewQuestions"
+              :interviews="interviews"
+              :selected="selectedAgent"
+              :chatHistory="chatHistory"
+              :sending="chatSending"
+              :running="interviewRunning"
+              @select-agent="onSelectAgent"
+              @send="onSendToAgent"
+              @run-interview="runInterview"
+            />
+
+            <details class="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+              <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-white/70 hover:text-white select-none">
+                Движок симуляции и лента действий
+              </summary>
+              <div class="px-2 pb-2">
+                <Step3Simulation
+                  :simulationId="currentSimulationId"
+                  :maxRounds="maxRounds"
+                  :minutesPerRound="minutesPerRound"
+                  :projectData="projectData"
+                  :graphData="graphData"
+                  :systemLogs="systemLogs"
+                  @go-back="handleGoBack"
+                  @next-step="handleNextStep"
+                  @add-log="addLog"
+                  @update-status="updateStatus"
+                />
+              </div>
+            </details>
           </div>
         </div>
       </main>
@@ -93,12 +95,16 @@ import { useRoute, useRouter } from 'vue-router'
 import StageShell from '../components/layout/StageShell.vue'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
+import FocusGroupPanel from '../components/FocusGroupPanel.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'
-import { 
+import {
   ArrowLeft as ArrowLeftIcon
 } from 'lucide-vue-next'
 import { getProject, getGraphData } from '../api/graph'
-import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
+import {
+  getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus,
+  getSimulationProfiles, interviewAgents
+} from '../api/simulation'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,7 +114,7 @@ const props = defineProps({
 })
 
 // Layout State
-const viewMode = ref('split')
+const graphCollapsed = ref(false)
 const currentStatus = ref('processing')
 
 // Data State
@@ -119,6 +125,25 @@ const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
+
+// --- Фокус-группа ---
+const profiles = ref([])
+const interviewQuestions = ref([])
+const interviews = ref([])
+const selectedAgent = ref(null)
+const chatHistory = ref([])
+const chatSending = ref(false)
+const interviewRunning = ref(false)
+
+// Стандартный список CustDev-вопросов (Mom Test) — фиксированный, без итераций.
+const CUSTDEV_QUESTIONS = [
+  'Как вы решаете эту задачу сейчас?',
+  'Когда вы в последний раз сталкивались с этой проблемой?',
+  'Что вы уже пробовали и что не устроило?',
+  'Сколько времени и денег это стоит вам сейчас?',
+  'Насколько это для вас серьёзная боль и почему?',
+  'Готовы ли вы платить за решение и сколько в месяц?',
+]
 
 // --- Status Computed ---
 const statusClass = computed(() => {
@@ -164,6 +189,89 @@ const handleGoBack = async () => {
 
 const handleNextStep = () => {
   addLog('Цикл завершен. Переход к аналитическому синтезу.')
+}
+
+// --- Профили персон ---
+const loadProfiles = async () => {
+  try {
+    const res = await getSimulationProfiles(currentSimulationId.value)
+    if (res.success && Array.isArray(res.data)) profiles.value = res.data
+    else if (res.success && Array.isArray(res.data?.profiles)) profiles.value = res.data.profiles
+  } catch (e) {
+    addLog(`Профили не загрузились: ${e.message}`)
+  }
+}
+
+// Парсит ответ batch-интервью { reddit_<idx>: {response} } в записи аккордеона.
+const pushInterviewResults = (results, question) => {
+  Object.entries(results || {}).forEach(([k, v]) => {
+    const idx = parseInt(String(k).split('_').pop())
+    const p = profiles.value[idx]
+    interviews.value.push({
+      agent_name: p?.username || p?.name || `Агент ${idx}`,
+      agent_role: p?.profession || '',
+      agent_bio: p?.persona || p?.bio || '',
+      question,
+      response: v?.response || v?.answer || (typeof v === 'string' ? v : ''),
+      key_quotes: v?.key_quotes || [],
+    })
+  })
+}
+
+// Прогон стандартного CustDev-интервью: по одному вопросу за раз (аккордеон наполняется вживую).
+const runInterview = async () => {
+  if (interviewRunning.value || profiles.value.length === 0) return
+  interviewRunning.value = true
+  interviews.value = []
+  interviewQuestions.value = [...CUSTDEV_QUESTIONS]
+  const agentIdxs = profiles.value.map((_, i) => i)
+  try {
+    for (const q of CUSTDEV_QUESTIONS) {
+      try {
+        const res = await interviewAgents({
+          simulation_id: currentSimulationId.value,
+          platform: 'reddit', // одна платформа = индексы совпадают с профилями и нет дублей
+          interviews: agentIdxs.map((i) => ({ agent_id: i, prompt: q })),
+        })
+        if (res.success) pushInterviewResults(res.data?.results || res.data, q)
+      } catch (e) {
+        addLog(`Вопрос пропущен: ${e.message}`)
+      }
+    }
+    addLog('CustDev-интервью завершено.')
+  } finally {
+    interviewRunning.value = false
+  }
+}
+
+const onSelectAgent = (p) => {
+  selectedAgent.value = p
+  chatHistory.value = []
+}
+
+// Личный 1-на-1 чат с выбранным агентом.
+const onSendToAgent = async (text) => {
+  if (!selectedAgent.value || chatSending.value) return
+  const idx = profiles.value.indexOf(selectedAgent.value)
+  chatHistory.value.push({ role: 'user', content: text })
+  chatSending.value = true
+  try {
+    const res = await interviewAgents({
+      simulation_id: currentSimulationId.value,
+      platform: 'reddit',
+      interviews: [{ agent_id: idx, prompt: text }],
+    })
+    if (res.success) {
+      const results = res.data?.results || res.data || {}
+      const agentRes = results[`reddit_${idx}`] || results[`twitter_${idx}`] || Object.values(results)[0]
+      const content = agentRes?.response || agentRes?.answer || (typeof agentRes === 'string' ? agentRes : '…')
+      chatHistory.value.push({ role: 'assistant', content })
+    }
+  } catch (e) {
+    chatHistory.value.push({ role: 'assistant', content: `Связь прервалась: ${e.message}` })
+  } finally {
+    chatSending.value = false
+  }
 }
 
 // --- Data Logic ---
@@ -233,6 +341,7 @@ watch(isSimulating, (nv) => {
 onMounted(() => {
   addLog('Цикл симуляции манифестирован.')
   loadSimulationData()
+  loadProfiles()
 })
 
 onUnmounted(stopGraphRefresh)

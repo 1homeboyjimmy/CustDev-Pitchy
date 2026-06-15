@@ -2,8 +2,8 @@
   <div class="space-y-8 pt-12 border-t border-white/5">
     <div class="flex items-center justify-between">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Simulation Records</h2>
-        <p class="text-xs text-white/30 font-mono">Archive of local reality seed experiments</p>
+        <h2 class="text-2xl font-bold text-white uppercase tracking-tight">Прогоны CustDev</h2>
+        <p class="text-xs text-white/30 font-mono">Сохранённые проверки гипотез — открой любой вердикт</p>
       </div>
       <div class="h-px flex-1 mx-8 bg-gradient-to-r from-white/10 to-transparent"></div>
     </div>
@@ -62,7 +62,7 @@
     </div>
 
     <div v-else class="py-12 text-center space-y-4">
-      <div class="text-white/20 italic text-sm">No historical records found on this machine.</div>
+      <div class="text-white/20 italic text-sm">Прогонов пока нет — проверьте первую гипотезу выше.</div>
     </div>
 
     <!-- Modal remains mostly same but styled with Tailwind -->
@@ -87,11 +87,11 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="space-y-4">
                 <div class="space-y-1">
-                  <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Requirement</span>
+                  <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Гипотеза</span>
                   <p class="text-sm text-white/70 leading-relaxed">{{ selectedProject.simulation_requirement }}</p>
                 </div>
                 <div class="space-y-3">
-                  <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Files</span>
+                  <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Файлы</span>
                   <div class="space-y-2">
                     <div v-for="file in selectedProject.files" :key="file.filename" class="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/5">
                       <FileTextIcon class="w-3.5 h-3.5 text-white/80" />
@@ -103,22 +103,22 @@
 
               <div class="space-y-4 flex flex-col justify-end">
                 <PitchyButton variant="secondary" class="w-full justify-between" @click="goToProject" :disabled="!selectedProject.project_id">
-                  <span>Step 1: Graph Construction</span>
+                  <span>Граф знаний</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
                 <PitchyButton variant="secondary" class="w-full justify-between" @click="goToSimulation">
-                  <span>Step 2: Environment Setup</span>
+                  <span>Фокус-группа</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
                 <PitchyButton variant="primary" class="w-full justify-between shadow-[0_0_20px_rgba(255,255,255,0.15)]" @click="goToReport" :disabled="!selectedProject.report_id">
-                  <span>Step 4: View Analysis Report</span>
+                  <span>Открыть вердикт</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
               </div>
             </div>
             
             <div class="pt-4 border-t border-white/5 text-[10px] text-white/20 italic text-center">
-              Historical playback is limited to static analysis and environment snapshots.
+              Сохранённый прогон: доступны вердикт и снимки окружения.
             </div>
           </GlassCard>
         </div>

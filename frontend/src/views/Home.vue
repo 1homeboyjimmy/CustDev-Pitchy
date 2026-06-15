@@ -19,8 +19,8 @@
             :animate="{ opacity: 1, y: 0 }"
             :transition="{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }"
           >
-            Анализируй реальность.<br />
-            <span class="text-gradient italic">Симулируй будущее.</span>
+            Нужен ли рынку<br />
+            <span class="text-gradient italic">ваш продукт?</span>
           </motion.h1>
 
           <motion.p
@@ -29,7 +29,7 @@
             :animate="{ opacity: 1, y: 0 }"
             :transition="{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }"
           >
-            <span class="text-white font-semibold">Pitchy.Pro</span> анализирует ваши инвестиционные презентации и рыночные гипотезы. Мы строим цифровую модель рынка, населенную автономными ИИ-агентами (инвесторами, экспертами, клиентами). Наблюдайте, как они реагируют на ваш питч, предсказывайте рыночные барьеры и тестируйте стратегии — быстро и эффективно.
+            <span class="text-white font-semibold">Pitchy.Pro</span> проверяет спрос до того, как вы потратите месяцы на разработку. Мы собираем <span class="text-white">реальные сигналы боли</span> из сообществ (Хабр, vc.ru, Пикабу) и прогоняем вашу гипотезу через <span class="text-white">симуляцию общества ИИ-агентов</span> — а затем выдаём честный вердикт: стоит ли строить.
           </motion.p>
 
           <motion.div
@@ -40,17 +40,17 @@
           >
             <div class="flex items-center gap-2">
               <ShieldCheckIcon class="w-4 h-4 text-white/80" />
-              <span>100% Приватно</span>
+              <span>Реальные сигналы рынка</span>
             </div>
             <div class="hidden sm:block text-white/10">•</div>
             <div class="flex items-center gap-2">
               <SparklesIcon class="w-4 h-4 text-white animate-pulse" />
-              <span>Технология GraphRAG + LLM</span>
+              <span>Симуляция общества агентов</span>
             </div>
             <div class="hidden sm:block text-white/10">•</div>
             <div class="flex items-center gap-2">
               <ZapIcon class="w-4 h-4 text-white/80" />
-              <span>Мгновенный инсайт</span>
+              <span>Честный вердикт</span>
             </div>
           </motion.div>
         </div>
@@ -67,9 +67,9 @@
             :viewport="{ once: true, amount: 0.4 }"
             :transition="{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }"
           >
-            <h2 class="text-3xl font-semibold text-white tracking-tight">Режим ожидания</h2>
+            <h2 class="text-3xl font-semibold text-white tracking-tight">С чего начать</h2>
             <p class="text-white/50 leading-relaxed">
-              Локальный движок предсказаний инициализирован. Загрузите ваш питч-дек (PDF, MD, TXT), чтобы засеять новую рыночную симуляцию и проверить жизнеспособность вашего стартапа.
+              Опишите гипотезу стартапа вручную или сгенерируйте её из паспорта проекта Pitchy. Дальше система сама соберёт сигналы рынка, проведёт фокус-группу и сведёт всё в вердикт.
             </p>
           </motion.div>
 
@@ -114,6 +114,70 @@
           :transition="{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }"
         >
           <div class="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-8 md:p-10 space-y-10">
+            <!-- Переключатель режимов входа -->
+            <div class="grid grid-cols-2 gap-2 p-1 bg-white/[0.04] rounded-2xl">
+              <button
+                type="button"
+                @click="entryMode = 'hypothesis'"
+                class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                :class="entryMode === 'hypothesis' ? 'bg-white/10 text-white border border-white/15' : 'text-white/40 hover:text-white/70'"
+              >
+                <LightbulbIcon class="w-4 h-4" /> Описать гипотезу
+              </button>
+              <button
+                type="button"
+                @click="entryMode = 'deck'"
+                class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                :class="entryMode === 'deck' ? 'bg-white/10 text-white border border-white/15' : 'text-white/40 hover:text-white/70'"
+              >
+                <UploadIcon class="w-4 h-4" /> Загрузить дек
+              </button>
+            </div>
+
+            <!-- Режим: Гипотеза -->
+            <template v-if="entryMode === 'hypothesis'">
+              <div class="space-y-5">
+                <div class="flex items-end justify-between">
+                  <div class="space-y-1">
+                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">01 / Гипотеза</span>
+                    <h3 class="text-3xl font-semibold text-white leading-none tracking-tight">Гипотеза стартапа</h3>
+                  </div>
+                  <button
+                    type="button"
+                    @click="generateFromFolder"
+                    class="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white flex items-center gap-1.5 transition-colors"
+                    :title="folderHint"
+                  >
+                    <FolderInputIcon class="w-3.5 h-3.5" /> Из паспорта проекта
+                  </button>
+                </div>
+                <p v-if="folderNote" class="text-[11px] text-white/40 -mt-3">{{ folderNote }}</p>
+
+                <div class="space-y-4">
+                  <input v-model="hyp.name" type="text" :disabled="loading" placeholder="Название / суть — напр.: сервис подбора грантов" class="w-full rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors" />
+                  <textarea v-model="hyp.problem" :disabled="loading" placeholder="Проблема (боль клиента) — какую боль решаете?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
+                  <textarea v-model="hyp.solution" :disabled="loading" placeholder="Решение — что предлагаете и чем лучше альтернатив?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
+
+                  <div class="space-y-2">
+                    <div v-if="segments.length" class="flex flex-wrap gap-2">
+                      <span v-for="(s, i) in segments" :key="i" class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-white/10 text-white border border-white/15">
+                        {{ s }}
+                        <button type="button" @click="removeSegment(i)" class="hover:text-white/60"><XIcon class="w-3 h-3" /></button>
+                      </span>
+                    </div>
+                    <input v-model="segmentDraft" @keydown.enter.prevent="addSegment" type="text" :disabled="loading" placeholder="Сегменты ЦА — добавьте и нажмите Enter (напр.: фаундеры на ранней стадии)" class="w-full rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors" />
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <span class="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] flex items-center gap-1.5"><TargetIcon class="w-3.5 h-3.5" /> Ключевая гипотеза для проверки</span>
+                    <textarea v-model="hyp.question" :disabled="loading" placeholder="Что именно проверяем у рынка? Напр.: «фаундеры готовы платить 2000 ₽/мес за автоподбор грантов»" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Режим: Питч-дек -->
+            <template v-else>
             <!-- Step 01: Upload -->
             <div class="space-y-5">
               <div class="flex items-end justify-between">
@@ -178,6 +242,8 @@
               </div>
             </div>
 
+            </template>
+
             <!-- Action -->
             <button
               type="button"
@@ -187,15 +253,14 @@
             >
               <span v-if="loading" class="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
               <ZapIcon v-else class="w-4 h-4 fill-current" />
-              Запустить симуляцию
+              {{ entryMode === 'hypothesis' ? 'Проверить гипотезу' : 'Запустить симуляцию' }}
             </button>
           </div>
         </motion.div>
       </section>
 
-      <!-- History DB Placeholder -->
+      <!-- Прогоны CustDev — всегда доступная секция результатов (грузит свою историю сама) -->
       <motion.div
-        v-if="projectData?.projects?.length"
         :initial="{ opacity: 0, y: 32 }"
         :while-in-view="{ opacity: 1, y: 0 }"
         :viewport="{ once: true, amount: 0.2 }"
@@ -216,35 +281,61 @@ import GlassCard from '../components/ui/GlassCard.vue'
 import PitchyButton from '../components/ui/PitchyButton.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
-import { 
-  ShieldCheck as ShieldCheckIcon, 
-  Cpu as CpuIcon, 
+import {
+  ShieldCheck as ShieldCheckIcon,
+  Cpu as CpuIcon,
   Database as DatabaseIcon,
   Layers as LayersIcon,
   Upload as UploadIcon,
   FileText as FileTextIcon,
   X as XIcon,
   Zap as ZapIcon,
-  Sparkles as SparklesIcon
+  Sparkles as SparklesIcon,
+  Lightbulb as LightbulbIcon,
+  Target as TargetIcon,
+  FolderInput as FolderInputIcon
 } from 'lucide-vue-next'
 
 const steps = [
-  { num: '01', title: 'Анализ Питча', desc: 'Извлечение ключевых инсайтов, рыночных сущностей и связей из вашего питча. Построение структурного графа знаний.' },
-  { num: '02', title: 'Общество агентов', desc: 'Генерация профилей инвесторов, конкурентов и целевой аудитории специально под ваш проект.' },
-  { num: '03', title: 'Симуляция', desc: 'Запуск живого обсуждения вашего продукта в симулированной среде общества. Наблюдение за возражениями и поддержкой.' },
-  { num: '04', title: 'Прогноз Выживаемости', desc: 'Агрегация мнений всех агентов в единый аналитический отчет с оценкой перспектив и рекомендациями по улучшению.' },
-  { num: '05', title: 'Интервью с Рынком', desc: 'Личное интервью с любым агентом общества или уточнение деталей прогноза у аналитического агента.' },
+  { num: '01', title: 'Гипотеза', desc: 'Опишите боль, решение и сегменты ЦА — вручную или сгенерируйте из паспорта проекта Pitchy.' },
+  { num: '02', title: 'Сигналы рынка', desc: 'Сбор реальных обсуждений боли из Хабр, vc.ru и Пикабу: цитаты пользователей, текущие решения, готовность платить.' },
+  { num: '03', title: 'Фокус-группа', desc: 'Общество ИИ-агентов отвечает на стандартные CustDev-вопросы. Можно поговорить один на один с любой персоной.' },
+  { num: '04', title: 'Вердикт', desc: 'Сводим сигналы рынка и симуляцию общества в честный вывод: нужен ли рынку продукт и стоит ли его строить.' },
+  { num: '05', title: 'Глубинное интервью', desc: 'Уточняйте детали у любого агента общества или у аналитика по итогам прогона.' },
 ]
 
 const router = useRouter()
-const projectData = ref(null) 
+const projectData = ref(null)
 const formData = ref({ simulationRequirement: '' })
 const files = ref([])
 const loading = ref(false)
 const isDragOver = ref(false)
 const fileInput = ref(null)
 
+// Режим входа: гипотеза (ручной CustDev-ввод) или загрузка дека.
+const entryMode = ref('hypothesis')
+const hyp = ref({ name: '', problem: '', solution: '', question: '' })
+const segments = ref([])
+const segmentDraft = ref('')
+const folderNote = ref('')
+const folderHint = 'Подтянуть данные из паспорта проекта Pitchy'
+
+const addSegment = () => {
+  const s = segmentDraft.value.trim()
+  if (s && !segments.value.includes(s)) segments.value.push(s)
+  segmentDraft.value = ''
+}
+const removeSegment = (i) => segments.value.splice(i, 1)
+
+// «Из паспорта проекта»: канал к паспорту главного сервера ещё подключается.
+const generateFromFolder = () => {
+  folderNote.value = 'Импорт из паспорта проекта появится после подключения к главному серверу Pitchy. Пока заполните гипотезу вручную.'
+}
+
 const canSubmit = computed(() => {
+  if (entryMode.value === 'hypothesis') {
+    return hyp.value.problem.trim() !== '' && hyp.value.solution.trim() !== '' && hyp.value.question.trim() !== ''
+  }
   return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
 })
 
@@ -262,12 +353,34 @@ const addFiles = (newFiles) => {
 
 const removeFile = (index) => { files.value.splice(index, 1) }
 
+// Собирает seed-файл и цель анализа из полей гипотезы (когда дек не загружают).
+const buildHypothesisSeed = () => {
+  const segLine = segments.value.length ? segments.value.join(', ') : 'не указаны'
+  const seedText =
+    `Название проекта: ${hyp.value.name || 'не указано'}\n` +
+    `Проблема (боль клиента): ${hyp.value.problem}\n` +
+    `Решение: ${hyp.value.solution}\n` +
+    `Сегменты целевой аудитории: ${segLine}\n` +
+    `Ключевая гипотеза для проверки: ${hyp.value.question}\n`
+  const file = new File([seedText], 'Гипотеза.txt', { type: 'text/plain' })
+  const requirement =
+    `Цель CustDev: проверить, нужен ли рынку этот продукт. ` +
+    `Ключевая гипотеза: ${hyp.value.question}. ` +
+    `Сегменты ЦА: ${segLine}.`
+  return { file, requirement }
+}
+
 const startSimulation = async () => {
   if (!canSubmit.value || loading.value) return
   loading.value = true
   try {
     const { setPendingUpload } = await import('../store/pendingUpload.js')
-    setPendingUpload(files.value, formData.value.simulationRequirement)
+    if (entryMode.value === 'hypothesis') {
+      const { file, requirement } = buildHypothesisSeed()
+      setPendingUpload([file], requirement)
+    } else {
+      setPendingUpload(files.value, formData.value.simulationRequirement)
+    }
     router.push({ name: 'Process', params: { projectId: 'new' } })
   } catch (err) {
     console.error('Failed to start simulation:', err)
