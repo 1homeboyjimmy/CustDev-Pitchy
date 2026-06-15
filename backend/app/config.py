@@ -98,6 +98,9 @@ class Config:
     # Reddit как опережающий (западный) сигнал — бесплатный публичный поиск.
     ENABLE_REDDIT_SIGNALS = os.environ.get('ENABLE_REDDIT_SIGNALS', '1') not in ('0', 'false', 'False', '')
     REDDIT_USER_AGENT = os.environ.get('REDDIT_USER_AGENT', 'pitchy-custdev-signals/1.0')
+    # Reddit OAuth (бесплатный script-app) — публичный .json блокирует серверные IP.
+    REDDIT_CLIENT_ID = os.environ.get('REDDIT_CLIENT_ID', '')
+    REDDIT_CLIENT_SECRET = os.environ.get('REDDIT_CLIENT_SECRET', '')
     # Ключи провайдеров (нужны только если выбран соответствующий SIGNAL_PROVIDER).
     EXA_API_KEY = os.environ.get('EXA_API_KEY', '')
     GOOGLE_CSE_KEY = os.environ.get('GOOGLE_CSE_KEY', '')

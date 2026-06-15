@@ -176,13 +176,40 @@ class SignalsService:
     # ---- Reddit (бесплатный публичный поиск) ----
 
     @staticmethod
+    def _reddit_token() -> str:
+        """OAuth client_credentials токен (бесплатный script-app). '' если нет ключей."""
+        if not (Config.REDDIT_CLIENT_ID and Config.REDDIT_CLIENT_SECRET):
+            return ''
+        try:
+            resp = requests.post(
+                'https://www.reddit.com/api/v1/access_token',
+                data={'grant_type': 'client_credentials'},
+                auth=(Config.REDDIT_CLIENT_ID, Config.REDDIT_CLIENT_SECRET),
+                headers={'User-Agent': Config.REDDIT_USER_AGENT}, timeout=15,
+            )
+            return resp.json().get('access_token', '') or ''
+        except Exception as e:
+            logger.error(f"Reddit token error: {e}")
+            return ''
+
+    @staticmethod
     def _search_reddit(query: str, n: int) -> list[dict]:
         out = []
         try:
-            resp = requests.get(
-                f'https://www.reddit.com/search.json?q={quote(query)}&sort=relevance&t=year&limit={min(n, 25)}',
-                headers={'User-Agent': Config.REDDIT_USER_AGENT}, timeout=20,
-            )
+            token = SignalsService._reddit_token()
+            if token:
+                # Авторизованный путь (надёжно с серверных IP).
+                resp = requests.get(
+                    f'https://oauth.reddit.com/search?q={quote(query)}&sort=relevance&t=year&limit={min(n, 25)}',
+                    headers={'User-Agent': Config.REDDIT_USER_AGENT, 'Authorization': f'Bearer {token}'},
+                    timeout=20,
+                )
+            else:
+                # Публичный путь (часто блокируется на серверных IP — деградирует мягко).
+                resp = requests.get(
+                    f'https://www.reddit.com/search.json?q={quote(query)}&sort=relevance&t=year&limit={min(n, 25)}',
+                    headers={'User-Agent': Config.REDDIT_USER_AGENT}, timeout=20,
+                )
             for child in (resp.json().get('data', {}).get('children') or []):
                 d = child.get('data', {})
                 permalink = d.get('permalink', '')
