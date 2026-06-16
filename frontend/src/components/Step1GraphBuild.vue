@@ -1,161 +1,98 @@
 <template>
-  <div class="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
-    <!-- Introduction -->
-    <div class="block">
-      <span class="block text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans mb-2">01 / Этап</span>
-      <h2 class="block font-sans not-italic text-2xl font-semibold text-white tracking-tight mb-3">
-        Синтез знаний
-      </h2>
-      <p class="block text-sm text-white/55 leading-relaxed max-w-2xl">
-        Движок извлекает архитектуру общества из ваших неструктурированных данных. Этот процесс создает фундаментальную онтологию и многомерный граф знаний, который станет основой симуляции.
+  <div class="space-y-6 animate-in fade-in slide-in-from-right-4 duration-700">
+    <!-- Intro -->
+    <div>
+      <span class="block text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans mb-2">Подготовка</span>
+      <h2 class="font-sans text-2xl font-semibold text-white tracking-tight mb-2">Готовим фокус-группу</h2>
+      <p class="text-sm text-white/55 leading-relaxed max-w-2xl">
+        Анализируем вашу гипотезу, строим карту рынка и готовим общество персон. Это займёт минуту.
       </p>
     </div>
 
-    <!-- Step 01: Ontology -->
-    <GlassCard :class="{ 'border-white/30 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.15)]/5': currentPhase === 0 }">
-      <div class="flex items-start justify-between mb-6">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-            <span>Метод синтеза</span>
-            <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-white">POST /api/graph/ontology/generate</span>
-          </div>
-          <h3 class="text-lg font-bold text-white">Генерация онтологии</h3>
+    <!-- Шаги (на языке ценности, без инженерной кухни) -->
+    <div class="space-y-3">
+      <!-- 1. Анализ гипотезы / онтология -->
+      <div class="rounded-2xl border p-4 flex items-center gap-4 transition-all"
+        :class="currentPhase === 0 ? 'bg-white/[0.05] border-white/25' : 'bg-white/[0.02] border-white/10'">
+        <div class="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center border"
+          :class="currentPhase > 0 ? 'bg-white/[0.06] border-white/15 text-white' : 'bg-white/[0.03] border-white/10 text-white/50'">
+          <CheckIcon v-if="currentPhase > 0" class="w-4 h-4" />
+          <LoaderIcon v-else-if="currentPhase === 0" class="w-4 h-4 animate-spin" />
+          <ClockIcon v-else class="w-4 h-4" />
         </div>
-        <div class="flex items-center gap-3">
-          <button 
-            v-if="currentPhase === 0 || currentPhase === 1" 
-            @click="$emit('stop-task');" 
-            class="px-2 py-1 rounded bg-red-500/10 text-red-500 text-[9px] font-bold border border-red-500/20 hover:bg-red-500/20 transition-all uppercase"
-          >
-            Остановить
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-white">Анализируем гипотезу</div>
+          <div class="text-[12px] text-white/45 truncate">
+            {{ currentPhase === 0 ? (ontologyProgress?.message || 'выделяем боли, сегменты и решения…') : 'боли, сегменты и решения' }}
+          </div>
+        </div>
+        <button v-if="currentPhase === 0 || currentPhase === 1" @click="$emit('stop-task')"
+          class="ml-auto text-[10px] text-white/30 hover:text-red-400 uppercase tracking-wide shrink-0">стоп</button>
+      </div>
+
+      <!-- 2. Карта рынка / граф -->
+      <div class="rounded-2xl border p-4 transition-all"
+        :class="currentPhase === 1 ? 'bg-white/[0.05] border-white/25' : 'bg-white/[0.02] border-white/10'">
+        <div class="flex items-center gap-4">
+          <div class="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center border"
+            :class="currentPhase > 1 ? 'bg-white/[0.06] border-white/15 text-white' : (currentPhase === 1 ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white/[0.03] border-white/10 text-white/50')">
+            <CheckIcon v-if="currentPhase > 1" class="w-4 h-4" />
+            <LoaderIcon v-else-if="currentPhase === 1" class="w-4 h-4 animate-spin" />
+            <ClockIcon v-else class="w-4 h-4" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-semibold text-white">Строим карту рынка</div>
+            <div class="text-[12px] text-white/45">связи болей, сегментов и решений</div>
+          </div>
+          <span v-if="currentPhase === 1" class="text-[12px] font-mono text-white/55 shrink-0">{{ buildProgress?.progress || 0 }}%</span>
+        </div>
+        <div v-if="currentPhase === 1" class="mt-3 h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
+          <div class="h-full bg-white/60 rounded-full transition-all duration-500" :style="{ width: `${buildProgress?.progress || 0}%` }"></div>
+        </div>
+        <div v-if="currentPhase >= 1 && (graphStats.nodes || graphStats.edges)" class="mt-3 flex gap-4 text-[12px] text-white/45">
+          <span><span class="text-white/80 font-mono">{{ graphStats.nodes }}</span> узлов</span>
+          <span><span class="text-white/80 font-mono">{{ graphStats.edges }}</span> связей</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Что выявили на рынке -->
+    <div v-if="projectData?.ontology?.entity_types" class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+      <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Кого нашли на рынке</div>
+      <div class="flex flex-wrap gap-2">
+        <button v-for="entity in projectData.ontology.entity_types" :key="entity.name"
+          @click="selectOntologyItem(entity, 'entity')" :title="entity.name"
+          class="px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-[12px] text-white/65 hover:text-white hover:border-white/30 transition-all">
+          {{ translateType(entity.name) }}
+        </button>
+      </div>
+      <template v-if="projectData?.ontology?.edge_types">
+        <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em] pt-1">Связи</div>
+        <div class="flex flex-wrap gap-2">
+          <button v-for="rel in projectData.ontology.edge_types" :key="rel.name"
+            @click="selectOntologyItem(rel, 'relation')" :title="rel.name"
+            class="px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-[12px] text-white/65 hover:text-white hover:border-white/30 transition-all">
+            {{ translateType(rel.name) }}
           </button>
-          <StatusBadge :type="currentPhase > 0 ? 'success' : (currentPhase === 0 ? 'primary' : 'default')">
-            {{ currentPhase > 0 ? 'Синтезировано' : (currentPhase === 0 ? 'Анализ' : 'В очереди') }}
-          </StatusBadge>
         </div>
+      </template>
+    </div>
+
+    <!-- Готово -->
+    <div v-if="currentPhase >= 2" class="rounded-2xl border border-white/20 bg-white/[0.05] p-6 text-center space-y-5 animate-in zoom-in duration-500">
+      <div class="w-12 h-12 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white mx-auto">
+        <CheckIcon class="w-6 h-6" />
       </div>
-
-      <div class="space-y-6">
-        <p class="text-xs text-white/50 leading-relaxed italic">
-          "LLM анализирует контекст для идентификации эмерджентных типов сущностей и структур связей, подходящих для высокоточной симуляции."
-        </p>
-
-        <!-- Progress Indicator -->
-        <div v-if="currentPhase === 0 && ontologyProgress" class="flex items-center gap-3 p-3 rounded-xl bg-white/10 border border-white/20 animate-pulse">
-          <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          <span class="text-[10px] font-bold text-white/90 uppercase tracking-widest">
-            {{ ontologyProgress.message || 'Синтез архитектуры общества...' }}
-          </span>
-        </div>
-
-        <!-- Entity Tags -->
-        <div v-if="projectData?.ontology?.entity_types" class="space-y-3">
-          <span class="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] px-1">Обнаруженные классы сущностей</span>
-          <div class="flex flex-wrap gap-2">
-            <button 
-              v-for="entity in projectData.ontology.entity_types" 
-              :key="entity.name"
-              @click="selectOntologyItem(entity, 'entity')"
-              :title="entity.name"
-              class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-white/60 hover:text-white hover:border-white/50 transition-all"
-            >
-              {{ translateType(entity.name) }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Relation Tags -->
-        <div v-if="projectData?.ontology?.edge_types" class="space-y-3">
-          <span class="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] px-1">Установленные связи</span>
-          <div class="flex flex-wrap gap-2">
-            <button 
-              v-for="rel in projectData.ontology.edge_types" 
-              :key="rel.name" 
-              @click="selectOntologyItem(rel, 'relation')"
-              :title="rel.name"
-              class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-white/60 hover:text-white hover:border-white/25 transition-all"
-            >
-              {{ translateType(rel.name) }}
-            </button>
-          </div>
-        </div>
+      <div class="max-w-md mx-auto">
+        <h3 class="text-xl font-semibold text-white tracking-tight mb-2">Карта рынка готова</h3>
+        <p class="text-sm text-white/50 leading-relaxed">Дальше соберём общество персон и проведём фокус-группу.</p>
       </div>
-    </GlassCard>
-
-    <!-- Step 02: Graph Build -->
-    <GlassCard :class="{ 'border-white/30 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.12)]/5': currentPhase === 1 }">
-      <div class="flex items-start justify-between mb-8">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-            <span>Экземпляр процесса</span>
-            <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-white/80">POST /api/graph/build</span>
-          </div>
-          <h3 class="text-lg font-bold text-white">Построение GraphRAG</h3>
-        </div>
-        <StatusBadge :type="currentPhase > 1 ? 'success' : (currentPhase === 1 ? 'cyan' : 'default')">
-          {{ currentPhase > 1 ? 'Построено' : (currentPhase === 1 ? `${buildProgress?.progress || 0}%` : 'Ожидание') }}
-        </StatusBadge>
-      </div>
-
-      <div class="space-y-8">
-        <p class="text-xs text-white/50 leading-relaxed italic">
-          "Движок наносит архитектуру общества на карту графа Neo4j. Сущности связываются через временные факты, формируются кластеры сообществ."
-        </p>
-        
-        <!-- Progress Bar -->
-        <div v-if="currentPhase === 1" class="space-y-2">
-          <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-            <div 
-              class="h-full bg-gradient-to-r from-white to-white/70 transition-all duration-500 shadow-glow shadow-white/25" 
-              :style="{ width: `${buildProgress?.progress || 0}%` }"
-            ></div>
-          </div>
-          <div class="flex justify-between text-[8px] font-mono text-white/20 uppercase tracking-tighter">
-            <span>Секвенирование фрагментов...</span>
-            <span>{{ buildProgress?.progress || 0 }}% УСПЕШНО</span>
-          </div>
-        </div>
-
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-3 gap-4">
-          <div v-for="(val, label) in { 'Сущности': graphStats.nodes, 'Связи': graphStats.edges, 'Схема': graphStats.types }" :key="label" 
-            class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center space-y-1">
-            <div class="text-xl font-bold text-white font-mono">{{ val }}</div>
-            <div class="text-[8px] font-bold text-white/20 uppercase tracking-widest">{{ label }}</div>
-          </div>
-        </div>
-      </div>
-    </GlassCard>
-
-    <!-- Step 03: Complete -->
-    <GlassCard v-if="currentPhase >= 2" class="border-white/20 bg-white/10 animate-in zoom-in duration-500 shadow-[0_0_20px_rgba(255,255,255,0.12)]/20">
-      <div class="flex flex-col items-stretch text-center space-y-6 w-full">
-        <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/80 shadow-glow shadow-white/25 mx-auto shrink-0">
-          <CheckIcon class="w-6 h-6" />
-        </div>
-        <div class="w-full max-w-md mx-auto">
-          <h3 class="text-xl font-bold text-white tracking-tight mb-2">Архитектура общества готова</h3>
-          <p class="text-sm text-white/50 leading-relaxed">
-            Архитектура общества успешно секвенирована. Модель мира теперь стабильна и готова к активации агентов.
-          </p>
-        </div>
-
-        <PitchyButton
-          variant="primary"
-          class="w-full max-w-xs mx-auto shadow-[0_0_20px_rgba(255,255,255,0.15)] text-sm py-4"
-          @click="handleEnterEnvSetup"
-          :loading="creatingSimulation"
-        >
-          Активировать модель общества
-          <template #icon>
-            <ZapIcon class="w-4 h-4 fill-current" />
-          </template>
-        </PitchyButton>
-      </div>
-    </GlassCard>
-
+      <PitchyButton variant="primary" class="w-full max-w-xs mx-auto shadow-[0_0_20px_rgba(255,255,255,0.15)] text-sm py-4"
+        @click="handleEnterEnvSetup" :loading="creatingSimulation">
+        Перейти к персонам
+        <template #icon><ZapIcon class="w-4 h-4 fill-current" /></template>
+      </PitchyButton>
+    </div>
   </div>
 </template>
 
@@ -166,9 +103,11 @@ import { createSimulation } from '../api/simulation'
 import GlassCard from './ui/GlassCard.vue'
 import StatusBadge from './ui/StatusBadge.vue'
 import PitchyButton from './ui/PitchyButton.vue'
-import { 
+import {
   Check as CheckIcon,
-  Zap as ZapIcon
+  Zap as ZapIcon,
+  Loader as LoaderIcon,
+  Clock as ClockIcon
 } from 'lucide-vue-next'
 
 const router = useRouter()

@@ -2,12 +2,12 @@
   <div class="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
     <!-- Introduction -->
     <div class="block">
-      <span class="block text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans mb-2">02 / Этап</span>
+      <span class="block text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans mb-2">Подготовка</span>
       <h2 class="block font-sans not-italic text-2xl font-semibold text-white tracking-tight mb-3">
-        Активация общества
+        Собираем персон
       </h2>
       <p class="block text-sm text-white/55 leading-relaxed max-w-2xl">
-        Настройка общества агентов и динамики социальных платформ на основе синтезированного графа знаний.
+        Генерируем представителей ваших сегментов на основе карты рынка. Кликните по любой персоне — увидите её характеристики.
       </p>
     </div>
 
@@ -15,15 +15,11 @@
     <GlassCard :class="{ 'border-white/30 bg-white/5': phase === 0 }">
       <div class="flex items-start justify-between mb-6">
         <div class="space-y-1">
-          <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-            <span>Протокол экземпляра</span>
-            <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-white">POST /api/simulation/create</span>
-          </div>
-          <h3 class="text-lg font-bold text-white">Инициализация экземпляра</h3>
+          <h3 class="text-lg font-bold text-white">Окружение фокус-группы</h3>
+          <div class="text-[11px] text-white/35">готовим среду для общества персон</div>
         </div>
         <StatusBadge :type="phase > 0 ? 'success' : 'primary'">
-          {{ phase > 0 ? 'Инициализировано' : 'Создание' }}
+          {{ phase > 0 ? 'Готово' : 'Создаём' }}
         </StatusBadge>
       </div>
 
@@ -39,20 +35,16 @@
     <GlassCard :class="{ 'border-white/30 bg-white/5': phase === 1 }">
       <div class="flex items-start justify-between mb-8">
         <div class="space-y-1">
-          <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-            <span>Активация агентов</span>
-            <span class="w-px h-2 bg-white/10"></span>
-            <span class="text-white">POST /api/simulation/prepare</span>
-          </div>
-          <h3 class="text-lg font-bold text-white">Синтез жителей общества</h3>
+          <h3 class="text-lg font-bold text-white">Персоны общества</h3>
+          <div class="text-[11px] text-white/35">генерируем представителей сегментов</div>
         </div>
         <div class="flex items-center gap-3">
-          <button 
-            v-if="phase === 1" 
-            @click="stopAllTimers(); addLog('Анализ принудительно остановлен пользователем.'); phase = 0;" 
-            class="px-2 py-1 rounded bg-red-500/10 text-red-500 text-[9px] font-bold border border-red-500/20 hover:bg-red-500/20 transition-all uppercase"
+          <button
+            v-if="phase === 1"
+            @click="stopAllTimers(); addLog('Генерация остановлена пользователем.'); phase = 0;"
+            class="text-[10px] text-white/30 hover:text-red-400 uppercase tracking-wide"
           >
-            Остановить
+            стоп
           </button>
           <StatusBadge :type="phase > 1 ? 'success' : (phase === 1 ? 'primary' : 'default')">
             {{ phase > 1 ? 'Готово' : (phase === 1 ? `${prepareProgress}%` : 'Ожидание') }}
@@ -75,40 +67,34 @@
           <div class="flex items-center justify-between px-1">
             <span class="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]">Синтезированные персоны</span>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div 
-              v-for="(profile, idx) in profiles" 
-              :key="idx" 
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div
+              v-for="(profile, idx) in profiles"
+              :key="idx"
               @click="selectProfile(profile)"
-              class="group p-4 rounded-2xl bg-[#0A0A0F]/40 border border-white/5 hover:border-white/50 transition-all cursor-pointer space-y-3 relative overflow-hidden"
+              class="group p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/25 transition-all cursor-pointer relative"
             >
-              <!-- Delete Action -->
-              <button 
+              <button
                 v-if="phase >= 2"
                 @click.stop="handleDeleteProfile(idx)"
-                class="absolute top-2 right-2 p-1.5 rounded-lg bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20"
-                title="Удалить агента"
+                class="absolute top-2 right-2 p-1.5 rounded-lg text-white/25 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400"
+                title="Удалить персону"
               >
-                <TrashIcon class="w-3 h-3" />
+                <TrashIcon class="w-3.5 h-3.5" />
               </button>
-
-              <div class="flex items-start justify-between">
-                <div class="space-y-0.5">
-                  <div class="text-sm font-bold text-white group-hover:text-white/90 transition-colors">{{ profile.username }}</div>
-                  <div class="flex items-center gap-2">
-                    <div class="text-[10px] font-mono text-white/30">@{{ profile.name }}</div>
-                    <span class="w-1 h-1 rounded-full bg-white/10"></span>
-                    <div class="text-[9px] font-mono text-white/20">{{ profile.age }}y | {{ profile.mbti }} | {{ profile.country }}</div>
-                  </div>
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-black bg-white/10 text-white border border-white/15">
+                  {{ (profile.username || '?').charAt(0).toUpperCase() }}
                 </div>
-                <div class="text-[9px] px-2 py-0.5 rounded bg-white/5 border border-white/5 text-white/40 uppercase">{{ profile.profession?.slice(0, 16) }}</div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-bold text-white truncate">{{ profile.username }}</div>
+                  <div class="text-[11px] text-white/40 truncate">{{ profile.profession || '—' }}<span v-if="profile.age"> · {{ profile.age }}</span></div>
+                </div>
               </div>
-              <p class="text-[11px] text-white/50 line-clamp-2 leading-relaxed italic">"{{ profile.bio }}"</p>
-              <div class="flex flex-wrap gap-1.5">
-                <span v-for="topic in profile.interested_topics?.slice(0, 3)" :key="topic" class="px-2 py-0.5 rounded bg-white/5 text-[8px] font-bold text-white/90 border border-white/10">
-                  {{ topic }}
-                </span>
-                <span v-if="profile.interested_topics?.length > 3" class="text-[8px] text-white/20 align-middle leading-loose">+{{ profile.interested_topics.length - 3 }}</span>
+              <p v-if="profile.bio" class="text-[12px] text-white/55 line-clamp-2 leading-relaxed mt-3">{{ profile.bio }}</p>
+              <div class="flex flex-wrap gap-1.5 mt-3">
+                <span v-for="topic in profile.interested_topics?.slice(0, 3)" :key="topic" class="px-2 py-0.5 rounded-full bg-white/[0.06] text-[10px] text-white/55">{{ topic }}</span>
+                <span v-if="profile.interested_topics?.length > 3" class="text-[10px] text-white/25 leading-loose">+{{ profile.interested_topics.length - 3 }}</span>
               </div>
             </div>
           </div>
