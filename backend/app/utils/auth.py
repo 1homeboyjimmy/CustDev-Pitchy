@@ -52,10 +52,13 @@ def verify_jwt(token):
                     break
             except: continue
 
-        # --- FALLBACK: TRUST UNVERIFIED FOR DEVELOPMENT ---
+        # --- FALLBACK: только если ЯВНО разрешено (переходный период) ---
         if not payload:
-            logger.warning("[AUTH_DEBUG] !!! CRITICAL SECURITY WARNING: Signature verification failed for JWT !!!")
-            logger.warning("[AUTH_DEBUG] !!! Falling back to UNVERIFIED payload for session sync !!!")
+            if not Config.ALLOW_UNVERIFIED_SESSION:
+                # Строгий режim: нет валидной подписи главного сайта → нет доступа.
+                logger.warning("[AUTH_DEBUG] Подпись JWT не прошла — доступ запрещён (strict).")
+                return None
+            logger.warning("[AUTH_DEBUG] !!! UNVERIFIED payload разрешён (ALLOW_UNVERIFIED_SESSION) !!!")
             try:
                 payload = jwt.decode(token, options={"verify_signature": False})
             except Exception as e:

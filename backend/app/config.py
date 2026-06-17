@@ -42,6 +42,14 @@ class Config:
     SECRET_KEY = os.environ.get('APP_SECRET_KEY', os.environ.get('SECRET_KEY', 'pitchy-secret-key')).strip()
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
 
+    # Если True — при неудачной проверке подписи JWT доверяем непроверенному
+    # payload (НЕБЕЗОПАСНО, только для переходного периода синхронизации секрета).
+    # По умолчанию выкл: без валидной сессии главного сайта вход запрещён.
+    ALLOW_UNVERIFIED_SESSION = os.environ.get('ALLOW_UNVERIFIED_SESSION', '').strip().lower() in ('1', 'true', 'yes')
+
+    # Куда редиректить, если сессии нет (логин основного сайта).
+    MAIN_LOGIN_URL = os.environ.get('MAIN_LOGIN_URL', 'https://pitchy.pro/login')
+
     # JSON configuration - disable ASCII escaping to display Chinese directly (not as \uXXXX)
     JSON_AS_ASCII = False
 
