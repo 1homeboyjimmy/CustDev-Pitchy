@@ -159,7 +159,21 @@
                   </div>
                   <ArrowRightIcon class="w-4 h-4 text-white/30 ml-auto shrink-0 group-hover:translate-x-0.5 transition-transform" />
                 </button>
-                <p v-if="folderNote" class="text-[12px] text-amber-300/80 leading-relaxed">{{ folderNote }}</p>
+                <div v-if="folderOpen" class="rounded-2xl border border-white/12 bg-white/[0.03] p-4 space-y-2">
+                  <div v-if="folderLoading" class="text-[12px] text-white/50 flex items-center gap-2"><LoaderIcon class="w-3.5 h-3.5 animate-spin" /> Загружаю ваши проекты…</div>
+                  <div v-else-if="folderError" class="text-[12px] text-amber-300/80 leading-relaxed">{{ folderError }}</div>
+                  <template v-else>
+                    <div v-if="folderProjects.length" class="space-y-1.5">
+                      <div class="text-[10px] uppercase tracking-widest text-white/30 mb-1">Выберите проект</div>
+                      <button v-for="p in folderProjects" :key="p.id" type="button" @click="pickProject(p)" :disabled="folderImporting"
+                        class="w-full flex items-center justify-between gap-3 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/30 px-4 py-2.5 text-left transition-all disabled:opacity-50">
+                        <span class="text-sm text-white truncate">{{ p.name }}</span>
+                        <span class="text-[11px] text-white/40 shrink-0">{{ p.readiness_index ?? 0 }}%</span>
+                      </button>
+                    </div>
+                    <div v-else class="text-[12px] text-white/40">Проектов не найдено.</div>
+                  </template>
+                </div>
 
                 <div class="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-white/25">
                   <div class="h-px flex-1 bg-white/10"></div> или заполните вручную <div class="h-px flex-1 bg-white/10"></div>
@@ -306,8 +320,10 @@ import {
   Lightbulb as LightbulbIcon,
   Target as TargetIcon,
   FolderInput as FolderInputIcon,
-  ArrowRight as ArrowRightIcon
+  ArrowRight as ArrowRightIcon,
+  Loader as LoaderIcon
 } from 'lucide-vue-next'
+import { listProjects, getProjectPassport } from '../api/projects'
 
 const steps = [
   { num: '01', title: 'Гипотеза', desc: 'Опишите боль, решение и сегменты ЦА — вручную или сгенерируйте из паспорта проекта Pitchy.' },
@@ -330,8 +346,12 @@ const entryMode = ref('hypothesis')
 const hyp = ref({ name: '', problem: '', solution: '', question: '' })
 const segments = ref([])
 const segmentDraft = ref('')
-const folderNote = ref('')
 const folderHint = 'Подтянуть данные из паспорта проекта Pitchy'
+const folderOpen = ref(false)
+const folderLoading = ref(false)
+const folderImporting = ref(false)
+const folderError = ref('')
+const folderProjects = ref([])
 
 const addSegment = () => {
   const s = segmentDraft.value.trim()
@@ -340,9 +360,44 @@ const addSegment = () => {
 }
 const removeSegment = (i) => segments.value.splice(i, 1)
 
-// «Из паспорта проекта»: канал к паспорту главного сервера ещё подключается.
-const generateFromFolder = () => {
-  folderNote.value = 'Импорт из паспорта проекта появится после подключения к главному серверу Pitchy. Пока заполните гипотезу вручную.'
+// «Из паспорта проекта»: тянем список проектов пользователя с главного сервера.
+const generateFromFolder = async () => {
+  folderOpen.value = true
+  folderError.value = ''
+  if (folderProjects.value.length) return
+  folderLoading.value = true
+  try {
+    const res = await listProjects()
+    if (res.success) folderProjects.value = res.data?.projects || []
+    else folderError.value = res.error || 'Не удалось загрузить проекты'
+  } catch (e) {
+    folderError.value = 'Паспорт-сервис ещё не развёрнут на главном сервере.'
+  } finally {
+    folderLoading.value = false
+  }
+}
+
+// Выбор проекта → тянем паспорт → заполняем поля гипотезы.
+const pickProject = async (p) => {
+  folderImporting.value = true
+  folderError.value = ''
+  try {
+    const res = await getProjectPassport(p.id)
+    if (res.success) {
+      const ps = res.data?.passport || {}
+      const core = ps.core || {}
+      hyp.value.name = core.name || p.name || hyp.value.name
+      hyp.value.problem = core.problem || hyp.value.problem
+      hyp.value.solution = core.solution || hyp.value.solution
+      const ta = core.target_audience || ''
+      if (ta) segments.value = String(ta).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean).slice(0, 6)
+      folderOpen.value = false
+    } else folderError.value = res.error || 'Не удалось загрузить паспорт'
+  } catch (e) {
+    folderError.value = 'Не удалось загрузить паспорт проекта.'
+  } finally {
+    folderImporting.value = false
+  }
 }
 
 const canSubmit = computed(() => {
