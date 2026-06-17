@@ -2812,3 +2812,37 @@ def close_simulation_env():
             "error": str(e),
             "traceback": traceback.format_exc()
         }), 500
+
+
+@simulation_bp.route('/<simulation_id>/custdev-answers', methods=['POST'])
+@login_required
+def save_custdev_answers(simulation_id):
+    """Сохраняет ответы фокус-группы (CustDev-интервью) — для финального отчёта."""
+    import json as _json
+    try:
+        data = request.get_json() or {}
+        answers = data.get('answers') or []
+        sim_dir = SimulationManager()._get_simulation_dir(simulation_id)
+        with open(os.path.join(sim_dir, 'custdev_answers.json'), 'w', encoding='utf-8') as f:
+            _json.dump(answers, f, ensure_ascii=False)
+        return jsonify({"success": True, "data": {"saved": len(answers)}})
+    except Exception as e:
+        logger.error(f"Save custdev answers failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@simulation_bp.route('/<simulation_id>/custdev-answers', methods=['GET'])
+@login_required
+def get_custdev_answers(simulation_id):
+    """Возвращает сохранённые ответы фокус-группы."""
+    import json as _json
+    try:
+        path = os.path.join(SimulationManager()._get_simulation_dir(simulation_id), 'custdev_answers.json')
+        answers = []
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                answers = _json.load(f)
+        return jsonify({"success": True, "data": {"answers": answers}})
+    except Exception as e:
+        logger.error(f"Get custdev answers failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500

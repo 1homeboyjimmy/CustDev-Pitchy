@@ -105,7 +105,7 @@ import {
 import { getProject, getGraphData } from '../api/graph'
 import {
   getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus,
-  getSimulationProfiles, interviewAgents
+  getSimulationProfiles, interviewAgents, saveCustdevAnswers
 } from '../api/simulation'
 
 const route = useRoute()
@@ -260,6 +260,13 @@ const runInterview = async () => {
     }
     addLog('CustDev-интервью завершено.')
     interviewDone.value = true
+    // Сохраняем ответы на бэк — для финального отчёта «Сигналы × Симуляция».
+    try {
+      await saveCustdevAnswers(currentSimulationId.value, interviews.value)
+      addLog('Ответы фокус-группы сохранены для отчёта.')
+    } catch (e) {
+      addLog(`Не удалось сохранить ответы: ${e.message}`)
+    }
   } finally {
     interviewRunning.value = false
   }

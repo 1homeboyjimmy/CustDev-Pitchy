@@ -177,6 +177,15 @@ export const interviewAgents = (data) => {
 }
 
 /**
+ * Сохранить ответы фокус-группы (CustDev-интервью) для финального отчёта.
+ * @param {string} simulationId
+ * @param {Array} answers - [{ agent_name, agent_role, question, response, ... }]
+ */
+export const saveCustdevAnswers = (simulationId, answers) => {
+  return service.post(`/api/simulation/${simulationId}/custdev-answers`, { answers })
+}
+
+/**
  * Get simulation history list (with project details)
  * Used to display historical projects on home page
  * @param {number} limit - Return count limit
