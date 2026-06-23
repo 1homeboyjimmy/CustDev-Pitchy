@@ -1583,6 +1583,13 @@ def start_simulation():
                 "error": "Please provide simulation_id"
             }), 400
 
+        request_id = (data.get('request_id') or '').strip()
+        if not request_id:
+            return jsonify({
+                "success": False,
+                "error": "request_id is required for billing"
+            }), 400
+
         platform = data.get('platform', 'parallel')
         max_rounds = data.get('max_rounds')  # Optional: Maximum simulation rounds
         enable_graph_memory_update = data.get('enable_graph_memory_update', False)  # Optional：IsFalseEnable knowledge graph memory update
@@ -1684,6 +1691,18 @@ def start_simulation():
             
             logger.info(f"Enable knowledge graph memory update: simulation_id={simulation_id}, graph_id={graph_id}")
         
+        # Debit only after every local validation passed and immediately before
+        # the expensive run starts. request_id makes transport retries safe.
+        from ..services.pitchy_billing import consume_custdev_run, BillingError
+        try:
+            consume_custdev_run(simulation_id, request_id)
+        except BillingError as exc:
+            return jsonify({
+                "success": False,
+                "error": str(exc),
+                "code": "QUOTA_OR_BILLING_ERROR",
+            }), exc.status_code
+
         # Start simulation
         run_state = SimulationRunner.start_simulation(
             simulation_id=simulation_id,

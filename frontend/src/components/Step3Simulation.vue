@@ -215,7 +215,7 @@ const doStartSimulation = async () => {
   addLog('Запуск последовательности симуляции мультивселенной...')
   emit('update-status', 'processing')
   try {
-    const params = { simulation_id: props.simulationId, platform: 'parallel', force: true, enable_graph_memory_update: true }
+    const params = { simulation_id: props.simulationId, platform: 'parallel', force: true, enable_graph_memory_update: true, request_id: crypto.randomUUID() }
     if (props.maxRounds) params.max_rounds = props.maxRounds
     const res = await startSimulation(params)
     if (res.success) {
