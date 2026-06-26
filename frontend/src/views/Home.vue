@@ -114,27 +114,8 @@
           :transition="{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }"
         >
           <div class="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-8 md:p-10 space-y-10">
-            <!-- Переключатель режимов входа -->
-            <div class="grid grid-cols-2 gap-2 p-1 bg-white/[0.04] rounded-2xl">
-              <button
-                type="button"
-                @click="entryMode = 'hypothesis'"
-                class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
-                :class="entryMode === 'hypothesis' ? 'bg-white/10 text-white border border-white/15' : 'text-white/40 hover:text-white/70'"
-              >
-                <LightbulbIcon class="w-4 h-4" /> Описать гипотезу
-              </button>
-              <button
-                type="button"
-                @click="entryMode = 'deck'"
-                class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
-                :class="entryMode === 'deck' ? 'bg-white/10 text-white border border-white/15' : 'text-white/40 hover:text-white/70'"
-              >
-                <UploadIcon class="w-4 h-4" /> Загрузить дек
-              </button>
-            </div>
-
-            <!-- Режим: Гипотеза -->
+            <!-- Режим входа: только гипотеза. Загрузка дека временно отключена
+                 (переключатель и блок дека ниже сохранены для лёгкого возврата). -->
             <template v-if="entryMode === 'hypothesis'">
               <div class="space-y-5">
                 <div class="space-y-1">
@@ -279,7 +260,7 @@
             >
               <span v-if="loading" class="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
               <ZapIcon v-else class="w-4 h-4 fill-current" />
-              {{ entryMode === 'hypothesis' ? 'Проверить гипотезу' : 'Запустить симуляцию' }}
+              Проверить гипотезу
             </button>
           </div>
         </motion.div>
