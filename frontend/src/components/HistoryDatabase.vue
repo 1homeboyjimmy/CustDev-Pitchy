@@ -102,16 +102,16 @@
               </div>
 
               <div class="space-y-4 flex flex-col justify-end">
-                <PitchyButton variant="secondary" class="w-full justify-between" @click="goToProject" :disabled="!selectedProject.project_id">
-                  <span>Граф знаний</span>
+                <PitchyButton variant="secondary" class="w-full justify-between" @click="goToSignals" :disabled="!selectedProject.signals_saved">
+                  <span>Анализ сигналов</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
-                <PitchyButton variant="secondary" class="w-full justify-between" @click="goToSimulation">
-                  <span>Фокус-группа</span>
+                <PitchyButton variant="secondary" class="w-full justify-between" @click="goToSimulation" :disabled="!selectedProject.simulation_id">
+                  <span>Результат симуляции</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
                 <PitchyButton variant="primary" class="w-full justify-between shadow-[0_0_20px_rgba(255,255,255,0.15)]" @click="goToReport" :disabled="!selectedProject.report_id">
-                  <span>Открыть вердикт</span>
+                  <span>Итоговый анализ</span>
                   <ChevronRightIcon class="w-4 h-4" />
                 </PitchyButton>
               </div>
@@ -160,9 +160,11 @@ const getProgressType = (s) => {
 const navigateToProject = (p) => selectedProject.value = p
 const closeModal = () => selectedProject.value = null
 
-const goToProject = () => {
-  if (selectedProject.value?.project_id) {
-    router.push({ name: 'Process', params: { projectId: selectedProject.value.project_id } })
+const goToSignals = () => {
+  // Сигналы прошлого прогона грузятся в read-only режиме по simulation_id.
+  // Кнопка активна только когда сигналы сохранены (selectedProject.signals_saved).
+  if (selectedProject.value?.simulation_id) {
+    router.push({ name: 'Signals', query: { sim: selectedProject.value.simulation_id } })
     closeModal()
   }
 }

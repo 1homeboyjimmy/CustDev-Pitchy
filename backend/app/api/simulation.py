@@ -966,7 +966,11 @@ def get_simulation_history():
             
             # Get associated report_id（FindThis simulation Latest report）
             sim_dict["report_id"] = _get_report_id_for_simulation(sim.simulation_id)
-            
+
+            # Сохранены ли сигналы разведки для этого прогона (кнопка «Анализ сигналов»)
+            from .signals import signals_saved as _signals_saved
+            sim_dict["signals_saved"] = _signals_saved(sim.simulation_id)
+
             # Add version number
             sim_dict["version"] = "v1.0.2"
             

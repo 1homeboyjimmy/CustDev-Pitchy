@@ -10,7 +10,10 @@ const state = reactive({
   isPending: false,
   // Контекст гипотезы (для шага «Сигналы»): запрос разведки + сегменты ЦА.
   signalQuery: '',
-  segments: []
+  segments: [],
+  // Результат разведки сигналов — переносим к созданию симуляции, чтобы
+  // прикрепить его к прогону (доступ из истории).
+  signalsResult: null
 })
 
 export function setPendingUpload(files, requirement) {
@@ -25,13 +28,19 @@ export function setHypothesisContext(query, segments) {
   state.segments = Array.isArray(segments) ? segments : []
 }
 
+// Итог разведки сигналов (сохраняется на экране «Сигналы» по завершении).
+export function setSignalsResult(result) {
+  state.signalsResult = result || null
+}
+
 export function getPendingUpload() {
   return {
     files: state.files,
     simulationRequirement: state.simulationRequirement,
     isPending: state.isPending,
     signalQuery: state.signalQuery,
-    segments: state.segments
+    segments: state.segments,
+    signalsResult: state.signalsResult
   }
 }
 
@@ -41,6 +50,7 @@ export function clearPendingUpload() {
   state.isPending = false
   state.signalQuery = ''
   state.segments = []
+  state.signalsResult = null
 }
 
 export default state

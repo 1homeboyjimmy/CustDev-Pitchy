@@ -100,6 +100,8 @@
 import { computed, ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { createSimulation } from '../api/simulation'
+import { attachSignals } from '../api/signals'
+import { getPendingUpload } from '../store/pendingUpload'
 import GlassCard from './ui/GlassCard.vue'
 import StatusBadge from './ui/StatusBadge.vue'
 import PitchyButton from './ui/PitchyButton.vue'
@@ -136,6 +138,12 @@ const handleEnterEnvSetup = async () => {
       enable_reddit: true
     })
     if (res.success && res.data?.simulation_id) {
+      // Прикрепляем результат разведки сигналов к прогону (фон, не блокируем переход).
+      const signalsResult = getPendingUpload().signalsResult
+      if (signalsResult) {
+        attachSignals({ simulation_id: res.data.simulation_id, result: signalsResult })
+          .catch(() => { /* не критично: сигналы просто не будут доступны из истории */ })
+      }
       router.push({ name: 'Simulation', params: { simulationId: res.data.simulation_id } })
     }
   } catch (err) {

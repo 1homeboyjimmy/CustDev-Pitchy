@@ -22,3 +22,18 @@ export const startSignalsResearch = (data) => {
 export const getSignalsResearchStatus = (taskId) => {
   return service.get('/api/signals/research/status', { params: { task_id: taskId } })
 }
+
+/**
+ * Прикрепить результат разведки к прогону (фон, после создания симуляции).
+ * data: { simulation_id, result }
+ */
+export const attachSignals = (data) => {
+  return service.post('/api/signals/attach', data)
+}
+
+/**
+ * Получить сохранённые сигналы прогона по simulation_id (read-only из истории).
+ */
+export const getSavedSignals = (simulationId) => {
+  return service.get('/api/signals/saved', { params: { simulation_id: simulationId } })
+}

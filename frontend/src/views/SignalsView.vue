@@ -171,12 +171,17 @@
               </div>
             </section>
 
-            <div class="flex items-center justify-between pt-2">
+            <div v-if="!readonly" class="flex items-center justify-between pt-2">
               <button @click="rerun" class="text-[12px] text-white/40 hover:text-white flex items-center gap-1.5">
                 <RefreshIcon class="w-3.5 h-3.5" /> Пересканировать
               </button>
               <button @click="goNext" class="bg-white text-black rounded-full px-6 py-3 text-sm font-bold inline-flex items-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
                 К фокус-группе <ArrowRightIcon class="w-4 h-4" />
+              </button>
+            </div>
+            <div v-else class="flex justify-end pt-2">
+              <button @click="router.push('/')" class="rounded-full border border-white/15 px-6 py-3 text-sm hover:bg-white/10 inline-flex items-center gap-2">
+                <ArrowLeftIcon class="w-4 h-4" /> К истории прогонов
               </button>
             </div>
           </template>
@@ -188,17 +193,21 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import StageShell from '../components/layout/StageShell.vue'
 import {
   ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, Radar as RadarIcon,
   Loader as LoaderIcon, Check as CheckIcon, Clock as ClockIcon, RefreshCw as RefreshIcon,
   Flame as FlameIcon, Thermometer as ThermoIcon, Snowflake as SnowIcon,
 } from 'lucide-vue-next'
-import { getPendingUpload } from '../store/pendingUpload'
-import { startSignalsResearch, getSignalsResearchStatus } from '../api/signals'
+import { getPendingUpload, setSignalsResult } from '../store/pendingUpload'
+import { startSignalsResearch, getSignalsResearchStatus, getSavedSignals } from '../api/signals'
 
 const router = useRouter()
+const route = useRoute()
+// Read-only просмотр сигналов прошлого прогона из истории (?sim=<simulation_id>).
+const savedSim = route.query.sim || null
+const readonly = ref(!!savedSim)
 const pending = getPendingUpload()
 const query = ref(pending.signalQuery || pending.simulationRequirement || '')
 const segs = ref(pending.segments || [])
@@ -264,6 +273,8 @@ const applyStatus = (task) => {
     result.value = task.result
     totalSources.value = task.result.sources_count || totalSources.value
     done.value = true
+    // Сохраняем итог разведки, чтобы прикрепить его к прогону (доступ из истории).
+    setSignalsResult(task.result)
     stopPoll()
   } else if (task.status === 'failed') {
     stopPoll()
@@ -288,7 +299,7 @@ const startResearch = async () => {
     if (res.success && res.data?.task_id) {
       taskId = res.data.task_id
       poll()
-      timer = setInterval(poll, 1500)
+      timer = setInterval(poll, 2500)
     }
   } catch (e) { /* экран покажет нулевое состояние */ }
 }
@@ -296,7 +307,24 @@ const startResearch = async () => {
 const rerun = () => { result.value = { sources_count: 0, sources: [], sources_by_platform: [], analysis: {} }; agents.value = []; totalSources.value = 0; startResearch() }
 const goNext = () => router.push({ name: 'Process', params: { projectId: 'new' } })
 
-onMounted(startResearch)
+// Read-only: грузим сохранённые сигналы прогона (без повторной разведки).
+const loadSaved = async () => {
+  try {
+    const res = await getSavedSignals(savedSim)
+    if (res.success && res.data) {
+      result.value = res.data
+      totalSources.value = res.data.sources_count || 0
+      query.value = '(сохранённый прогон)'
+      done.value = true
+    } else {
+      query.value = ''
+    }
+  } catch (e) {
+    query.value = ''
+  }
+}
+
+onMounted(() => { readonly.value ? loadSaved() : startResearch() })
 onUnmounted(stopPoll)
 </script>
 
