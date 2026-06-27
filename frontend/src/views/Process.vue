@@ -715,10 +715,10 @@ const startGraphPolling = () => {
   // Fetch once immediately
   fetchGraphData()
 
-  // Auto-fetch graph data every 10 seconds
+  // Auto-fetch graph data every 20 seconds (снижаем нагрузку поллинга)
   graphPollTimer = setInterval(async () => {
     await fetchGraphData()
-  }, 10000)
+  }, 20000)
 }
 
 // Manually refresh graph
@@ -769,15 +769,16 @@ const fetchGraphData = async () => {
   }
 }
 
-// Poll task status
+// Poll task status (с backoff: 2с → 10с, чтобы длинная сборка не генерила сотни запросов)
 const startPollingTask = (taskId) => {
-  // Execute query once immediately
-  pollTaskStatus(taskId)
-
-  // Then poll at intervals
-  pollTimer = setInterval(() => {
-    pollTaskStatus(taskId)
-  }, 2000)
+  let delay = 2000
+  const tick = async () => {
+    await pollTaskStatus(taskId)
+    if (!pollTimer) return // остановлено (задача завершилась) во время await
+    delay = Math.min(delay + 1500, 10000)
+    pollTimer = setTimeout(tick, delay)
+  }
+  pollTimer = setTimeout(tick, 0)
 }
 
 // Query task status

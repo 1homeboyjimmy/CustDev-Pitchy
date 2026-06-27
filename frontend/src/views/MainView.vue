@@ -367,7 +367,7 @@ const startBuildGraph = async () => {
 
 const startGraphPolling = () => {
   fetchGraphData()
-  graphPollTimer = setInterval(fetchGraphData, 10000)
+  graphPollTimer = setInterval(fetchGraphData, 20000)
 }
 
 const fetchGraphData = async () => {
@@ -387,8 +387,16 @@ const fetchGraphData = async () => {
 }
 
 const startPollingTask = (taskId) => {
-  pollTaskStatus(taskId)
-  pollTimer = setInterval(() => pollTaskStatus(taskId), 2000)
+  // Backoff: начинаем часто (2с), плавно замедляемся до 10с — длинная сборка
+  // графа больше не генерит сотни запросов. stopPolling зануляет pollTimer.
+  let delay = 2000
+  const tick = async () => {
+    await pollTaskStatus(taskId)
+    if (!pollTimer) return // остановлено (задача завершилась) во время await
+    delay = Math.min(delay + 1500, 10000)
+    pollTimer = setTimeout(tick, delay)
+  }
+  pollTimer = setTimeout(tick, 0)
 }
 
 const pollTaskStatus = async (taskId) => {

@@ -270,7 +270,7 @@ const getToolDisplayName = n => ({ 'insight_forge': 'Глубинный инса
 
 // Polling
 let pollingTimer = null
-const startPolling = () => { poll(); pollingTimer = setInterval(poll, 3000) }
+const startPolling = () => { poll(); pollingTimer = setInterval(poll, 6000) }
 const stopPolling = () => clearInterval(pollingTimer)
 
 const poll = async () => {

@@ -237,8 +237,8 @@ const doStartSimulation = async () => {
 
 let statusTimer, detailTimer
 const startPolling = () => {
-  statusTimer = setInterval(fetchRunStatus, 2000)
-  detailTimer = setInterval(fetchRunStatusDetail, 3000)
+  statusTimer = setInterval(fetchRunStatus, 5000)
+  detailTimer = setInterval(fetchRunStatusDetail, 8000)
 }
 const stopPolling = () => { clearInterval(statusTimer); clearInterval(detailTimer) }
 

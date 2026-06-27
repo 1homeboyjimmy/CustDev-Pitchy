@@ -411,9 +411,9 @@ const loadPreparedData = async () => {
   } catch (e) { console.error(e) }
 }
 
-const startPolling = () => { pollStatus(); pollTimer = setInterval(pollStatus, 3000) }
-const startProfilesPolling = () => { pollProfiles(); profilesTimer = setInterval(pollProfiles, 5000) }
-const startConfigPolling = () => { pollConfig(); configTimer = setInterval(pollConfig, 5000) }
+const startPolling = () => { pollStatus(); pollTimer = setInterval(pollStatus, 5000) }
+const startProfilesPolling = () => { pollProfiles(); profilesTimer = setInterval(pollProfiles, 8000) }
+const startConfigPolling = () => { pollConfig(); configTimer = setInterval(pollConfig, 8000) }
 
 const pollStatus = async () => {
   if (!taskId.value) return
