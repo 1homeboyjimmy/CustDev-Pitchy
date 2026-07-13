@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import logoUrl from '../../../logo/logo_pitchy_browser.png'
+import { getMe } from '../../api/auth'
 import {
   LayoutDashboard,
   MessageSquare,
@@ -20,10 +21,19 @@ const props = defineProps({
 })
 
 const isCollapsed = ref(true)
+const isAdmin = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
   const stored = localStorage.getItem('custdev:sidenav-collapsed')
   if (stored !== null) isCollapsed.value = stored === '1'
+
+  // Кнопка «Админ» — только администраторам (Config.ADMIN_USER_IDS на бэке).
+  try {
+    const res = await getMe()
+    if (res && res.success && res.data) isAdmin.value = !!res.data.is_admin
+  } catch {
+    isAdmin.value = false
+  }
 })
 
 watch(isCollapsed, (v) => {
@@ -41,6 +51,11 @@ const items = [
   { id: 'custdev', label: 'Кастдев', icon: Users, href: 'https://custdev.pitchy.pro/' },
   { id: 'admin', label: 'Админ', icon: Shield, href: 'https://pitchy.pro/admin' },
 ]
+
+// Скрываем «Админ» у обычных пользователей.
+const visibleItems = computed(() =>
+  items.filter((item) => item.id !== 'admin' || isAdmin.value)
+)
 </script>
 
 <template>
@@ -86,7 +101,7 @@ const items = [
     <!-- Nav -->
     <nav class="flex-1 px-3 space-y-1 overflow-hidden">
       <a
-        v-for="item in items"
+        v-for="item in visibleItems"
         :key="item.id"
         :href="item.href"
         :title="isCollapsed ? item.label : ''"

@@ -15,7 +15,7 @@ from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
-from ..utils.auth import login_required
+from ..utils.auth import login_required, current_user_id, is_admin_user
 
 logger = get_logger('pitchy.api.simulation')
 
@@ -216,6 +216,7 @@ def create_simulation():
             graph_id=graph_id,
             enable_twitter=data.get('enable_twitter', True),
             enable_reddit=data.get('enable_reddit', True),
+            user_id=current_user_id(),
         )
         
         return jsonify({
@@ -801,10 +802,17 @@ def list_simulations():
     """
     try:
         project_id = request.args.get('project_id')
-        
+
         manager = SimulationManager()
-        simulations = manager.list_simulations(project_id=project_id)
-        
+        # Персональная выдача: пользователь видит только свои прогоны; админ
+        # дополнительно — legacy-прогоны без владельца, но не чужие персональные.
+        uid = current_user_id()
+        admin = is_admin_user()
+        simulations = [
+            s for s in manager.list_simulations(project_id=project_id)
+            if s.user_id == uid or (admin and s.user_id is None)
+        ]
+
         return jsonify({
             "success": True,
             "data": [s.to_dict() for s in simulations],
@@ -917,9 +925,19 @@ def get_simulation_history():
     """
     try:
         limit = request.args.get('limit', 20, type=int)
-        
+
         manager = SimulationManager()
-        simulations = manager.list_simulations()[:limit]
+        # Персональная история: обычный пользователь видит только свои прогоны.
+        # Админ дополнительно видит legacy-прогоны без владельца (созданные до
+        # введения персональной истории), но НЕ чужие персональные прогоны.
+        # Фильтруем до применения limit.
+        uid = current_user_id()
+        admin = is_admin_user()
+        all_sims = [
+            s for s in manager.list_simulations()
+            if s.user_id == uid or (admin and s.user_id is None)
+        ]
+        simulations = all_sims[:limit]
         
         # Enhance simulation data，Only from Simulation FileRead
         enriched_simulations = []

@@ -144,7 +144,19 @@ def login_required(f):
             
         # Store user info in request context if needed
         request.user = user_payload
-        
+
         return f(*args, **kwargs)
-        
+
     return decorated_function
+
+
+def current_user_id():
+    """ID текущего пользователя из JWT (sub) — единый способ по всему бэку."""
+    u = getattr(request, 'user', None) or {}
+    return u.get('sub') or u.get('userId') or u.get('id') or u.get('user_id')
+
+
+def is_admin_user() -> bool:
+    """Является ли текущий пользователь администратором (Config.ADMIN_USER_IDS)."""
+    uid = current_user_id()
+    return bool(uid) and str(uid) in Config.ADMIN_USER_IDS

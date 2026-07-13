@@ -50,6 +50,15 @@ class Config:
     # Куда редиректить, если сессии нет (логин основного сайта).
     MAIN_LOGIN_URL = os.environ.get('MAIN_LOGIN_URL', 'https://pitchy.pro/login')
 
+    # ID администраторов (совпадают с user_id главного сайта, `sub` в JWT).
+    # Список через запятую в env `ADMIN_USER_IDS`, напр. "1,42". По умолчанию пусто —
+    # тогда кнопка «Админ» скрыта у всех, а история прогонов строго персональна.
+    # Админ видит кнопку «Админ» и legacy-прогоны без владельца (созданные до
+    # персональной истории). Чужие персональные прогоны админ не видит.
+    ADMIN_USER_IDS = {
+        x.strip() for x in os.environ.get('ADMIN_USER_IDS', '').split(',') if x.strip()
+    }
+
     # JSON configuration - disable ASCII escaping to display Chinese directly (not as \uXXXX)
     JSON_AS_ASCII = False
 

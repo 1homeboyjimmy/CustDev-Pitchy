@@ -46,7 +46,11 @@ class SimulationState:
     simulation_id: str
     project_id: str
     graph_id: str
-    
+
+    # Владелец прогона (user_id главного сайта, `sub` из JWT). None — legacy-прогоны
+    # до введения персональной истории (видны только администраторам).
+    user_id: Optional[str] = None
+
     # Platform enabled state
     enable_twitter: bool = True
     enable_reddit: bool = True
@@ -81,6 +85,7 @@ class SimulationState:
             "simulation_id": self.simulation_id,
             "project_id": self.project_id,
             "graph_id": self.graph_id,
+            "user_id": self.user_id,
             "enable_twitter": self.enable_twitter,
             "enable_reddit": self.enable_reddit,
             "status": self.status.value,
@@ -172,6 +177,7 @@ class SimulationManager:
             simulation_id=simulation_id,
             project_id=data.get("project_id", ""),
             graph_id=data.get("graph_id", ""),
+            user_id=data.get("user_id"),
             enable_twitter=data.get("enable_twitter", True),
             enable_reddit=data.get("enable_reddit", True),
             status=SimulationStatus(data.get("status", "created")),
@@ -197,6 +203,7 @@ class SimulationManager:
         graph_id: str,
         enable_twitter: bool = True,
         enable_reddit: bool = True,
+        user_id: Optional[str] = None,
     ) -> SimulationState:
         """
         Create new simulation
@@ -217,6 +224,7 @@ class SimulationManager:
             simulation_id=simulation_id,
             project_id=project_id,
             graph_id=graph_id,
+            user_id=user_id,
             enable_twitter=enable_twitter,
             enable_reddit=enable_reddit,
             status=SimulationStatus.CREATED,
