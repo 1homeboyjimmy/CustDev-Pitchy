@@ -1,65 +1,61 @@
-# Откат авторизации кастдева на общий APP_SECRET_KEY
+# CustDev SSO bridge
 
-Этот документ описывает возврат с текущего fallback-варианта (проверка общей
-HttpOnly-сессии через `https://pitchy.pro/me`) на первоначальную схему, в которой
-кастдев самостоятельно проверяет JWT тем же `APP_SECRET_KEY`, что и основной
-Pitchy.
+CustDev не должен делить с основным Pitchy `APP_SECRET_KEY` и не должен
+проверять или хранить основной JWT. Авторизация выполняется через одноразовый
+authorization code:
 
-## Что должно быть выполнено на сервере
+1. Браузер открывает `/api/auth/start` на CustDev.
+2. CustDev перенаправляет его на `/auth/sso/custdev/authorize` основного Pitchy.
+3. Основной Pitchy проверяет свою HttpOnly-сессию и возвращает одноразовый code.
+4. CustDev обменивает code по mTLS/HMAC-защищённому server-to-server запросу.
+5. CustDev создаёт собственную `__Host-custdev_session` cookie.
 
-1. Получить фактическое значение `APP_SECRET_KEY` основного Pitchy безопасным
-   способом. Не вставлять секрет в git, workflow-логи или этот документ.
-2. Убедиться, что в `/root/CustDev-Pitchy/.env` на production задано то же
-   значение, например:
+## Обязательные production-переменные
 
-   ```dotenv
-   APP_SECRET_KEY=<тот_же_секрет_что_у_основного_Pitchy>
-   ```
+В обоих сервисах должны быть настроены одинаковые, но отдельные параметры:
 
-3. Проверить, что длина секрета не меньше 32 символов. После деплоя убедиться,
-   что контейнер кастдева действительно загрузил этот `.env`.
-
-## Изменения в коде
-
-В `backend/app/utils/auth.py`:
-
-1. Удалить импорт `requests`.
-2. Удалить функцию `verify_remote_session`.
-3. В `authenticate_request()` заменить финальную часть:
-
-   ```python
-   local_payload = verify_jwt(token)
-   return local_payload or (verify_remote_session(token) if cookie_token else None)
-   ```
-
-   на:
-
-   ```python
-   return verify_jwt(token)
-   ```
-
-В `backend/app/config.py` удалить параметры `MAIN_AUTH_URL` и
-`MAIN_AUTH_TIMEOUT`.
-
-В `backend/tests/test_custdev_regressions.py` удалить импорт `auth` и тест
-`test_remote_main_auth_fallback_maps_user`.
-
-## Изменения в workflow
-
-В `.github/workflows/deploy-main.yml` можно вернуть блок синхронизации только
-если runner действительно имеет доступ к `/opt/ai-startup/.env`. Блок должен
-передавать исключительно `APP_SECRET_KEY`, не печатать его и не копировать весь
-файл. Если такого доступа нет, оставьте workflow без синхронизации и задайте
-секрет в `/root/CustDev-Pitchy/.env` вручную.
-
-После изменений:
-
-```powershell
-cd C:\Users\s4nya\pitchy\CustDev-Pitchy\backend
-.\.audit-venv\Scripts\python.exe -m pytest -q tests/test_custdev_regressions.py
+```dotenv
+CUSTDEV_SSO_CLIENT_ID=custdev
+CUSTDEV_SSO_REDIRECT_URI=https://custdev.pitchy.pro/api/auth/callback
+CUSTDEV_SSO_SERVICE_SECRET=<отдельный случайный секрет не менее 32 символов>
+CUSTDEV_SESSION_SECRET=<отдельный случайный секрет не менее 32 символов>
 ```
 
-Затем закоммитьте изменения, отправьте их в `main` и дождитесь успешного
-workflow `Deploy to Production Server`. Проверка в браузере должна выполняться
-в уже авторизованной сессии основного сайта: кнопка кастдева не должна
-перенаправлять на `/login`.
+`CUSTDEV_SSO_SERVICE_SECRET` не является `APP_SECRET_KEY` и не должен
+попадать в git, логи или браузер. В production `CUSTDEV_SSO_MODE=dual` можно
+использовать только как переходный режим. После проверки нового flow нужно
+переключить на `code_exchange`, чтобы старый raw-cookie fallback перестал
+работать.
+
+Workflow CustDev читает только `CUSTDEV_SSO_SERVICE_SECRET` из effective
+`/opt/ai-startup/.env.runtime`. Если основной Pitchy использует Lockbox, эта
+строка должна быть разрешена туда через
+`LOCKBOX_CUSTDEV_SSO_SERVICE_SECRET_SECRET_ID`; исходный `.env` целиком между
+сервисами не копируется.
+
+## Переключение основной cookie
+
+После проверки SSO включить на основном Pitchy:
+
+```dotenv
+AUTH_COOKIE_HOST_ONLY=true
+ACCESS_TOKEN_COOKIE_NAME=__Host-pitchy_session
+```
+
+Старый `access_token; Domain=.pitchy.pro` принимается только для миграции и
+удаляется после выпуска host-only cookie. CustDev после перехода должен
+игнорировать `access_token` полностью.
+
+## Проверка
+
+- авторизованный пользователь открывает CustDev без повторного логина;
+- callback проверяет `state` и PKCE S256;
+- повторное использование code отклоняется;
+- exchange и introspection требуют service authentication;
+- основной JWT не передаётся в CustDev и не появляется в логах;
+- logout и блокировка пользователя закрывают grant через introspection;
+- при истечении короткого grace period недоступность основного Pitchy закрывает
+  CustDev-сессию.
+
+До переключения `code_exchange` аварийным режимом остаётся только временный
+`dual`; `ALLOW_UNVERIFIED_SESSION` включать нельзя.

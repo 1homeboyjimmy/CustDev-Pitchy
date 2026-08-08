@@ -49,7 +49,6 @@ const router = createRouter({
 
 // Гейт: без валидной сессии главного сайта в CustDev не пускаем.
 import { getMe } from '../api/auth'
-const MAIN_LOGIN_URL = 'https://pitchy.pro/login'
 let authState = null // null=неизвестно, true/false
 
 router.beforeEach(async (to, from, next) => {
@@ -59,11 +58,12 @@ router.beforeEach(async (to, from, next) => {
     const res = await getMe()
     authState = !!(res && res.success)
   } catch (e) {
-    // 401 → нет сессии (редирект). Сетевая ошибка → не лочим (API сам ответит 401).
+    // 401 → запускаем бесшовный SSO через основной Pitchy. Сетевая ошибка
+    // → не лочим, API сам покажет ошибку.
     authState = e?.response?.status === 401 ? false : true
   }
   if (authState) return next()
-  window.location.href = MAIN_LOGIN_URL
+  window.location.href = `/api/auth/start?next=${encodeURIComponent(to.fullPath)}`
 })
 
 export default router

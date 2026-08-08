@@ -6,6 +6,7 @@ from functools import wraps
 from flask import request, jsonify, current_app
 from ..config import Config
 from .logger import get_logger
+from .sso import bridge_user
 
 logger = get_logger('pitchy.auth')
 
@@ -156,6 +157,15 @@ def authenticate_request():
     """Decode the request token without rejecting public/health endpoints."""
     if Config.AUDIT_MODE and request.remote_addr in ('127.0.0.1', '::1'):
         return {'sub': 'audit-user', 'userId': 'audit-user', 'audit_mode': True}
+
+    # Prefer the dedicated SSO grant. In code_exchange mode the main JWT is
+    # never accepted or forwarded by CustDev; dual mode is a rollout bridge.
+    if Config.CUSTDEV_SSO_MODE in ('dual', 'code_exchange'):
+        bridge_payload = bridge_user()
+        if bridge_payload:
+            return bridge_payload
+        if Config.CUSTDEV_SSO_MODE == 'code_exchange':
+            return None
 
     # Read from 'access_token' cookie (standard for the main app)
     cookie_token = request.cookies.get('access_token')

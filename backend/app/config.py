@@ -54,6 +54,43 @@ class Config:
 
     # Куда редиректить, если сессии нет (логин основного сайта).
     MAIN_LOGIN_URL = os.environ.get('MAIN_LOGIN_URL', 'https://pitchy.pro/login')
+
+    # Server-to-server SSO. The main Pitchy JWT is exchanged for a short-lived
+    # CustDev grant; its signing key is never shared with this service.
+    CUSTDEV_SSO_MODE = os.environ.get('CUSTDEV_SSO_MODE', 'dual').strip().lower()
+    CUSTDEV_SSO_CLIENT_ID = os.environ.get('CUSTDEV_SSO_CLIENT_ID', 'custdev').strip()
+    CUSTDEV_SSO_AUTHORIZE_URL = os.environ.get(
+        'CUSTDEV_SSO_AUTHORIZE_URL',
+        'https://pitchy.pro/auth/sso/custdev/authorize',
+    ).strip()
+    CUSTDEV_SSO_EXCHANGE_URL = os.environ.get(
+        'CUSTDEV_SSO_EXCHANGE_URL',
+        'https://pitchy.pro/internal/auth/custdev/exchange',
+    ).strip()
+    CUSTDEV_SSO_INTROSPECT_URL = os.environ.get(
+        'CUSTDEV_SSO_INTROSPECT_URL',
+        'https://pitchy.pro/internal/auth/custdev/introspect',
+    ).strip()
+    CUSTDEV_SSO_REVOKE_URL = os.environ.get(
+        'CUSTDEV_SSO_REVOKE_URL',
+        'https://pitchy.pro/internal/auth/custdev/revoke',
+    ).strip()
+    CUSTDEV_SSO_REDIRECT_URI = os.environ.get(
+        'CUSTDEV_SSO_REDIRECT_URI',
+        'https://custdev.pitchy.pro/api/auth/callback',
+    ).strip()
+    CUSTDEV_SSO_SERVICE_SECRET = os.environ.get('CUSTDEV_SSO_SERVICE_SECRET', '').strip()
+    CUSTDEV_SSO_TIMEOUT = float(os.environ.get('CUSTDEV_SSO_TIMEOUT', '5'))
+    CUSTDEV_SSO_RECHECK_SECONDS = float(os.environ.get('CUSTDEV_SSO_RECHECK_SECONDS', '60'))
+    CUSTDEV_SESSION_SECRET = os.environ.get(
+        'CUSTDEV_SESSION_SECRET',
+        'custdev-dev-session-secret-change-me',
+    ).strip()
+    SESSION_COOKIE_NAME = '__Host-custdev_session'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = os.environ.get('APP_ENV', 'dev').lower() == 'prod'
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_PATH = '/'
     # Основной Pitchy остаётся источником истины для общей HttpOnly-сессии.
     # Используется только после неуспешной локальной проверки JWT.
     MAIN_AUTH_URL = os.environ.get('MAIN_AUTH_URL', 'https://pitchy.pro/me').strip()
@@ -149,6 +186,22 @@ class Config:
             errors.append("NEO4J_URI not configured")
         if not cls.NEO4J_PASSWORD:
             errors.append("NEO4J_PASSWORD not configured")
+        if cls.CUSTDEV_SSO_MODE not in ('legacy', 'dual', 'code_exchange'):
+            errors.append("CUSTDEV_SSO_MODE must be legacy, dual, or code_exchange")
+        if cls.CUSTDEV_SSO_MODE in ('dual', 'code_exchange') and os.environ.get('APP_ENV', 'dev').lower() == 'prod':
+            if len(cls.CUSTDEV_SSO_SERVICE_SECRET) < 32:
+                errors.append("CUSTDEV_SSO_SERVICE_SECRET must be at least 32 characters in production")
+            if len(cls.CUSTDEV_SESSION_SECRET) < 32:
+                errors.append("CUSTDEV_SESSION_SECRET must be at least 32 characters in production")
+            for name, value in (
+                ('CUSTDEV_SSO_AUTHORIZE_URL', cls.CUSTDEV_SSO_AUTHORIZE_URL),
+                ('CUSTDEV_SSO_EXCHANGE_URL', cls.CUSTDEV_SSO_EXCHANGE_URL),
+                ('CUSTDEV_SSO_INTROSPECT_URL', cls.CUSTDEV_SSO_INTROSPECT_URL),
+                ('CUSTDEV_SSO_REVOKE_URL', cls.CUSTDEV_SSO_REVOKE_URL),
+                ('CUSTDEV_SSO_REDIRECT_URI', cls.CUSTDEV_SSO_REDIRECT_URI),
+            ):
+                if not value.startswith('https://'):
+                    errors.append(f"{name} must use HTTPS in production")
         return errors
 # Synchronize with standard OpenAI environment variables for 3rd party tool compatibility
 if Config.LLM_API_KEY and not os.environ.get('OPENAI_API_KEY'):

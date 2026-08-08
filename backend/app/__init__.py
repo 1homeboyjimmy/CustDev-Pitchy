@@ -20,6 +20,16 @@ def create_app(config_class=Config):
     """Flask application factory function"""
     app = Flask(__name__)
     app.config.from_object(config_class)
+    # Flask's own session cookie is CustDev-scoped and must not reuse the
+    # main Pitchy JWT signing key. Production validation requires a dedicated
+    # CUSTDEV_SESSION_SECRET.
+    if Config.CUSTDEV_SESSION_SECRET:
+        app.secret_key = Config.CUSTDEV_SESSION_SECRET
+    app.config['SESSION_COOKIE_NAME'] = Config.SESSION_COOKIE_NAME
+    app.config['SESSION_COOKIE_HTTPONLY'] = Config.SESSION_COOKIE_HTTPONLY
+    app.config['SESSION_COOKIE_SECURE'] = Config.SESSION_COOKIE_SECURE
+    app.config['SESSION_COOKIE_SAMESITE'] = Config.SESSION_COOKIE_SAMESITE
+    app.config['SESSION_COOKIE_PATH'] = Config.SESSION_COOKIE_PATH
 
     # Configure JSON encoding: ensure Chinese displays directly (not as \uXXXX)
     # Flask >= 2.3 uses app.json.ensure_ascii, older versions use JSON_AS_ASCII config

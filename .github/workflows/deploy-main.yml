@@ -24,6 +24,34 @@ jobs:
             cp .env.example .env
           fi
 
+          # The SSO HMAC secret is resolved by the main Pitchy deployment
+          # into its effective runtime env. Copy only this setting; never copy
+          # the main site's APP_SECRET_KEY or the whole env file.
+          if [ -f "/opt/ai-startup/.env.runtime" ]; then
+            export CUSTDEV_SSO_SERVICE_SECRET="$(sed -n 's/^CUSTDEV_SSO_SERVICE_SECRET=//p' /opt/ai-startup/.env.runtime | tail -n 1)"
+            if [ -z "$CUSTDEV_SSO_SERVICE_SECRET" ]; then
+              echo "    ERROR: CUSTDEV_SSO_SERVICE_SECRET is missing from main runtime env."
+              exit 1
+            fi
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path('.env')
+          secret = os.environ['CUSTDEV_SSO_SERVICE_SECRET']
+          lines = path.read_text(encoding='utf-8').splitlines()
+          lines = [line for line in lines if not line.startswith('CUSTDEV_SSO_SERVICE_SECRET=')]
+          lines.append(f'CUSTDEV_SSO_SERVICE_SECRET={secret}')
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+            unset CUSTDEV_SSO_SERVICE_SECRET
+            chmod 600 .env
+            echo "    CustDev SSO service secret synchronized."
+          else
+            echo "    ERROR: /opt/ai-startup/.env.runtime not found; refusing SSO deploy."
+            exit 1
+          fi
+
           echo "==> Building containers (optimized)..."
           docker compose build
 
