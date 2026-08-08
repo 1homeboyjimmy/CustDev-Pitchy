@@ -55,5 +55,5 @@ RUN uv pip install --python /app/backend/.venv/bin/python "ddgs>=6.0.0"
 
 EXPOSE 3000 5001
 
-# Запускаем наш сервер!
-CMD ["npm", "run", "dev"]
+# Запускаем production-сервер: backend + собранный frontend (без Vite dev server).
+CMD ["npm", "run", "prod"]

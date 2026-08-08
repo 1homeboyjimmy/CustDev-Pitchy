@@ -7,8 +7,10 @@
     "setup:backend": "cd backend && uv sync",
     "setup:all": "npm run setup && npm run setup:backend",
     "dev": "concurrently --kill-others -n \"backend,frontend\" -c \"green,cyan\" \"npm run backend\" \"npm run frontend\"",
+    "prod": "concurrently --kill-others -n \"backend,frontend\" -c \"green,cyan\" \"npm run backend\" \"npm run frontend:prod\"",
     "backend": "cd backend && uv run python run.py",
     "frontend": "cd frontend && npm run dev",
+    "frontend:prod": "cd frontend && npm run preview -- --host 0.0.0.0 --port 3000",
     "build": "cd frontend && npm run build"
   },
   "devDependencies": {
