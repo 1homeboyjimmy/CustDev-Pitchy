@@ -3,6 +3,7 @@
 import json
 
 from app.config import Config
+from app.utils import auth
 from app.services.signals_service import _normalise_sources
 from app.services.signals_research import _normalise_analysis
 from app.services.ontology_generator import OntologyGenerator
@@ -59,3 +60,27 @@ def test_ontology_empty_llm_response_uses_safe_fallback():
     assert [item["name"] for item in result["entity_types"][-2:]] == ["Person", "Organization"]
     assert len(result["edge_types"]) == 9
     assert "базовая онтология" in result["analysis_summary"]
+
+
+def test_remote_main_auth_fallback_maps_user(monkeypatch):
+    class Response:
+        status_code = 200
+        content = b'{"id": 42, "email": "user@example.test"}'
+
+        @staticmethod
+        def json():
+            return {"id": 42, "email": "user@example.test"}
+
+    captured = {}
+
+    def fake_get(url, **kwargs):
+        captured.update(url=url, kwargs=kwargs)
+        return Response()
+
+    monkeypatch.setattr(auth.requests, "get", fake_get)
+    result = auth.verify_remote_session("jwt-from-shared-cookie")
+
+    assert result["sub"] == "42"
+    assert result["main_auth"] is True
+    assert captured["kwargs"]["headers"]["Cookie"] == "access_token=jwt-from-shared-cookie"
+    assert captured["kwargs"]["allow_redirects"] is False

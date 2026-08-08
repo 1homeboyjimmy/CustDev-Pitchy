@@ -1,12 +1,49 @@
 import jwt
 import traceback
 import os
+import requests
 from functools import wraps
 from flask import request, jsonify, current_app
 from ..config import Config
 from .logger import get_logger
 
 logger = get_logger('pitchy.auth')
+
+
+def verify_remote_session(token):
+    """Validate the shared HttpOnly cookie through the main Pitchy service."""
+    if not token or not Config.MAIN_AUTH_URL:
+        return None
+
+    try:
+        response = requests.get(
+            Config.MAIN_AUTH_URL,
+            headers={
+                'Cookie': f'access_token={token}',
+                'x-pitchy-api': '1',
+                'Accept': 'application/json',
+            },
+            timeout=Config.MAIN_AUTH_TIMEOUT,
+            allow_redirects=False,
+        )
+        if response.status_code != 200:
+            return None
+
+        data = response.json() if response.content else {}
+        user_id = data.get('id') or data.get('user_id') or data.get('userId') or data.get('sub')
+        if user_id is None:
+            return None
+
+        return {
+            **data,
+            'sub': str(user_id),
+            'userId': str(user_id),
+            'main_auth': True,
+        }
+    except (requests.RequestException, ValueError, TypeError) as exc:
+        # Never include the cookie or its value in logs.
+        logger.debug('[AUTH_DEBUG] Main auth fallback unavailable: %s', type(exc).__name__)
+        return None
 
 def verify_jwt(token):
     """
@@ -121,11 +158,10 @@ def authenticate_request():
         return {'sub': 'audit-user', 'userId': 'audit-user', 'audit_mode': True}
 
     # Read from 'access_token' cookie (standard for the main app)
-    token = request.cookies.get('access_token')
+    cookie_token = request.cookies.get('access_token')
 
     # Strip potential quotes if the browser/proxy wrapped the cookie value.
-    if token:
-        token = token.strip('"')
+    token = cookie_token.strip('"') if cookie_token else None
 
     # Also check Authorization header as fallback.
     if not token:
@@ -135,7 +171,10 @@ def authenticate_request():
 
     if not token:
         return None
-    return verify_jwt(token)
+    local_payload = verify_jwt(token)
+    # Only forward the browser's shared HttpOnly cookie to the main service.
+    # Authorization headers may contain unrelated bearer credentials.
+    return local_payload or (verify_remote_session(token) if cookie_token else None)
 
 
 def current_user_id():

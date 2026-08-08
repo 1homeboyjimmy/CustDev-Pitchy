@@ -54,6 +54,10 @@ class Config:
 
     # Куда редиректить, если сессии нет (логин основного сайта).
     MAIN_LOGIN_URL = os.environ.get('MAIN_LOGIN_URL', 'https://pitchy.pro/login')
+    # Основной Pitchy остаётся источником истины для общей HttpOnly-сессии.
+    # Используется только после неуспешной локальной проверки JWT.
+    MAIN_AUTH_URL = os.environ.get('MAIN_AUTH_URL', 'https://pitchy.pro/me').strip()
+    MAIN_AUTH_TIMEOUT = float(os.environ.get('MAIN_AUTH_TIMEOUT', '3'))
 
     # ID администраторов (совпадают с user_id главного сайта, `sub` в JWT).
     # Список через запятую в env `ADMIN_USER_IDS`, напр. "1,42". По умолчанию пусто —
