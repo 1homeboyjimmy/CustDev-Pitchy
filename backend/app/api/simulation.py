@@ -20,6 +20,26 @@ from ..utils.auth import login_required, current_user_id, is_admin_user
 logger = get_logger('pitchy.api.simulation')
 
 
+@simulation_bp.before_request
+def enforce_simulation_ownership():
+    """Apply ownership checks to every endpoint carrying a simulation_id."""
+    data = request.get_json(silent=True) if request.is_json else {}
+    simulation_id = (request.view_args or {}).get('simulation_id') or (data or {}).get('simulation_id')
+    if not simulation_id:
+        return None
+    manager = SimulationManager()
+    state = manager.get_simulation(simulation_id)
+    if not state:
+        return None  # Let the route return its normal 404 response.
+    uid = current_user_id()
+    if state.user_id is None:
+        if not is_admin_user():
+            return jsonify({"success": False, "error": "Simulation access denied"}), 403
+    elif str(state.user_id) != str(uid) and not is_admin_user():
+        return jsonify({"success": False, "error": "Simulation access denied"}), 403
+    return None
+
+
 # Interview prompt optimization prefix
 # Adding this prefix can prevent agents from calling tools and reply directly with text
 INTERVIEW_PROMPT_PREFIX = "Based on your persona, all your past memories and actions, reply directly to me with text without calling any tools:"

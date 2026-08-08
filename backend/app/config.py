@@ -39,13 +39,18 @@ class Config:
     """Flask configuration class"""
 
     # Flask configuration
-    SECRET_KEY = os.environ.get('APP_SECRET_KEY', os.environ.get('SECRET_KEY', 'pitchy-secret-key')).strip()
+    # Never ship a predictable signing key. Production startup now fails via
+    # validate() until the shared main-site secret is configured.
+    SECRET_KEY = os.environ.get('APP_SECRET_KEY', os.environ.get('SECRET_KEY', '')).strip()
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
 
     # Если True — при неудачной проверке подписи JWT доверяем непроверенному
     # payload (НЕБЕЗОПАСНО, только для переходного периода синхронизации секрета).
     # По умолчанию выкл: без валидной сессии главного сайта вход запрещён.
     ALLOW_UNVERIFIED_SESSION = os.environ.get('ALLOW_UNVERIFIED_SESSION', '').strip().lower() in ('1', 'true', 'yes')
+    # Test-only local harness. It is disabled by default and only accepts
+    # loopback requests; never enable it in a deployed environment.
+    AUDIT_MODE = os.environ.get('CUSTDEV_AUDIT_MODE', '').strip().lower() in ('1', 'true', 'yes')
 
     # Куда редиректить, если сессии нет (логин основного сайта).
     MAIN_LOGIN_URL = os.environ.get('MAIN_LOGIN_URL', 'https://pitchy.pro/login')
@@ -72,6 +77,7 @@ class Config:
     NEO4J_URI = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
     NEO4J_USER = os.environ.get('NEO4J_USER', 'neo4j')
     NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD', 'pitchy')
+    NEO4J_CONNECTION_TIMEOUT = float(os.environ.get('NEO4J_CONNECTION_TIMEOUT', '5'))
 
     # Embedding configuration
     EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'nomic-embed-text')
@@ -133,10 +139,13 @@ class Config:
         errors = []
         if not cls.LLM_API_KEY:
             errors.append("LLM_API_KEY not configured (set to any non-empty value, e.g. 'ollama')")
+        if not cls.SECRET_KEY or len(cls.SECRET_KEY) < 32:
+            errors.append("APP_SECRET_KEY/SECRET_KEY must be configured with at least 32 characters")
         if not cls.NEO4J_URI:
             errors.append("NEO4J_URI not configured")
         if not cls.NEO4J_PASSWORD:
             errors.append("NEO4J_PASSWORD not configured")
+        return errors
 # Synchronize with standard OpenAI environment variables for 3rd party tool compatibility
 if Config.LLM_API_KEY and not os.environ.get('OPENAI_API_KEY'):
     os.environ['OPENAI_API_KEY'] = Config.LLM_API_KEY

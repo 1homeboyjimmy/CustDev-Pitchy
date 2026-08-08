@@ -15,12 +15,36 @@ from ..services.graph_builder import GraphBuilderService
 from ..services.text_processor import TextProcessor
 from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
-from ..utils.auth import login_required
+from ..utils.auth import login_required, current_user_id, is_admin_user
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
 
 # Get logger
 logger = get_logger('pitchy.api')
+
+
+def _project_access_error(project):
+    if project is None:
+        return None
+    if project.owner_id is None:
+        if is_admin_user():
+            return None
+        return jsonify({"success": False, "error": "Project access denied"}), 403
+    if str(project.owner_id) != str(current_user_id()) and not is_admin_user():
+        return jsonify({"success": False, "error": "Project access denied"}), 403
+    return None
+
+
+@graph_bp.before_request
+def enforce_project_ownership():
+    """Prevent cross-user project reads/writes before route logic runs."""
+    project_id = (request.view_args or {}).get('project_id')
+    if not project_id and request.is_json:
+        project_id = (request.get_json(silent=True) or {}).get('project_id')
+    if not project_id:
+        return None
+    error = _project_access_error(ProjectManager.get_project(project_id))
+    return error
 
 
 def _get_storage():
@@ -68,7 +92,12 @@ def list_projects():
     List all projects
     """
     limit = request.args.get('limit', 50, type=int)
-    projects = ProjectManager.list_projects(limit=limit)
+    uid = current_user_id()
+    projects = [
+        p for p in ProjectManager.list_projects(limit=limit * 2)
+        if (p.owner_id is not None and str(p.owner_id) == str(uid))
+        or (p.owner_id is None and is_admin_user())
+    ][:limit]
     
     return jsonify({
         "success": True,
@@ -119,6 +148,7 @@ def reset_project(project_id: str):
 
     project.graph_id = None
     project.graph_build_task_id = None
+    project.ontology_task_id = None
     project.error = None
     ProjectManager.save_project(project)
 
@@ -186,7 +216,7 @@ def generate_ontology():
             }), 400
 
         # Create project
-        project = ProjectManager.create_project(name=project_name)
+        project = ProjectManager.create_project(name=project_name, owner_id=current_user_id())
         project.simulation_requirement = simulation_requirement
         logger.info(f"Project created: {project.project_id}")
         
@@ -242,6 +272,64 @@ def generate_ontology():
         ProjectManager.save_extracted_text(project.project_id, all_text)
         logger.info(f"Text extraction completed, total {len(all_text)} characters")
 
+        # Long LLM calls must not occupy the reverse-proxy connection. The
+        # frontend opts into this mode and polls the durable TaskManager record.
+        if request.headers.get('X-Custdev-Async') == '1':
+            task_manager = TaskManager()
+            task_id = task_manager.create_task(
+                task_type='ontology_generate',
+                metadata={'project_id': project.project_id, 'owner_id': current_user_id()},
+            )
+            project.ontology_task_id = task_id
+            ProjectManager.save_project(project)
+
+            def run_ontology_generation():
+                try:
+                    task_manager.update_task(
+                        task_id,
+                        status=TaskStatus.PROCESSING,
+                        progress=10,
+                        message='Анализируем документы и строим онтологию…',
+                    )
+                    ontology = OntologyGenerator().generate(
+                        document_texts=document_texts,
+                        simulation_requirement=simulation_requirement,
+                        additional_context=additional_context if additional_context else None,
+                    )
+                    project.ontology = {
+                        'entity_types': ontology.get('entity_types', []),
+                        'edge_types': ontology.get('edge_types', []),
+                    }
+                    project.analysis_summary = ontology.get('analysis_summary', '')
+                    project.status = ProjectStatus.ONTOLOGY_GENERATED
+                    project.ontology_task_id = None
+                    ProjectManager.save_project(project)
+                    task_manager.complete_task(task_id, {
+                        'project_id': project.project_id,
+                        'project': project.to_dict(),
+                    })
+                except Exception as exc:
+                    logger.error(f"Ontology generation failed: {exc}")
+                    project.status = ProjectStatus.FAILED
+                    project.error = str(exc)
+                    project.ontology_task_id = None
+                    ProjectManager.save_project(project)
+                    task_manager.fail_task(task_id, str(exc))
+
+            threading.Thread(target=run_ontology_generation, daemon=True).start()
+            return jsonify({
+                'success': True,
+                'data': {
+                    'project_id': project.project_id,
+                    'project_name': project.name,
+                    'files': project.files,
+                    'total_text_length': project.total_text_length,
+                    'task_id': task_id,
+                    'status': 'processing',
+                    'message': 'Ontology generation started. Poll the task status endpoint.',
+                },
+            })
+
         # Generate ontology
         logger.info("Calling LLM to generate ontology definition...")
         generator = OntologyGenerator()
@@ -278,11 +366,24 @@ def generate_ontology():
         })
         
     except Exception as e:
+        logger.exception("Ontology generation request failed")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e) or "Ontology generation failed"
         }), 500
+
+
+@graph_bp.route('/ontology/status/<task_id>', methods=['GET'])
+@login_required
+def get_ontology_status(task_id: str):
+    """Return durable status for asynchronous ontology generation."""
+    task = TaskManager().get_task(task_id)
+    if not task or task.task_type != 'ontology_generate':
+        return jsonify({'success': False, 'error': 'Ontology task does not exist'}), 404
+    owner_id = task.metadata.get('owner_id') if task.metadata else None
+    if owner_id is not None and str(owner_id) != str(current_user_id()) and not is_admin_user():
+        return jsonify({'success': False, 'error': 'Task access denied'}), 403
+    return jsonify({'success': True, 'data': task.to_dict()})
 
 
 # ============== Interface 2: Build Graph ==============
@@ -534,7 +635,7 @@ def build_graph():
                     task_id,
                     status=TaskStatus.FAILED,
                     message=f"Build failed: {str(e)}",
-                    error=traceback.format_exc()
+                    error=str(e) or "Graph build failed"
                 )
 
         # Start background thread
@@ -551,10 +652,10 @@ def build_graph():
         })
         
     except Exception as e:
+        logger.exception("Graph build request failed")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e) or "Graph build failed"
         }), 500
 
 
@@ -614,10 +715,10 @@ def get_graph_data(graph_id: str):
         })
 
     except Exception as e:
+        logger.exception("Graph data request failed")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e) or "Unable to load graph data"
         }), 500
 
 
@@ -638,8 +739,8 @@ def delete_graph(graph_id: str):
         })
 
     except Exception as e:
+        logger.exception("Graph deletion request failed")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e) or "Unable to delete graph"
         }), 500

@@ -2,8 +2,8 @@
   <StageShell active-id="custdev">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Specialized Workflow Header -->
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
-        <div class="flex items-center gap-4">
+      <header class="workflow-header h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="workflow-header-left flex items-center gap-4 min-w-0">
           <button @click="handleGoBack" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <ArrowLeftIcon class="w-4 h-4" />
           </button>
@@ -14,14 +14,13 @@
           </div>
         </div>
 
-        <button
+        <button class="workflow-header-mode px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all bg-white/5 border border-white/5 text-white/50 hover:text-white"
           @click="graphCollapsed = !graphCollapsed"
-          class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all bg-white/5 border border-white/5 text-white/50 hover:text-white"
         >
           {{ graphCollapsed ? 'Показать граф' : 'Свернуть граф' }}
         </button>
 
-        <div class="flex items-center gap-4">
+        <div class="workflow-header-right flex items-center gap-4 min-w-0">
           <div class="flex flex-col items-end">
             <span class="text-[10px] font-mono text-white/20 uppercase">{{ currentSimulationId?.slice(0, 8) }}</span>
             <StatusBadge :type="statusClass" :dot="isSimulating">
@@ -240,6 +239,18 @@ const pushInterviewResults = (results, question) => {
 // Прогон стандартного CustDev-интервью: по одному вопросу за раз (аккордеон наполняется вживую).
 const runInterview = async () => {
   if (interviewRunning.value || profiles.value.length === 0) return
+  try {
+    const env = await getEnvStatus({ simulation_id: currentSimulationId.value })
+    if (!env.success || !env.data?.env_alive) {
+      interviewDone.value = false
+      addLog('Интервью недоступно: среда симуляции уже закрыта. Запустите цикл заново.')
+      currentStatus.value = 'error'
+      return
+    }
+  } catch (e) {
+    addLog(`Не удалось проверить среду интервью: ${e.message}`)
+    return
+  }
   interviewRunning.value = true
   interviewDone.value = false
   interviews.value = []
@@ -256,6 +267,8 @@ const runInterview = async () => {
         if (res.success) pushInterviewResults(res.data?.results || res.data, q)
       } catch (e) {
         addLog(`Вопрос пропущен: ${e.message}`)
+        // A closed environment cannot recover on the next question.
+        if (/not running|closed|не запущ/i.test(e?.message || '')) break
       }
     }
     addLog('CustDev-интервью завершено.')
@@ -388,4 +401,30 @@ onUnmounted(stopGraphRefresh)
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+
+@media (max-width: 640px) {
+  .workflow-header {
+    height: auto !important;
+    min-height: 3.5rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .workflow-header-left { flex: 1 1 auto; min-width: 0; }
+  .workflow-header-left > div:last-child span:last-child {
+    display: block;
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .workflow-header-mode {
+    order: 3;
+    flex: 1 0 100%;
+    width: 100%;
+    text-align: center;
+  }
+  .workflow-header-right { flex: 0 0 auto; }
+  .workflow-header-right span:first-child { display: none; }
+}
 </style>

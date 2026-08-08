@@ -48,7 +48,9 @@ class Neo4jStorage(GraphStorage):
         self._password = password or Config.NEO4J_PASSWORD
 
         self._driver = GraphDatabase.driver(
-            self._uri, auth=(self._user, self._password)
+            self._uri,
+            auth=(self._user, self._password),
+            connection_timeout=Config.NEO4J_CONNECTION_TIMEOUT,
         )
         self._embedding = embedding_service or EmbeddingService()
         self._ner = ner_extractor or NERExtractor()
@@ -63,6 +65,9 @@ class Neo4jStorage(GraphStorage):
 
     def _ensure_schema(self):
         """Create indexes and constraints if they don't exist."""
+        # Fail fast when Neo4j is down. Previously every schema statement
+        # waited for the driver timeout, blocking Flask startup for minutes.
+        self._driver.verify_connectivity()
         with self._driver.session() as session:
             for query in neo4j_schema.ALL_SCHEMA_QUERIES:
                 try:

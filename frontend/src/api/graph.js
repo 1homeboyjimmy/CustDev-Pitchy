@@ -6,16 +6,22 @@ import service, { requestWithRetry } from './index'
  * @returns {Promise}
  */
 export function generateOntology(formData) {
-  return requestWithRetry(() =>
-    service({
-      url: '/api/graph/ontology/generate',
-      method: 'post',
-      data: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-  )
+  // This is a non-idempotent request: a retry after an upstream timeout can
+  // create a second project and run the LLM generation twice. Let the UI
+  // surface the error and require an explicit user retry instead.
+  return service({
+    url: '/api/graph/ontology/generate',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'X-Custdev-Async': '1'
+    }
+  })
+}
+
+export function getOntologyTaskStatus(taskId) {
+  return service.get(`/api/graph/ontology/status/${taskId}`)
 }
 
 /**

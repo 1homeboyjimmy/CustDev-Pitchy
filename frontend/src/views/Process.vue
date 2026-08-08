@@ -414,7 +414,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
+import { generateOntology, getOntologyTaskStatus, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import * as d3 from 'd3'
 
@@ -442,6 +442,7 @@ const graphSvg = ref(null)
 
 // Polling timers
 let pollTimer = null
+let ontologyPollTimer = null
 
 // Computed properties
 const statusClass = computed(() => {
@@ -590,10 +591,6 @@ const handleNewProject = async () => {
     const response = await generateOntology(formDataObj)
 
     if (response.success) {
-      // Clear pending upload data
-      clearPendingUpload()
-
-      // Update project ID and data
       currentProjectId.value = response.data.project_id
       projectData.value = response.data
 
@@ -603,10 +600,13 @@ const handleNewProject = async () => {
         params: { projectId: response.data.project_id }
       })
 
-      ontologyProgress.value = null
-
-      // Automatically start graph building
-      await startBuildGraph()
+      if (response.data.status === 'processing' && response.data.task_id) {
+        await pollOntologyTask(response.data.task_id)
+      } else {
+        clearPendingUpload()
+        ontologyProgress.value = null
+        await startBuildGraph()
+      }
     } else {
       error.value = response.error || 'Ontology generation failed'
     }
@@ -631,6 +631,9 @@ const loadProject = async () => {
       // Automatically start graph building
       if (response.data.status === 'ontology_generated' && !response.data.graph_id) {
         await startBuildGraph()
+      } else if (response.data.status === 'created' && response.data.ontology_task_id) {
+        currentPhase.value = 0
+        await pollOntologyTask(response.data.ontology_task_id)
       }
 
       // Continue polling running build tasks
@@ -712,6 +715,7 @@ let graphPollTimer = null
 
 // Start graph data polling
 const startGraphPolling = () => {
+  stopGraphPolling()
   // Fetch once immediately
   fetchGraphData()
 
@@ -771,6 +775,7 @@ const fetchGraphData = async () => {
 
 // Poll task status (с backoff: 2с → 10с, чтобы длинная сборка не генерила сотни запросов)
 const startPollingTask = (taskId) => {
+  stopPolling()
   let delay = 2000
   const tick = async () => {
     await pollTaskStatus(taskId)
@@ -839,10 +844,47 @@ const pollTaskStatus = async (taskId) => {
 
 const stopPolling = () => {
   if (pollTimer) {
-    clearInterval(pollTimer)
+    clearTimeout(pollTimer)
     pollTimer = null
   }
 }
+
+const pollOntologyTask = (taskId) => new Promise((resolve) => {
+  let delay = 1500
+  const tick = async () => {
+    try {
+      const response = await getOntologyTaskStatus(taskId)
+      if (response.success) {
+        const task = response.data
+        ontologyProgress.value = { message: task.message || 'Analyzing documents...' }
+        if (task.status === 'completed') {
+          clearPendingUpload()
+          const projectResponse = await getProject(currentProjectId.value)
+          if (projectResponse.success) projectData.value = projectResponse.data
+          ontologyProgress.value = null
+          await startBuildGraph()
+          ontologyPollTimer = null
+          resolve()
+          return
+        }
+        if (task.status === 'failed') {
+          error.value = task.error || 'Ontology generation failed'
+          ontologyProgress.value = null
+          ontologyPollTimer = null
+          resolve()
+          return
+        }
+      }
+    } catch (err) {
+      console.warn('Ontology task polling delayed:', err.message)
+    }
+    if (ontologyPollTimer !== null) {
+      delay = Math.min(delay + 1000, 8000)
+      ontologyPollTimer = setTimeout(tick, delay)
+    }
+  }
+  ontologyPollTimer = setTimeout(tick, 0)
+})
 
 // Load graph data
 const loadGraph = async (graphId) => {
@@ -1088,6 +1130,8 @@ onMounted(() => {
 onUnmounted(() => {
   stopPolling()
   stopGraphPolling()
+  if (ontologyPollTimer) clearTimeout(ontologyPollTimer)
+  ontologyPollTimer = null
 })
 </script>
 

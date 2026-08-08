@@ -4,8 +4,11 @@ Interface 1: Analyze text content and generate entity and relationship type defi
 """
 
 import json
+import logging
 from typing import Dict, Any, List, Optional
 from ..utils.llm_client import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
 # System prompt for ontology generation
@@ -210,17 +213,85 @@ class OntologyGenerator:
             {"role": "user", "content": user_message}
         ]
 
-        # Call LLM
-        result = self.llm_client.chat_json(
-            messages=messages,
-            temperature=0.3,
-            max_tokens=4096
-        )
+        # Call LLM. Some OpenAI-compatible providers occasionally return an
+        # empty body while still reporting HTTP 200 (especially with JSON
+        # mode). Keep the CustDev flow usable with a deterministic ontology
+        # instead of turning the whole run into a 500.
+        try:
+            result = self.llm_client.chat_json(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=4096
+            )
+        except ValueError as exc:
+            if not any(marker in str(exc) for marker in ('Invalid JSON format from LLM', 'LLM returned empty content')):
+                raise
+            logger.warning('Ontology LLM returned invalid/empty JSON; using safe fallback ontology')
+            result = self._fallback_ontology()
 
         # Validate and post-process
         result = self._validate_and_process(result)
 
         return result
+
+    @staticmethod
+    def _fallback_ontology() -> Dict[str, Any]:
+        """Safe baseline that keeps graph construction possible during LLM outages."""
+        specific = [
+            ('TargetCustomer', 'Potential customer or user whose problem is being validated.', 'target_audience'),
+            ('ProductOwner', 'Founder or team responsible for the product under analysis.', 'internal_team'),
+            ('IndustryExpert', 'Independent specialist who can assess the domain and alternatives.', 'expert_advisor'),
+            ('Investor', 'Person or fund evaluating the product financially.', 'investor'),
+            ('Competitor', 'Alternative product or organization solving a similar problem.', 'competitor'),
+            ('Regulator', 'Government body or regulator relevant to the domain.', 'regulator'),
+            ('MediaOutlet', 'Journalist, publication, or channel reporting on the domain.', 'media'),
+            ('CommunityGroup', 'User community or professional group discussing the problem.', 'target_audience'),
+        ]
+        entities = [
+            {
+                'name': name,
+                'description': description,
+                'default_agent_role': role,
+                'attributes': [{'name': 'role', 'type': 'text', 'description': 'Role in the market'}],
+                'examples': [],
+            }
+            for name, description, role in specific
+        ]
+        entities.extend([
+            {
+                'name': 'Person',
+                'description': 'Any individual person not fitting other specific person types.',
+                'default_agent_role': 'observer',
+                'attributes': [{'name': 'full_name', 'type': 'text', 'description': 'Full name'}],
+                'examples': ['ordinary citizen'],
+            },
+            {
+                'name': 'Organization',
+                'description': 'Any organization not fitting other specific organization types.',
+                'default_agent_role': 'institutional',
+                'attributes': [{'name': 'org_name', 'type': 'text', 'description': 'Organization name'}],
+                'examples': ['community group'],
+            },
+        ])
+        edges = [
+            ('USES_PRODUCT', 'A customer uses the product.'),
+            ('EXPERIENCES_PROBLEM', 'An entity experiences the validated problem.'),
+            ('SEEKS_SOLUTION', 'An entity searches for a solution.'),
+            ('RECOMMENDS', 'An entity recommends a product or solution.'),
+            ('COMPETES_WITH', 'An alternative competes with the product.'),
+            ('INVESTS_IN', 'An investor funds a product or organization.'),
+            ('REGULATES', 'A regulator oversees an organization or market.'),
+            ('REPORTS_ON', 'Media reports on a product or market event.'),
+            ('COMMENTS_ON', 'An entity comments on a public discussion.'),
+        ]
+        return {
+            'entity_types': entities,
+            'edge_types': [
+                {'name': name, 'description': description, 'source_targets': [], 'attributes': []}
+                for name, description in edges
+            ],
+            'analysis_summary': 'LLM вернул пустой или некорректный JSON; использована базовая онтология. Проверьте конфигурацию LLM и при необходимости перезапустите анализ.',
+        }
 
     # Maximum text length for LLM (50,000 characters)
     MAX_TEXT_LENGTH_FOR_LLM = 50000

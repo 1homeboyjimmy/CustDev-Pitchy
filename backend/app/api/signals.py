@@ -10,9 +10,10 @@ from . import signals_bp
 from ..config import Config
 from ..services.signals_service import SignalsService
 from ..services.signals_research import start_research
+from ..services.simulation_manager import SimulationManager
 from ..models.task import TaskManager
 from ..utils.logger import get_logger
-from ..utils.auth import login_required
+from ..utils.auth import login_required, current_user_id, is_admin_user
 
 logger = get_logger('pitchy.api.signals')
 
@@ -32,6 +33,20 @@ def signals_saved(simulation_id: str) -> bool:
     """Есть ли сохранённые сигналы для прогона (для payload истории)."""
     path = _signals_path(simulation_id)
     return bool(path and os.path.exists(path))
+
+
+def _check_simulation_access(simulation_id: str):
+    """Return a response on access failure, otherwise None."""
+    state = SimulationManager().get_simulation(simulation_id)
+    if not state:
+        return jsonify({"success": False, "error": "Simulation not found"}), 404
+    uid = current_user_id()
+    if state.user_id is None:
+        if not is_admin_user():
+            return jsonify({"success": False, "error": "Simulation access denied"}), 403
+    elif str(state.user_id) != str(uid) and not is_admin_user():
+        return jsonify({"success": False, "error": "Simulation access denied"}), 403
+    return None
 
 
 @signals_bp.route('/scan', methods=['POST'])
@@ -73,7 +88,7 @@ def start_signals_research():
         segments = data.get('segments') or []
         if not isinstance(segments, list):
             segments = []
-        task_id = start_research(query, segments)
+        task_id = start_research(query, segments, owner_id=current_user_id())
         return jsonify({"success": True, "data": {"task_id": task_id}})
     except Exception as e:
         logger.error(f"Signals research start failed: {e}")
@@ -90,6 +105,9 @@ def signals_research_status():
     task = TaskManager().get_task(task_id)
     if not task:
         return jsonify({"success": False, "error": "Task not found"}), 404
+    owner_id = (task.metadata or {}).get('owner_id')
+    if owner_id and str(owner_id) != str(current_user_id()) and not is_admin_user():
+        return jsonify({"success": False, "error": "Task access denied"}), 403
     return jsonify({"success": True, "data": task.to_dict()})
 
 
@@ -108,6 +126,9 @@ def attach_signals():
         path = _signals_path(simulation_id)
         if not path:
             return jsonify({"success": False, "error": "Invalid simulation_id"}), 400
+        access_error = _check_simulation_access(simulation_id)
+        if access_error:
+            return access_error
         if not isinstance(result, dict):
             return jsonify({"success": False, "error": "Please provide result object"}), 400
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -127,6 +148,9 @@ def get_saved_signals():
     path = _signals_path(simulation_id)
     if not path:
         return jsonify({"success": False, "error": "Invalid simulation_id"}), 400
+    access_error = _check_simulation_access(simulation_id)
+    if access_error:
+        return access_error
     if not os.path.exists(path):
         return jsonify({"success": False, "error": "Signals not found"}), 404
     try:

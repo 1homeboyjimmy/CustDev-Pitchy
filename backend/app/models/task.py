@@ -5,6 +5,9 @@ Tracks long-running tasks (like graph building)
 
 import uuid
 import threading
+import json
+import os
+import tempfile
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Any, Optional
@@ -59,6 +62,7 @@ class TaskManager:
 
     _instance = None
     _lock = threading.Lock()
+    _tasks_file = os.path.join(os.path.dirname(__file__), '../uploads/tasks.json')
 
     def __new__(cls):
         """Singleton pattern"""
@@ -68,7 +72,47 @@ class TaskManager:
                     cls._instance = super().__new__(cls)
                     cls._instance._tasks: Dict[str, Task] = {}
                     cls._instance._task_lock = threading.Lock()
+                    cls._instance._load_from_disk()
         return cls._instance
+
+    def _load_from_disk(self):
+        """Restore task status so polling survives a worker restart."""
+        try:
+            with open(self._tasks_file, 'r', encoding='utf-8') as f:
+                payload = json.load(f)
+            for item in payload if isinstance(payload, list) else []:
+                self._tasks[item['task_id']] = Task(
+                    task_id=item['task_id'],
+                    task_type=item.get('task_type', ''),
+                    status=TaskStatus(item.get('status', TaskStatus.FAILED.value)),
+                    created_at=datetime.fromisoformat(item['created_at']),
+                    updated_at=datetime.fromisoformat(item['updated_at']),
+                    progress=int(item.get('progress', 0) or 0),
+                    message=item.get('message', ''),
+                    result=item.get('result'),
+                    error=item.get('error'),
+                    metadata=item.get('metadata') or {},
+                    progress_detail=item.get('progress_detail') or {},
+                )
+        except FileNotFoundError:
+            pass
+        except Exception:
+            # A corrupt task cache must not prevent the API from starting.
+            self._tasks = {}
+
+    def _persist_locked(self):
+        """Atomically persist the current task snapshot (caller holds lock)."""
+        directory = os.path.dirname(self._tasks_file)
+        os.makedirs(directory, exist_ok=True)
+        payload = [task.to_dict() for task in self._tasks.values()]
+        fd, temp_path = tempfile.mkstemp(prefix='tasks-', suffix='.json', dir=directory)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            os.replace(temp_path, self._tasks_file)
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
     def create_task(self, task_type: str, metadata: Optional[Dict] = None) -> str:
         """
@@ -95,6 +139,7 @@ class TaskManager:
 
         with self._task_lock:
             self._tasks[task_id] = task
+            self._persist_locked()
 
         return task_id
 
@@ -141,6 +186,7 @@ class TaskManager:
                     task.error = error
                 if progress_detail is not None:
                     task.progress_detail = progress_detail
+                self._persist_locked()
 
     def complete_task(self, task_id: str, result: Dict):
         """Mark task as completed"""
@@ -181,4 +227,5 @@ class TaskManager:
             ]
             for tid in old_ids:
                 del self._tasks[tid]
+            self._persist_locked()
 

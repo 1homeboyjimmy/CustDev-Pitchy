@@ -5,15 +5,22 @@ import service, { requestWithRetry } from './index'
  * @param {Object} data - { simulation_id, force_regenerate? }
  */
 export const generateReport = (data) => {
-  return requestWithRetry(() => service.post('/api/report/generate', data), 3, 1000)
+  // Background generation is non-idempotent; retrying a lost response can
+  // start multiple report workers for the same simulation.
+  return service.post('/api/report/generate', data)
 }
 
 /**
  * Get report generation status
  * @param {string} reportId
  */
-export const getReportStatus = (reportId) => {
-  return service.get(`/api/report/generate/status`, { params: { report_id: reportId } })
+export const getReportStatus = ({ taskId, simulationId } = {}) => {
+  return service.get('/api/report/generate/status', {
+    params: {
+      ...(taskId ? { task_id: taskId } : {}),
+      ...(simulationId ? { simulation_id: simulationId } : {}),
+    }
+  })
 }
 
 /**

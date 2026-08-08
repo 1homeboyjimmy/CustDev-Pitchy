@@ -6,19 +6,46 @@ Provides interfaces for simulation report generation, retrieval, and conversatio
 import os
 import traceback
 import threading
+import re
+from datetime import datetime
 from flask import request, jsonify, send_file, current_app
 
 from . import report_bp
 from ..config import Config
-from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
+from ..services.report_agent import Report, ReportAgent, ReportManager, ReportStatus
 from ..services.simulation_manager import SimulationManager
 from ..models.project import ProjectManager
 from ..models.task import TaskManager, TaskStatus
 from ..services.graph_tools import GraphToolsService
 from ..utils.logger import get_logger
-from ..utils.auth import login_required
+from ..utils.auth import login_required, current_user_id, is_admin_user
 
 logger = get_logger('pitchy.api.report')
+
+_REPORT_ID_RE = re.compile(r'^[A-Za-z0-9_-]+$')
+
+
+@report_bp.before_request
+def enforce_report_ownership():
+    """Reports inherit access from their owning simulation."""
+    report_id = (request.view_args or {}).get('report_id')
+    simulation_id = (request.view_args or {}).get('simulation_id')
+    data = request.get_json(silent=True) if request.is_json else {}
+    simulation_id = simulation_id or (data or {}).get('simulation_id')
+    report = None
+    if report_id:
+        if not _REPORT_ID_RE.fullmatch(report_id):
+            return jsonify({"success": False, "error": "Invalid report_id"}), 400
+        report = ReportManager.get_report(report_id)
+        if report:
+            simulation_id = report.simulation_id
+    if simulation_id:
+        state = SimulationManager().get_simulation(simulation_id)
+        if state and state.user_id is None and not is_admin_user():
+            return jsonify({"success": False, "error": "Report access denied"}), 403
+        if state and state.user_id is not None and str(state.user_id) != str(current_user_id()) and not is_admin_user():
+            return jsonify({"success": False, "error": "Report access denied"}), 403
+    return None
 
 
 # ============== Report Generation Interface ==============
@@ -77,6 +104,17 @@ def generate_report():
             return jsonify({"success": False, "error": "GraphStorage not initialized — check Neo4j connection"}), 500
         graph_tools = GraphToolsService(storage=storage)
 
+        # Persist a visible placeholder before starting the background worker.
+        # The UI can navigate to the report immediately without a transient 404.
+        ReportManager.save_report(Report(
+            report_id=report_id,
+            simulation_id=simulation_id,
+            graph_id=graph_id,
+            simulation_requirement=simulation_requirement,
+            status=ReportStatus.PENDING,
+            created_at=datetime.now().isoformat(),
+        ))
+
         def run_generate():
             try:
                 task_manager.update_task(task_id, status=TaskStatus.PROCESSING, progress=0, message="Initializing Report Agent...")
@@ -97,6 +135,11 @@ def generate_report():
             except Exception as e:
                 logger.error(f"Report generation failed: {str(e)}")
                 task_manager.fail_task(task_id, str(e))
+                pending = ReportManager.get_report(report_id)
+                if pending:
+                    pending.status = ReportStatus.FAILED
+                    pending.error = str(e)
+                    ReportManager.save_report(pending)
 
         thread = threading.Thread(target=run_generate, daemon=True)
         thread.start()
@@ -115,14 +158,8 @@ def generate_report():
         return jsonify({"success": False, "error": str(e), "traceback": traceback.format_exc()}), 500
 
 
-@report_bp.route('/generate/status', methods=['POST'])
-@login_required
-def get_generate_status():
+def _generate_status(task_id=None, simulation_id=None):
     try:
-        data = request.get_json() or {}
-        task_id = data.get('task_id')
-        simulation_id = data.get('simulation_id')
-
         if simulation_id:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
@@ -148,6 +185,19 @@ def get_generate_status():
     except Exception as e:
         logger.error(f"Failed to query task status: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@report_bp.route('/generate/status', methods=['POST'])
+@login_required
+def get_generate_status():
+    data = request.get_json() or {}
+    return _generate_status(data.get('task_id'), data.get('simulation_id'))
+
+
+@report_bp.route('/generate/status', methods=['GET'])
+@login_required
+def get_generate_status_query():
+    return _generate_status(request.args.get('task_id'), request.args.get('simulation_id'))
 
 
 # ============== Report Retrieval Interface ==============
@@ -184,7 +234,13 @@ def list_reports():
     try:
         simulation_id = request.args.get('simulation_id')
         limit = request.args.get('limit', 50, type=int)
-        reports = ReportManager.list_reports(simulation_id=simulation_id, limit=limit)
+        reports = ReportManager.list_reports(simulation_id=simulation_id, limit=limit * 2)
+        visible = []
+        for report in reports:
+            state = SimulationManager().get_simulation(report.simulation_id)
+            if state and (str(state.user_id) == str(current_user_id()) or (state.user_id is None and is_admin_user())):
+                visible.append(report)
+        reports = visible[:limit]
         return jsonify({"success": True, "data": [r.to_dict() for r in reports], "count": len(reports)})
     except Exception as e:
         logger.error(f"Failed to list reports: {str(e)}")
@@ -402,6 +458,7 @@ def stream_console_log(report_id: str):
 # ============== Tool Call Interface (For Debugging) ==============
 
 @report_bp.route('/tools/search', methods=['POST'])
+@login_required
 def search_graph_tool():
     try:
         data = request.get_json() or {}
@@ -422,6 +479,7 @@ def search_graph_tool():
 
 
 @report_bp.route('/tools/statistics', methods=['POST'])
+@login_required
 def get_graph_statistics_tool():
     try:
         data = request.get_json() or {}

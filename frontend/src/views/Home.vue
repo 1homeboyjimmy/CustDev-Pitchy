@@ -305,6 +305,7 @@ import {
   Loader as LoaderIcon
 } from 'lucide-vue-next'
 import { listProjects, getProjectPassport } from '../api/projects'
+import { clearSignalsResult } from '../store/pendingUpload'
 
 const steps = [
   { num: '01', title: 'Гипотеза', desc: 'Опишите боль, решение и сегменты ЦА — вручную или сгенерируйте из паспорта проекта Pitchy.' },
@@ -423,6 +424,8 @@ const startSimulation = async () => {
   if (!canSubmit.value || loading.value) return
   loading.value = true
   try {
+    // Новый прогон не должен унаследовать сигналы предыдущей гипотезы.
+    clearSignalsResult()
     const { setPendingUpload, setHypothesisContext } = await import('../store/pendingUpload.js')
     if (entryMode.value === 'hypothesis') {
       const { file, requirement } = buildHypothesisSeed()

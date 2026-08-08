@@ -33,6 +33,13 @@ export function setSignalsResult(result) {
   state.signalsResult = result || null
 }
 
+// Сигналы живут дольше загрузки seed-файла: онтология и граф строятся
+// после экрана разведки, поэтому очистка upload-состояния не должна терять
+// результат, который ещё предстоит привязать к simulation_id.
+export function clearSignalsResult() {
+  state.signalsResult = null
+}
+
 export function getPendingUpload() {
   return {
     files: state.files,
@@ -50,7 +57,6 @@ export function clearPendingUpload() {
   state.isPending = false
   state.signalQuery = ''
   state.segments = []
-  state.signalsResult = null
 }
 
 export default state

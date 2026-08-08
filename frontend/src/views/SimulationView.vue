@@ -2,8 +2,8 @@
   <StageShell active-id="custdev">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Specialized Workflow Header -->
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
-        <div class="flex items-center gap-4">
+      <header class="workflow-header h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="workflow-header-left flex items-center gap-4 min-w-0">
           <button @click="handleGoBack" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <ArrowLeftIcon class="w-4 h-4" />
           </button>
@@ -14,7 +14,7 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+        <div class="workflow-header-mode flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 max-w-full overflow-x-auto">
           <button 
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
@@ -26,7 +26,7 @@
           </button>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="workflow-header-right flex items-center gap-4 min-w-0">
           <div class="flex flex-col items-end">
             <span class="text-[10px] font-mono text-white/20 uppercase">{{ currentSimulationId?.slice(0, 8) }}</span>
             <StatusBadge :type="currentStatus === 'error' ? 'danger' : (currentStatus === 'completed' ? 'success' : 'primary')" :dot="currentStatus === 'processing'">
@@ -223,4 +223,36 @@ onMounted(async () => {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+
+@media (max-width: 1024px) {
+  .workflow-header {
+    height: auto !important;
+    min-height: 3.5rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .workflow-header-left { flex: 1 1 auto; min-width: 0; }
+  .workflow-header-mode {
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: center;
+    width: 100%;
+    scrollbar-width: none;
+  }
+  .workflow-header-mode::-webkit-scrollbar { display: none; }
+  .workflow-header-mode button { flex: 0 0 auto; min-width: 6.5rem; }
+  .workflow-header-right { flex: 0 0 auto; }
+}
+
+@media (max-width: 640px) {
+  .workflow-header-left > div:last-child span:last-child {
+    display: block;
+    max-width: 38vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .workflow-header-right span:first-child { display: none; }
+}
 </style>

@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import logoUrl from '../../../logo/logo_pitchy_browser.png'
 import { getMe } from '../../api/auth'
 import {
   LayoutDashboard,
@@ -22,6 +21,7 @@ const props = defineProps({
 
 const isCollapsed = ref(true)
 const isAdmin = ref(false)
+const logoUrl = '/icon.png'
 
 onMounted(async () => {
   const stored = localStorage.getItem('custdev:sidenav-collapsed')

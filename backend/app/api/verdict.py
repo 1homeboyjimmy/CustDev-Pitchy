@@ -6,6 +6,7 @@ from . import verdict_bp
 from ..services.verdict_service import generate_full_report
 from ..utils.logger import get_logger
 from ..utils.auth import login_required
+from .signals import _check_simulation_access
 
 logger = get_logger('pitchy.api.verdict')
 
@@ -23,6 +24,9 @@ def generate_verdict():
         query = (data.get('query') or '').strip()
         if not simulation_id:
             return jsonify({"success": False, "error": "Please provide simulation_id"}), 400
+        access_error = _check_simulation_access(simulation_id)
+        if access_error:
+            return access_error
         result = generate_full_report(simulation_id, query)
         return jsonify({"success": True, "data": result})
     except Exception as e:

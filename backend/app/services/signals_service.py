@@ -11,6 +11,7 @@
 """
 
 import requests
+from datetime import datetime, timezone
 from urllib.parse import urlparse, quote
 from ..config import Config
 from ..utils.logger import get_logger
@@ -29,6 +30,30 @@ def _domain(url: str) -> str:
 def _clip(text: str, n: int = 300) -> str:
     text = (text or '').strip().replace('\n', ' ')
     return text[:n] + ('…' if len(text) > n else '')
+
+
+def _normalise_sources(sources: list[dict]) -> list[dict]:
+    """Remove duplicate search hits while preserving source provenance.
+
+    Search providers frequently return the same article for several query
+    variants. Counting those hits as separate pains inflates the verdict.
+    """
+    unique = []
+    seen = set()
+    retrieved_at = datetime.now(timezone.utc).isoformat()
+    for source in sources:
+        source = dict(source)
+        url = (source.get('url') or '').strip().split('#', 1)[0].rstrip('/')
+        title = ' '.join((source.get('title') or '').lower().split())
+        highlights = ' '.join(source.get('highlights') or []).lower().strip()
+        key = url or f"{title}|{highlights[:180]}"
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        source['url'] = url
+        source['retrieved_at'] = source.get('retrieved_at') or retrieved_at
+        unique.append(source)
+    return unique
 
 
 class SignalsService:
@@ -99,6 +124,7 @@ class SignalsService:
                 'key': Config.GOOGLE_CSE_KEY, 'cx': Config.GOOGLE_CSE_CX,
                 'q': query + SignalsService._site_filter(), 'num': min(n, 10),
             }, timeout=20)
+            resp.raise_for_status()
             for item in (resp.json().get('items') or []):
                 url = item.get('link', '')
                 out.append({'title': item.get('title') or 'Источник', 'url': url,
@@ -118,6 +144,7 @@ class SignalsService:
                                 params={'q': query + SignalsService._site_filter(), 'count': min(n, 20)},
                                 headers={'X-Subscription-Token': Config.BRAVE_API_KEY, 'Accept': 'application/json'},
                                 timeout=20)
+            resp.raise_for_status()
             for item in ((resp.json().get('web') or {}).get('results') or []):
                 url = item.get('url', '')
                 out.append({'title': item.get('title') or 'Источник', 'url': url,
@@ -140,6 +167,7 @@ class SignalsService:
                 headers={'Accept': 'application/json', 'User-Agent': Config.REDDIT_USER_AGENT},
                 timeout=20,
             )
+            resp.raise_for_status()
             for item in (resp.json().get('results') or [])[:n]:
                 url = item.get('url', '')
                 out.append({'title': item.get('title') or 'Источник', 'url': url,
@@ -210,6 +238,7 @@ class SignalsService:
                     f'https://www.reddit.com/search.json?q={quote(query)}&sort=relevance&t=year&limit={min(n, 25)}',
                     headers={'User-Agent': Config.REDDIT_USER_AGENT}, timeout=20,
                 )
+            resp.raise_for_status()
             for child in (resp.json().get('data', {}).get('children') or []):
                 d = child.get('data', {})
                 permalink = d.get('permalink', '')
@@ -255,6 +284,20 @@ class SignalsService:
                 compiled += f"### Сигнал {idx} ({s['domain']}): {s['title']}\n" + \
                             "\n".join(f"- {h}" for h in s['highlights'][:3]) + "\n\n"
 
-        result.update(available=True, sources=sources, context=compiled.strip())
+        sources = _normalise_sources(sources)
+        compiled = ""
+        for idx, s in enumerate(sources, 1):
+            if s.get('highlights'):
+                compiled += f"### Сигнал {idx} ({s.get('domain', '')}): {s.get('title', '')}\n" + \
+                            "\n".join(f"- {h}" for h in s['highlights'][:3]) + "\n\n"
+
+        result.update(
+            available=bool(sources),
+            sources=sources,
+            context=compiled.strip(),
+            source_count=len(sources),
+            source_domains=sorted({s.get('domain') for s in sources if s.get('domain')}),
+            degraded=bool((web_usable or reddit_on) and not sources),
+        )
         logger.info(f"Сигналы [{Config.SIGNAL_PROVIDER}+reddit]: {len(sources)} источников по «{query}».")
         return result

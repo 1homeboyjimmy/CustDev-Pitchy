@@ -75,6 +75,13 @@ def create_app(config_class=Config):
     # Request logging middleware
     @app.before_request
     def log_request():
+        # Populate request.user before blueprint ownership guards execute.
+        # login_required still performs the rejecting part for protected APIs.
+        if request.path.startswith('/api/'):
+            from .utils.auth import authenticate_request
+            payload = authenticate_request()
+            if payload:
+                request.user = payload
         logger = get_logger('pitchy.request')
         logger.debug(f"Request: {request.method} {request.path}")
         if request.content_type and 'json' in request.content_type:

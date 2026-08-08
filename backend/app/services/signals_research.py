@@ -10,6 +10,7 @@
 import json
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from openai import OpenAI
@@ -96,12 +97,13 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict]) -> dic
         "{\n"
         '  "segments": [{"name": str, "temperature": "hot|warm|cold", "pain_count": int, "note": str}],\n'
         '  "willingness": {"complaining": int, "seeking": int, "paying": int},\n'
-        '  "top_pains": [{"text": str, "count": int, "tag": "pain|pay"}],\n'
+        '  "top_pains": [{"text": str, "count": int, "tag": "pain|pay", "evidence": [int]}],\n'
         '  "competitors": [{"name": str, "weakness": str}],\n'
         '  "verdict": "Есть|Слабый|Нет",\n'
         '  "summary": str\n'
         "}\n"
-        "Числа — реалистичные оценки из объёма сигналов. temperature: hot=много боли и спроса, "
+        "Все числа должны быть подсчётом сигналов из входного дайджеста, а не оценкой размера рынка. "
+        "temperature: hot=много боли и спроса, "
         "cold=почти нет. Сегменты бери из заданных, если пусто — выдели сам. Только JSON."
     )
     try:
@@ -136,10 +138,41 @@ def _sources_by_platform(sources: list[dict]) -> list[dict]:
     return [{"platform": k, "count": v, "percent": round(v * 100 / total)} for k, v in items]
 
 
-def start_research(query: str, segments: list[str]) -> str:
+def _normalise_analysis(analysis: dict, sources: list[dict]) -> dict:
+    """Keep LLM-derived dashboard numbers bounded by observed evidence."""
+    if not isinstance(analysis, dict):
+        return {}
+    max_count = len(sources)
+    willingness = analysis.get('willingness')
+    if isinstance(willingness, dict):
+        for key in ('complaining', 'seeking', 'paying'):
+            try:
+                willingness[key] = max(0, min(int(willingness.get(key, 0)), max_count))
+            except (TypeError, ValueError):
+                willingness[key] = 0
+    for segment in analysis.get('segments') or []:
+        if isinstance(segment, dict):
+            try:
+                segment['pain_count'] = max(0, min(int(segment.get('pain_count', 0)), max_count))
+            except (TypeError, ValueError):
+                segment['pain_count'] = 0
+    for pain in analysis.get('top_pains') or []:
+        if isinstance(pain, dict):
+            try:
+                pain['count'] = max(0, min(int(pain.get('count', 0)), max_count))
+            except (TypeError, ValueError):
+                pain['count'] = 0
+    analysis['observed_sources'] = max_count
+    analysis['data_quality'] = 'evidence_bounded' if max_count else 'no_evidence'
+    return analysis
+
+
+def start_research(query: str, segments: list[str], owner_id: str | None = None) -> str:
     """Создаёт задачу и запускает рой агентов в фоне. Возвращает task_id."""
     tm = TaskManager()
-    task_id = tm.create_task("signals_research", metadata={"query": query, "segments": segments})
+    task_id = tm.create_task("signals_research", metadata={
+        "query": query, "segments": segments, "owner_id": str(owner_id) if owner_id else None,
+    })
 
     agents_state = [{"id": a["id"], "name": a["name"], "status": "queued",
                      "sources": 0, "done": False} for a in AGENTS]
@@ -156,20 +189,35 @@ def start_research(query: str, segments: list[str]) -> str:
     def run():
         all_sources: list[dict] = []
         try:
-            for i, agent in enumerate(AGENTS):
-                agents_state[i]["status"] = "searching"
-                tm.update_task(task_id, message=f"{agent['name']}: ищу сигналы…",
-                               progress=5 + int(i / len(AGENTS) * 70),
-                               progress_detail=_detail(agents_state, len(all_sources)))
-                found = _agent_search(agent, query)
-                all_sources.extend(found)
-                agents_state[i].update(status="Готово", sources=len(found), done=True)
-                tm.update_task(task_id, progress_detail=_detail(agents_state, len(all_sources)))
+            # Все углы независимы: параллельный запуск сокращает latency и
+            # делает прогресс действительно отражающим работу роя.
+            for state in agents_state:
+                state["status"] = "searching"
+            tm.update_task(task_id, message="Агенты ищут сигналы параллельно…",
+                           progress=5, progress_detail=_detail(agents_state, 0))
+            with ThreadPoolExecutor(max_workers=len(AGENTS)) as executor:
+                futures = {
+                    executor.submit(_agent_search, agent, query): i
+                    for i, agent in enumerate(AGENTS)
+                }
+                completed = 0
+                for future in as_completed(futures):
+                    i = futures[future]
+                    found = future.result()
+                    all_sources.extend(found)
+                    agents_state[i].update(status="Готово", sources=len(found), done=True)
+                    completed += 1
+                    tm.update_task(
+                        task_id,
+                        message=f"Готово: {agents_state[i]['name']}",
+                        progress=5 + int(completed / len(AGENTS) * 70),
+                        progress_detail=_detail(agents_state, len(all_sources)),
+                    )
 
             tm.update_task(task_id, progress=80, message="Свожу сигналы в вердикт…",
                            progress_detail=_detail(agents_state, len(all_sources)))
 
-            analysis = _llm_synthesize(query, segments, all_sources) or {}
+            analysis = _normalise_analysis(_llm_synthesize(query, segments, all_sources) or {}, all_sources)
             result = {
                 "query": query,
                 "segments_input": segments,

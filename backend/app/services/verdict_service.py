@@ -7,6 +7,7 @@ LLM = routerai (Config.LLM_MODEL_NAME, сейчас MiMo).
 
 import os
 import json
+import re
 from openai import OpenAI
 
 from ..config import Config
@@ -15,6 +16,8 @@ from ..services.signals_service import SignalsService
 from ..utils.logger import get_logger
 
 logger = get_logger('pitchy.verdict_service')
+
+_SIM_ID_RE = re.compile(r'^[A-Za-z0-9_-]+$')
 
 
 def load_custdev_answers(simulation_id: str) -> list[dict]:
@@ -26,6 +29,25 @@ def load_custdev_answers(simulation_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"load custdev answers: {e}")
     return []
+
+
+def load_saved_signals(simulation_id: str) -> dict | None:
+    """Load the immutable research result attached to a simulation.
+
+    The verdict must analyse the same evidence that the user saw in the
+    Signals screen; re-running an external search would make history drift.
+    """
+    if not simulation_id or not _SIM_ID_RE.match(simulation_id):
+        return None
+    path = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id, 'signals.json')
+    try:
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else None
+    except Exception as e:
+        logger.error(f"load saved signals: {e}")
+    return None
 
 
 def _answers_digest(answers: list[dict], limit: int = 60) -> str:
@@ -47,7 +69,12 @@ def _signals_digest(sources: list[dict], limit: int = 40) -> str:
 def generate_full_report(simulation_id: str, query: str) -> dict:
     """Возвращает {verdict_struct, signals, custdev_count, report_markdown}."""
     answers = load_custdev_answers(simulation_id)
-    signals = SignalsService.scan(query or '', max_results=12)
+    signals = load_saved_signals(simulation_id)
+    if signals is None:
+        signals = SignalsService.scan(query or '', max_results=12)
+        signals['evidence_source'] = 'live_scan'
+    else:
+        signals['evidence_source'] = 'attached_research'
     sources = signals.get('sources', [])
 
     result = {

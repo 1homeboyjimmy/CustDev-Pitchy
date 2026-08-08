@@ -9,9 +9,9 @@
     <SideNavBar active-id="custdev" />
     <div class="flex-1 flex flex-col overflow-hidden min-w-0">
       <!-- Specialized Workflow Header -->
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20 relative w-full">
+      <header class="workflow-header h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20 relative w-full">
         <!-- Left Section -->
-        <div class="flex items-center gap-4 flex-1 justify-start">
+        <div class="workflow-header-left flex items-center gap-4 flex-1 justify-start min-w-0">
           <button @click="router.push('/')" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <HomeIcon class="w-4 h-4" />
           </button>
@@ -23,7 +23,7 @@
         </div>
 
         <!-- Center Section (Absolute Centering) -->
-        <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+        <div class="workflow-header-mode absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 max-w-full overflow-x-auto">
           <button 
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
@@ -36,7 +36,7 @@
         </div>
 
         <!-- Right Section -->
-        <div class="flex items-center gap-4 flex-1 justify-end">
+        <div class="workflow-header-right flex items-center gap-4 flex-1 justify-end min-w-0">
           <div class="flex flex-col items-end">
             <span class="text-[10px] font-mono text-white/20 uppercase">{{ currentProjectId?.slice(0, 8) }}</span>
             <StatusBadge :type="statusClass" :dot="currentPhase < 2">
@@ -164,7 +164,7 @@ import {
   ChevronUp as ChevronUpIcon,
   ChevronDown as ChevronDownIcon
 } from 'lucide-vue-next'
-import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
+import { generateOntology, getOntologyTaskStatus, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
 const route = useRoute()
@@ -200,6 +200,7 @@ const systemLogs = ref([])
 // Polling timers
 let pollTimer = null
 let graphPollTimer = null
+let ontologyPollTimer = null
 
 // --- Status Computed ---
 const statusClass = computed(() => {
@@ -274,13 +275,19 @@ const handleNewProject = async () => {
     
     const res = await generateOntology(formData)
     if (res.success) {
-      clearPendingUpload()
       currentProjectId.value = res.data.project_id
-      projectData.value = res.data
       router.replace({ name: 'Process', params: { projectId: res.data.project_id } })
-      ontologyProgress.value = null
-      addLog(`Онтология успешно синтезирована для проекта ${res.data.project_id}`)
-      await startBuildGraph()
+      projectData.value = res.data
+
+      if (res.data.status === 'processing' && res.data.task_id) {
+        addLog('Документы приняты. Продолжаем анализ в фоне — соединение не блокируется.')
+        await pollOntologyTask(res.data.task_id)
+      } else {
+        clearPendingUpload()
+        ontologyProgress.value = null
+        addLog(`Онтология успешно синтезирована для проекта ${res.data.project_id}`)
+        await startBuildGraph()
+      }
     } else {
       error.value = res.error || 'Анализ синтаксиса не удался'
       addLog(`Ошибка при синтезе: ${error.value}`)
@@ -314,6 +321,9 @@ const loadProject = async () => {
       
       if (res.data.status === 'ontology_generated' && !res.data.graph_id) {
         await startBuildGraph()
+      } else if (res.data.status === 'created' && res.data.ontology_task_id) {
+        currentPhase.value = 0
+        await pollOntologyTask(res.data.ontology_task_id)
       } else if (res.data.status === 'graph_building' && res.data.graph_build_task_id) {
         currentPhase.value = 1
         startPollingTask(res.data.graph_build_task_id)
@@ -366,9 +376,49 @@ const startBuildGraph = async () => {
 }
 
 const startGraphPolling = () => {
+  stopGraphPolling()
   fetchGraphData()
   graphPollTimer = setInterval(fetchGraphData, 20000)
 }
+
+const pollOntologyTask = (taskId) => new Promise((resolve) => {
+  let delay = 1500
+  const tick = async () => {
+    try {
+      const res = await getOntologyTaskStatus(taskId)
+      if (res.success) {
+        const task = res.data
+        ontologyProgress.value = { message: task.message || 'Анализируем документы…' }
+        if (task.status === 'completed') {
+          clearPendingUpload()
+          const projectRes = await getProject(currentProjectId.value)
+          if (projectRes.success) projectData.value = projectRes.data
+          ontologyProgress.value = null
+          addLog('Онтология успешно синтезирована. Запускаем построение графа.')
+          await startBuildGraph()
+          ontologyPollTimer = null
+          resolve()
+          return
+        }
+        if (task.status === 'failed') {
+          error.value = task.error || 'Анализ документов не удался'
+          ontologyProgress.value = null
+          addLog(`Ошибка при синтезе онтологии: ${error.value}`)
+          ontologyPollTimer = null
+          resolve()
+          return
+        }
+      }
+    } catch (err) {
+      addLog(`Ожидание онтологии задерживается: ${err.message}`)
+    }
+    if (ontologyPollTimer !== null) {
+      delay = Math.min(delay + 1000, 8000)
+      ontologyPollTimer = setTimeout(tick, delay)
+    }
+  }
+  ontologyPollTimer = setTimeout(tick, 0)
+})
 
 const fetchGraphData = async () => {
   try {
@@ -387,6 +437,7 @@ const fetchGraphData = async () => {
 }
 
 const startPollingTask = (taskId) => {
+  stopPolling()
   // Backoff: начинаем часто (2с), плавно замедляемся до 10с — длинная сборка
   // графа больше не генерит сотни запросов. stopPolling зануляет pollTimer.
   let delay = 2000
@@ -452,7 +503,7 @@ const refreshGraph = () => {
 }
 
 const stopPolling = () => {
-  if (pollTimer) clearInterval(pollTimer)
+  if (pollTimer) clearTimeout(pollTimer)
   pollTimer = null
 }
 
@@ -465,6 +516,8 @@ onMounted(initProject)
 onUnmounted(() => {
   stopPolling()
   stopGraphPolling()
+  if (ontologyPollTimer) clearTimeout(ontologyPollTimer)
+  ontologyPollTimer = null
 })
 </script>
 
@@ -481,5 +534,81 @@ onUnmounted(() => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Keep workflow controls on their own row on tablets and phones. */
+@media (max-width: 1024px) {
+  .workflow-header {
+    height: auto !important;
+    min-height: 3.5rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .workflow-header-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .workflow-header-left > div:last-child {
+    min-width: 0;
+  }
+
+  .workflow-header-left > div:last-child span:last-child {
+    display: block;
+    max-width: min(34vw, 13rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workflow-header-mode {
+    position: static !important;
+    transform: none !important;
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: center;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .workflow-header-mode::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workflow-header-mode button {
+    flex: 0 0 auto;
+    min-width: 6.5rem;
+  }
+
+  .workflow-header-right {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .workflow-header-left {
+    gap: 0.5rem;
+  }
+
+  .workflow-header-left > div:last-child {
+    gap: 0.35rem;
+  }
+
+  .workflow-header-left > div:last-child span:first-child {
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
+  }
+
+  .workflow-header-left > div:last-child span:last-child {
+    max-width: 38vw;
+    font-size: 0.7rem;
+  }
+
+  .workflow-header-right span:first-child {
+    display: none;
+  }
 }
 </style>

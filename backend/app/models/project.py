@@ -31,6 +31,8 @@ class Project:
     status: ProjectStatus
     created_at: str
     updated_at: str
+    # Owner from the main Pitchy JWT. None is retained only for legacy data.
+    owner_id: Optional[str] = None
 
     # File information
     files: List[Dict[str, str]] = field(default_factory=list)  # [{filename, path, size}]
@@ -43,6 +45,7 @@ class Project:
     # Graph information (populated after interface 2 completes)
     graph_id: Optional[str] = None
     graph_build_task_id: Optional[str] = None
+    ontology_task_id: Optional[str] = None
 
     # Configuration
     simulation_requirement: Optional[str] = None
@@ -60,12 +63,14 @@ class Project:
             "status": self.status.value if isinstance(self.status, ProjectStatus) else self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "owner_id": self.owner_id,
             "files": self.files,
             "total_text_length": self.total_text_length,
             "ontology": self.ontology,
             "analysis_summary": self.analysis_summary,
             "graph_id": self.graph_id,
             "graph_build_task_id": self.graph_build_task_id,
+            "ontology_task_id": self.ontology_task_id,
             "simulation_requirement": self.simulation_requirement,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
@@ -85,12 +90,14 @@ class Project:
             status=status,
             created_at=data.get('created_at', ''),
             updated_at=data.get('updated_at', ''),
+            owner_id=data.get('owner_id'),
             files=data.get('files', []),
             total_text_length=data.get('total_text_length', 0),
             ontology=data.get('ontology'),
             analysis_summary=data.get('analysis_summary'),
             graph_id=data.get('graph_id'),
             graph_build_task_id=data.get('graph_build_task_id'),
+            ontology_task_id=data.get('ontology_task_id'),
             simulation_requirement=data.get('simulation_requirement'),
             chunk_size=data.get('chunk_size', 500),
             chunk_overlap=data.get('chunk_overlap', 50),
@@ -130,7 +137,7 @@ class ProjectManager:
         return os.path.join(cls._get_project_dir(project_id), 'extracted_text.txt')
 
     @classmethod
-    def create_project(cls, name: str = "Unnamed Project") -> Project:
+    def create_project(cls, name: str = "Unnamed Project", owner_id: Optional[str] = None) -> Project:
         """
         Create new project
 
@@ -150,7 +157,8 @@ class ProjectManager:
             name=name,
             status=ProjectStatus.CREATED,
             created_at=now,
-            updated_at=now
+            updated_at=now,
+            owner_id=str(owner_id) if owner_id is not None else None
         )
 
         # Create project directory structure

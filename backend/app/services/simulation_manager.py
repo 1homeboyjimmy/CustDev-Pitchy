@@ -7,6 +7,7 @@ Use preset scripts + LLM intelligent generation of config parameters
 import os
 import json
 import shutil
+import re
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -141,10 +142,13 @@ class SimulationManager:
         # In-memory simulation state cache
         self._simulations: Dict[str, SimulationState] = {}
     
-    def _get_simulation_dir(self, simulation_id: str) -> str:
+    def _get_simulation_dir(self, simulation_id: str, create: bool = True) -> str:
         """Get simulation data directory"""
+        if not simulation_id or not re.fullmatch(r'[A-Za-z0-9_-]+', simulation_id):
+            raise ValueError("Invalid simulation_id")
         sim_dir = os.path.join(self.SIMULATION_DATA_DIR, simulation_id)
-        os.makedirs(sim_dir, exist_ok=True)
+        if create:
+            os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
     
     def _save_simulation_state(self, state: SimulationState):
@@ -164,7 +168,7 @@ class SimulationManager:
         if simulation_id in self._simulations:
             return self._simulations[simulation_id]
         
-        sim_dir = self._get_simulation_dir(simulation_id)
+        sim_dir = self._get_simulation_dir(simulation_id, create=False)
         state_file = os.path.join(sim_dir, "state.json")
         
         if not os.path.exists(state_file):

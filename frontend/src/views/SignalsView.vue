@@ -29,6 +29,10 @@
 
           <!-- ФАЗА 1 — живой процесс -->
           <template v-else-if="!done">
+            <div v-if="errorMessage" class="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center justify-between gap-3">
+              <span>{{ errorMessage }}</span>
+              <button @click="startResearch" class="text-xs underline hover:text-white">Повторить</button>
+            </div>
             <div class="flex items-center gap-3">
               <LoaderIcon class="w-5 h-5 animate-spin text-white/70" />
               <div>
@@ -216,6 +220,7 @@ const agents = ref([])
 const totalSources = ref(0)
 const elapsed = ref(0)
 const done = ref(false)
+const errorMessage = ref('')
 const result = ref({ sources_count: 0, sources: [], sources_by_platform: [], analysis: {} })
 let timer = null
 let taskId = null
@@ -232,8 +237,9 @@ const hotCount = computed(() => segments.value.filter(s => s.temperature === 'ho
 const payPct = computed(() => {
   const w = analysis.value.willingness
   if (!w) return 0
-  const total = (w.complaining || 0) + (w.seeking || 0) + (w.paying || 0)
-  return total ? Math.round((w.paying || 0) * 100 / total) : 0
+  // Это воронка, а не три независимые группы: доля платящих считается
+  // относительно тех, кто явно жалуется на проблему.
+  return w.complaining ? Math.min(100, Math.round((w.paying || 0) * 100 / w.complaining)) : 0
 })
 const verdictClass = computed(() => {
   const v = (analysis.value.verdict || '').toLowerCase()
@@ -277,6 +283,7 @@ const applyStatus = (task) => {
     setSignalsResult(task.result)
     stopPoll()
   } else if (task.status === 'failed') {
+    errorMessage.value = task.error || 'Разведка не завершилась. Попробуйте повторить.'
     stopPoll()
   }
 }
@@ -294,6 +301,7 @@ const stopPoll = () => { if (timer) { clearInterval(timer); timer = null } }
 const startResearch = async () => {
   if (!query.value) return
   done.value = false
+  errorMessage.value = ''
   try {
     const res = await startSignalsResearch({ query: query.value, segments: segs.value })
     if (res.success && res.data?.task_id) {
@@ -301,7 +309,9 @@ const startResearch = async () => {
       poll()
       timer = setInterval(poll, 2500)
     }
-  } catch (e) { /* экран покажет нулевое состояние */ }
+  } catch (e) {
+    errorMessage.value = e?.response?.data?.error || e?.message || 'Не удалось запустить разведку.'
+  }
 }
 
 const rerun = () => { result.value = { sources_count: 0, sources: [], sources_by_platform: [], analysis: {} }; agents.value = []; totalSources.value = 0; startResearch() }
