@@ -8,6 +8,7 @@ from app.services.signals_service import _normalise_sources
 from app.services.signals_research import _normalise_analysis
 from app.services.ontology_generator import OntologyGenerator
 from app.services import verdict_service
+from app.services import passport_service
 
 
 def test_search_hits_are_deduplicated_and_attributed():
@@ -84,3 +85,42 @@ def test_remote_main_auth_fallback_maps_user(monkeypatch):
     assert result["main_auth"] is True
     assert captured["kwargs"]["headers"]["Cookie"] == "access_token=jwt-from-shared-cookie"
     assert captured["kwargs"]["allow_redirects"] is False
+
+
+def test_passport_service_accepts_wrapped_project_list(monkeypatch):
+    monkeypatch.setattr(Config, "MAIN_SERVER_RAG_URL", "https://pitchy.pro/api/rag/search")
+    monkeypatch.setattr(Config, "RAG_API_KEY", "test-rag-key")
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        @staticmethod
+        def json():
+            return {"data": {"projects": [{"id": 7, "name": "Wrapped project"}]}}
+
+    monkeypatch.setattr(passport_service.requests, "get", lambda *args, **kwargs: Response())
+    assert passport_service.list_projects("2") == [{"id": 7, "name": "Wrapped project"}]
+
+
+def test_passport_service_unwraps_wrapped_passport(monkeypatch):
+    monkeypatch.setattr(Config, "MAIN_SERVER_RAG_URL", "https://pitchy.pro/api/rag")
+    monkeypatch.setattr(Config, "RAG_API_KEY", "test-rag-key")
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        @staticmethod
+        def json():
+            return {"data": {"name": "Project", "passport": {"core": {"problem": "Pain"}}}}
+
+    captured = {}
+
+    def fake_get(url, **kwargs):
+        captured["url"] = url
+        return Response()
+
+    monkeypatch.setattr(passport_service.requests, "get", fake_get)
+    assert passport_service.get_passport("2", "project/7")["passport"]["core"]["problem"] == "Pain"
+    assert captured["url"].endswith("/projects/project%2F7/passport")
