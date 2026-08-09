@@ -24,11 +24,13 @@ class EmbeddingService:
         self,
         model: Optional[str] = None,
         base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
         max_retries: int = 3,
         timeout: int = 30,
     ):
         self.model = model or Config.EMBEDDING_MODEL
         self.base_url = (base_url or Config.EMBEDDING_BASE_URL).rstrip('/')
+        self.api_key = api_key or Config.EMBEDDING_API_KEY
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -167,9 +169,13 @@ class EmbeddingService:
         last_error = None
         for attempt in range(self.max_retries):
             try:
+                headers = {}
+                if self.is_openai and self.api_key:
+                    headers['Authorization'] = f'Bearer {self.api_key}'
                 response = requests.post(
                     self._embed_url,
                     json=payload,
+                    headers=headers,
                     timeout=self.timeout,
                 )
                 response.raise_for_status()

@@ -195,6 +195,7 @@ def generate_ontology():
 
         # Get parameters
         simulation_requirement = request.form.get('simulation_requirement', '')
+        pre_extracted_text = request.form.get('pre_extracted_text', '')[:60000]
         project_name = request.form.get('project_name', 'Unnamed Project')
         additional_context = request.form.get('additional_context', '')
 
@@ -240,6 +241,12 @@ def generate_ontology():
                     "size": file_info["size"]
                 })
 
+                # Presentation context may already have been extracted before
+                # market research. Keep the original upload, but avoid parsing
+                # the same PDF/PPTX a second time.
+                if pre_extracted_text:
+                    continue
+
                 # Extract text — `extract_text` raises `ValueError` for known
                 # user-recoverable cases (scan PDF, unsupported format, etc.)
                 try:
@@ -255,6 +262,14 @@ def generate_ontology():
                     extraction_errors.append(
                         f"{file_info['original_filename']}: file contains no extractable text"
                     )
+
+        if pre_extracted_text:
+            text = TextProcessor.preprocess_text(pre_extracted_text)
+            if text and text.strip():
+                document_texts.append(text)
+                all_text = f"\n\n=== Предварительно извлечённый контекст презентации ===\n{text}"
+            else:
+                extraction_errors.append('pre_extracted_text: contains no usable text')
 
         if not document_texts:
             ProjectManager.delete_project(project.project_id)

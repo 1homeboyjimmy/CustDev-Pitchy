@@ -18,7 +18,7 @@
       </header>
 
       <main class="flex-1 overflow-y-auto custom-scrollbar bg-pitchy-bg/30">
-        <div class="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+        <div class="w-full min-w-0 p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
 
           <!-- Загрузка -->
           <div v-if="loading" class="py-20 text-center space-y-4">
@@ -46,35 +46,53 @@
             </div>
 
             <!-- Согласие двух опор -->
-            <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
-              <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-3 items-stretch min-w-0">
+              <section class="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-5 overflow-hidden">
                 <div class="flex items-center gap-2 text-white/40 text-[10px] font-bold uppercase tracking-[0.2em] mb-2"><RadarIcon class="w-3.5 h-3.5" /> Сигналы рынка</div>
                 <p class="text-sm text-white/75 leading-relaxed">{{ v.signals_side || `${signalsCount} реальных источников` }}</p>
               </section>
-              <div class="flex md:flex-col items-center justify-center">
-                <span class="text-[11px] font-bold px-3 py-1 rounded-full border" :class="agreeClass">{{ agreeLabel }}</span>
+              <div class="flex lg:flex-col items-center justify-center min-w-0">
+                <span class="max-w-full whitespace-normal text-center text-[11px] font-bold px-3 py-1 rounded-full border break-words" :class="agreeClass">{{ agreeLabel }}</span>
               </div>
-              <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+              <section class="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-5 overflow-hidden">
                 <div class="flex items-center gap-2 text-white/40 text-[10px] font-bold uppercase tracking-[0.2em] mb-2"><UsersIcon class="w-3.5 h-3.5" /> Симуляция общества</div>
-                <p class="text-sm text-white/75 leading-relaxed">{{ v.simulation_side || (custdevCount ? `${custdevCount} ответов фокус-группы` : 'интервью не проводилось') }}</p>
+                <p class="text-sm text-white/75 leading-relaxed break-words">{{ v.simulation_side || simulationSummary }}</p>
               </section>
             </div>
 
+            <section v-if="evidenceStats.real_sources" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+                <div class="min-w-0 flex-1">
+                  <div class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Качество доказательств</div>
+                  <div class="mt-1 text-sm text-white/75">
+                    {{ evidenceStats.real_sources }} реальных источников · {{ evidenceStats.unique_domains }} площадок · {{ evidenceStats.synthetic_respondents }} синтетических респондентов
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                  <div class="w-28 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div class="h-full bg-emerald-400/80" :style="{ width: `${evidenceStats.quality_score || 0}%` }"></div>
+                  </div>
+                  <span class="text-xs text-white/60">{{ evidenceStats.quality_score || 0 }}/100</span>
+                </div>
+              </div>
+              <div class="mt-3 text-[11px] text-white/35">Вес вердикта: реальный рынок {{ evidenceStats.real_market_weight || 70 }}% · симуляция {{ evidenceStats.simulation_weight || 30 }}%</div>
+            </section>
+
             <!-- Доказательства -->
-            <div v-if="v.evidence" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
+            <div v-if="v.evidence" class="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
+              <div class="min-w-0 rounded-2xl bg-white/[0.03] border border-white/8 p-4">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Готовы платить</div>
                 <div class="text-2xl font-bold mt-1" :class="(v.evidence.pay_pct||0) >= 5 ? 'text-emerald-400' : 'text-white'">{{ v.evidence.pay_pct ?? '—' }}%</div>
               </div>
-              <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
+              <div class="min-w-0 rounded-2xl bg-white/[0.03] border border-white/8 p-4 break-words">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Горячие сегменты</div>
                 <div class="text-sm font-semibold text-white mt-2 leading-snug">{{ v.evidence.hot_segments || '—' }}</div>
               </div>
-              <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
+              <div class="min-w-0 rounded-2xl bg-white/[0.03] border border-white/8 p-4 break-words">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Загорелось персон</div>
                 <div class="text-sm font-semibold text-white mt-2 leading-snug">{{ v.evidence.hot_personas || '—' }}</div>
               </div>
-              <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
+              <div class="min-w-0 rounded-2xl bg-white/[0.03] border border-white/8 p-4 break-words">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Главная боль</div>
                 <div class="text-sm font-semibold text-white mt-2 leading-snug">{{ v.evidence.top_pain || '—' }}</div>
               </div>
@@ -166,11 +184,19 @@ const loading = ref(true)
 const v = ref({})            // структурный вердикт
 const signals = ref({})      // результат скана сигналов
 const custdevCount = ref(0)
+const manualInterviewCount = ref(0)
+const simulationReactionCount = ref(0)
+const evidenceStats = ref({})
 const reportMarkdown = ref('')
 
 const signalSources = computed(() => (signals.value?.sources || []).filter(s => s.highlights && s.highlights.length).slice(0, 12))
 const signalsCount = computed(() => signals.value?.sources_count ?? signals.value?.sources?.length ?? 0)
 const renderedReport = computed(() => reportMarkdown.value ? marked(reportMarkdown.value) : '')
+const simulationSummary = computed(() => {
+  if (simulationReactionCount.value) return `${simulationReactionCount.value} уникальных реакций общества агентов`
+  if (manualInterviewCount.value) return `${manualInterviewCount.value} ответов глубинного интервью`
+  return 'Синтетических реакций не найдено'
+})
 
 const vtone = computed(() => {
   const s = (v.value?.verdict || '').toLowerCase()
@@ -216,6 +242,9 @@ const loadVerdict = async () => {
       v.value = res.data.verdict || {}
       signals.value = res.data.signals || {}
       custdevCount.value = res.data.custdev_count || 0
+      manualInterviewCount.value = res.data.manual_interview_count || 0
+      simulationReactionCount.value = res.data.simulation_reaction_count || 0
+      evidenceStats.value = res.data.evidence_stats || {}
       reportMarkdown.value = res.data.report_markdown || ''
     }
   } catch (e) {

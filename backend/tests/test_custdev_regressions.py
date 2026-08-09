@@ -2,6 +2,7 @@
 
 import json
 import zipfile
+from types import SimpleNamespace
 
 from app.config import Config
 from app.utils import auth
@@ -10,6 +11,8 @@ from app.services.signals_research import _normalise_analysis
 from app.services.ontology_generator import OntologyGenerator
 from app.services import verdict_service
 from app.services import passport_service
+from app.services import signals_research
+from app.storage import embedding_service
 from app.models.project import ProjectManager
 from app.services.simulation_manager import SimulationManager
 from app.services.report_agent import ReportAgent, ReportOutline, ReportSection
@@ -53,6 +56,66 @@ def test_verdict_uses_attached_evidence(tmp_path, monkeypatch):
     result = verdict_service.generate_full_report(simulation_id, "ignored")
     assert result["signals"]["evidence_source"] == "attached_research"
     assert result["signals"]["sources"][0]["title"] == "Attached"
+
+
+def test_verdict_counts_unique_agent_reactions_across_platforms(tmp_path, monkeypatch):
+    action = dict(
+        agent_id=7, agent_name='Покупатель', action_type='CREATE_POST',
+        action_args={'content': '2500 рублей дорого без понятного ROI.'},
+        success=True, round_num=1,
+    )
+    monkeypatch.setattr(
+        verdict_service.SimulationRunner,
+        'get_all_actions',
+        lambda *args, **kwargs: [SimpleNamespace(**action), SimpleNamespace(**action)],
+    )
+    monkeypatch.setattr(verdict_service, 'load_custdev_answers', lambda *args: [])
+    monkeypatch.setattr(verdict_service, 'load_saved_signals', lambda *args: {'sources': [], 'analysis': {}})
+    monkeypatch.setattr(Config, 'OASIS_SIMULATION_DATA_DIR', str(tmp_path))
+    monkeypatch.setattr(Config, 'LLM_API_KEY', '')
+
+    result = verdict_service.generate_full_report('sim_dedupe', 'Проверить цену')
+
+    assert result['simulation_reaction_count'] == 1
+    assert result['custdev_count'] == 1
+    assert result['evidence_stats']['synthetic_respondents'] == 1
+
+
+def test_market_evidence_filter_removes_generic_listings():
+    sources, removed = signals_research._filter_market_evidence([
+        {'url': 'https://pikabu.ru/best', 'domain': 'pikabu.ru', 'title': 'Лучшие посты за сегодня', 'highlights': ['Лента публикаций']},
+        {'url': 'https://vc.ru/story', 'domain': 'vc.ru', 'title': 'Почему основатели платят', 'highlights': ['Экономит пять часов в неделю']},
+    ])
+
+    assert removed == 1
+    assert [source['title'] for source in sources] == ['Почему основатели платят']
+
+
+def test_openai_embedding_provider_receives_authorization(monkeypatch):
+    captured = {}
+
+    class Response:
+        @staticmethod
+        def raise_for_status():
+            return None
+
+        @staticmethod
+        def json():
+            return {'data': [{'index': 0, 'embedding': [0.1, 0.2]}]}
+
+    def fake_post(url, **kwargs):
+        captured.update(url=url, kwargs=kwargs)
+        return Response()
+
+    monkeypatch.setattr(embedding_service.requests, 'post', fake_post)
+    service = embedding_service.EmbeddingService(
+        model='text-embedding-test',
+        base_url='https://router.example/v1',
+        api_key='embedding-secret',
+    )
+
+    assert service.embed('рынок') == [0.1, 0.2]
+    assert captured['kwargs']['headers']['Authorization'] == 'Bearer embedding-secret'
 
 
 def test_ontology_empty_llm_response_uses_safe_fallback():

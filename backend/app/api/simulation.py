@@ -811,8 +811,25 @@ def get_simulation(simulation_id: str):
                 "success": False,
                 "error": f"Simulation does not exist: {simulation_id}"
             }), 404
+
+        uid = current_user_id()
+        if state.user_id is None:
+            if not is_admin_user():
+                return jsonify({"success": False, "error": "Simulation access denied"}), 403
+        elif str(state.user_id) != str(uid) and not is_admin_user():
+            return jsonify({"success": False, "error": "Simulation access denied"}), 403
         
         result = state.to_dict()
+        run_state = SimulationRunner.get_run_state(simulation_id)
+        if run_state:
+            result['runner_status'] = run_state.runner_status.value
+            result['current_round'] = run_state.current_round
+            result['total_rounds'] = run_state.total_rounds
+            if run_state.runner_status == RunnerStatus.COMPLETED:
+                result['status'] = SimulationStatus.COMPLETED.value
+        config = manager.get_simulation_config(simulation_id)
+        if config:
+            result['simulation_requirement'] = config.get('simulation_requirement', '')
         
         # If simulation is ready，Additional runtime instructions
         if state.status == SimulationStatus.READY:

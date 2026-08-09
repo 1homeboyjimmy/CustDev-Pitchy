@@ -8,6 +8,7 @@
 """
 
 import json
+import re
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,7 +19,7 @@ from openai import OpenAI
 from ..config import Config
 from ..models.task import TaskManager, TaskStatus
 from ..utils.logger import get_logger
-from .signals_service import SignalsService, _domain, _clip
+from .signals_service import SignalsService, _domain, _clip, _normalise_sources
 
 logger = get_logger('pitchy.signals_research')
 
@@ -44,9 +45,14 @@ def _agent_search(agent: dict, query: str, n: int = 6) -> list[dict]:
     q = f"{query} {agent['suffix']}".strip()
     try:
         if agent["kind"] == "reddit":
-            return SignalsService._search_reddit(q, n)
-        # web через ddg с доменами агента
-        return _ddg_domains(q, agent["domains"], n)
+            found = SignalsService._search_reddit(q, n)
+        else:
+            # web через ddg с доменами агента
+            found = _ddg_domains(q, agent["domains"], n)
+        for source in found:
+            source['search_angle'] = agent['id']
+            source['search_query'] = q
+        return found
     except Exception as e:
         logger.error(f"Агент {agent['id']} ошибка: {e}")
         return []
@@ -77,6 +83,68 @@ def _ddg_domains(query: str, domains: list[str], n: int) -> list[dict]:
     return out
 
 
+def _fallback_search_brief(query: str) -> str:
+    lines = []
+    for raw in (query or '').splitlines():
+        line = re.sub(r'^\[(?:Страница|Слайд)\s+\d+\]\s*', '', raw).strip()
+        if 4 <= len(line) <= 180 and line not in lines:
+            lines.append(line)
+        if sum(len(item) for item in lines) >= 320:
+            break
+    return ' '.join(lines)[:360] or (query or '')[:360]
+
+
+def _plan_search_queries(query: str, segments: list[str]) -> dict[str, str]:
+    """Turn a deck/passport context into focused real-market search queries."""
+    fallback = _fallback_search_brief(query)
+    planned = {agent['id']: fallback for agent in AGENTS}
+    if not Config.LLM_API_KEY or not Config.LLM_BASE_URL:
+        return planned
+    prompt = (
+        "Из контекста продукта составь короткие поисковые запросы для проверки реального спроса. "
+        "Не используй слова ЦА без расшифровки. В каждом запросе укажи конкретную боль, аудиторию или продукт. "
+        "Верни JSON с ключами reddit, habr_vc, pikabu, reviews, competitors, willingness; "
+        "каждое значение — строка до 18 слов.\n\n"
+        f"Сегменты: {', '.join(segments) or 'не заданы'}\nКонтекст:\n{query[:6000]}"
+    )
+    try:
+        client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL, timeout=15.0)
+        response = client.chat.completions.create(
+            model=Config.LLM_MODEL_NAME,
+            messages=[{'role': 'user', 'content': prompt}],
+            temperature=0.2,
+            max_tokens=700,
+            response_format={'type': 'json_object'},
+        )
+        data = json.loads(response.choices[0].message.content)
+        for agent in AGENTS:
+            value = str(data.get(agent['id']) or '').strip()
+            if value:
+                planned[agent['id']] = value[:240]
+    except Exception as exc:
+        logger.warning('Signal query planning degraded to deck excerpt: %s', exc)
+    return planned
+
+
+def _filter_market_evidence(sources: list[dict]) -> tuple[list[dict], int]:
+    """Drop empty snippets and generic listing pages before evidence counts."""
+    generic_titles = ('лучшие посты', 'горячее', 'блоги |', 'главная страница')
+    filtered = []
+    for source in _normalise_sources(sources):
+        highlights = [str(item).strip() for item in source.get('highlights') or [] if str(item).strip()]
+        title = str(source.get('title') or '').strip()
+        if not highlights or any(marker in title.casefold() for marker in generic_titles):
+            continue
+        source['highlights'] = highlights
+        source['evidence_kind'] = (
+            'review' if str(source.get('domain') or '').endswith(('otzovik.com', 'irecommend.ru'))
+            else 'community'
+        )
+        filtered.append(source)
+    filtered_out = max(0, len(sources) - len(filtered))
+    return filtered, filtered_out
+
+
 def _llm_synthesize(query: str, segments: list[str], sources: list[dict]) -> dict | None:
     """LLM сводит сырые сигналы в структуру дашборда. None при недоступности."""
     if not Config.LLM_API_KEY or not Config.LLM_BASE_URL:
@@ -91,7 +159,7 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict]) -> dic
 
     prompt = (
         "Ты аналитик CustDev. По СЫРЫМ сигналам из сообществ оцени спрос на продукт. "
-        "Гипотеза/продукт: " + query + ". Сегменты ЦА: " + seg_line + ".\n\n"
+        "Гипотеза/продукт: " + query[:6000] + ". Сегменты ЦА: " + seg_line + ".\n\n"
         "СЫРЫЕ СИГНАЛЫ:\n" + digest + "\n\n"
         "Верни СТРОГО JSON без пояснений по схеме:\n"
         "{\n"
@@ -189,6 +257,9 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None)
     def run():
         all_sources: list[dict] = []
         try:
+            planned_queries = _plan_search_queries(query, segments)
+            tm.update_task(task_id, message="Сформированы предметные запросы к рынку…",
+                           progress=4, progress_detail=_detail(agents_state, 0))
             # Все углы независимы: параллельный запуск сокращает latency и
             # делает прогресс действительно отражающим работу роя.
             for state in agents_state:
@@ -197,7 +268,7 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None)
                            progress=5, progress_detail=_detail(agents_state, 0))
             with ThreadPoolExecutor(max_workers=len(AGENTS)) as executor:
                 futures = {
-                    executor.submit(_agent_search, agent, query): i
+                    executor.submit(_agent_search, agent, planned_queries[agent['id']]): i
                     for i, agent in enumerate(AGENTS)
                 }
                 completed = 0
@@ -217,12 +288,18 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None)
             tm.update_task(task_id, progress=80, message="Свожу сигналы в вердикт…",
                            progress_detail=_detail(agents_state, len(all_sources)))
 
+            raw_sources_count = len(all_sources)
+            all_sources, filtered_out = _filter_market_evidence(all_sources)
             analysis = _normalise_analysis(_llm_synthesize(query, segments, all_sources) or {}, all_sources)
             result = {
                 "query": query,
                 "segments_input": segments,
                 "sources": all_sources,
                 "sources_count": len(all_sources),
+                "raw_sources_count": raw_sources_count,
+                "filtered_out_count": filtered_out,
+                "unique_domains": len({source.get('domain') for source in all_sources if source.get('domain')}),
+                "query_plan": planned_queries,
                 "sources_by_platform": _sources_by_platform(all_sources),
                 "elapsed": int(time.time() - started),
                 "analysis": analysis,

@@ -3,6 +3,8 @@
 import os
 import re
 import json
+import tempfile
+from pathlib import Path
 
 from flask import request, jsonify
 
@@ -14,6 +16,8 @@ from ..services.simulation_manager import SimulationManager
 from ..models.task import TaskManager
 from ..utils.logger import get_logger
 from ..utils.auth import login_required, current_user_id, is_admin_user
+from ..utils.file_parser import FileParser
+from ..services.text_processor import TextProcessor
 
 logger = get_logger('pitchy.api.signals')
 
@@ -47,6 +51,52 @@ def _check_simulation_access(simulation_id: str):
     elif str(state.user_id) != str(uid) and not is_admin_user():
         return jsonify({"success": False, "error": "Simulation access denied"}), 403
     return None
+
+
+@signals_bp.route('/presentation-context', methods=['POST'])
+@login_required
+def extract_presentation_context():
+    """Extract a bounded deck excerpt before real-market signal research."""
+    uploaded_files = request.files.getlist('files')
+    if not uploaded_files or all(not item.filename for item in uploaded_files):
+        return jsonify({'success': False, 'error': 'Прикрепите PDF или PPTX'}), 400
+
+    parts = []
+    errors = []
+    with tempfile.TemporaryDirectory(prefix='custdev-deck-') as directory:
+        for index, item in enumerate(uploaded_files[:5]):
+            filename = item.filename or ''
+            suffix = Path(filename).suffix.lower()
+            if suffix not in {'.pdf', '.pptx'}:
+                errors.append(f'{filename}: поддерживаются только PDF и PPTX')
+                continue
+            path = os.path.join(directory, f'deck-{index}{suffix}')
+            item.save(path)
+            if os.path.getsize(path) > 25 * 1024 * 1024:
+                errors.append(f'{filename}: файл превышает 25 МБ')
+                continue
+            try:
+                text = TextProcessor.preprocess_text(FileParser.extract_text(path))
+                if text.strip():
+                    parts.append(f'=== {filename} ===\n{text.strip()}')
+            except Exception as exc:
+                errors.append(f'{filename}: {exc}')
+
+    if not parts:
+        return jsonify({
+            'success': False,
+            'error': '; '.join(errors) or 'В презентации не найден текст для анализа',
+        }), 400
+    requirement = (request.form.get('requirement') or '').strip()
+    extracted_text = '\n\n'.join(parts)[:60000]
+    context = extracted_text[:8000]
+    return jsonify({'success': True, 'data': {
+        'research_context': f'Проверяемая гипотеза: {requirement}\n\nКонтекст презентации:\n{context}',
+        'extracted_text': extracted_text,
+        'extracted_characters': len(context),
+        'files_processed': len(parts),
+        'warnings': errors,
+    }})
 
 
 @signals_bp.route('/scan', methods=['POST'])

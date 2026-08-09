@@ -1,5 +1,12 @@
 import service, { requestWithRetry } from './index'
 
+/** Extract bounded PDF/PPTX text before market-signal research. */
+export const extractPresentationContext = (formData) => service.post(
+  '/api/signals/presentation-context',
+  formData,
+  { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 }
+)
+
 /**
  * Сканировать реальные сигналы рынка (боли/спрос) по гипотезе.
  * @param {Object} data - { query, max_results? }

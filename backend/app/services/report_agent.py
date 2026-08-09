@@ -1309,6 +1309,18 @@ class ReportAgent:
                 ]
             )
 
+    def _fixed_custdev_outline(self) -> ReportOutline:
+        """Evidence-first outline: stable, fast and resistant to topic drift."""
+        return ReportOutline(
+            title=f"CustDev-вердикт: {self.simulation_requirement[:100]}",
+            summary="Реальный рынок имеет приоритет над синтетической симуляцией; допущения отмечены явно.",
+            sections=[
+                ReportSection(title="Реальные сигналы рынка и подтверждённые боли"),
+                ReportSection(title="Синтетические реакции сегментов и ценовые возражения"),
+                ReportSection(title="Решение: риски, эксперимент и следующие проверки"),
+            ],
+        )
+
     def _generate_section_fast(
         self,
         section: ReportSection,
@@ -1338,6 +1350,18 @@ class ReportAgent:
         evidence = (evidence or "").strip()[:6000]
         market = (self.market_context or "").strip()[:2000]
         previous = "\n\n".join(previous_sections[-2:])[-2500:]
+        try:
+            from .verdict_service import (
+                load_saved_signals, load_simulation_reactions,
+                _signals_digest, _answers_digest,
+            )
+            saved_signals = load_saved_signals(self.simulation_id) or {}
+            real_market = _signals_digest(saved_signals.get('sources', []), limit=30)
+            synthetic_reactions = _answers_digest(load_simulation_reactions(self.simulation_id), limit=30)
+        except Exception as exc:
+            logger.warning('Report evidence bundle unavailable: %s', exc)
+            real_market = ''
+            synthetic_reactions = ''
 
         if self.report_logger:
             self.report_logger.log_tool_call(
@@ -1352,13 +1376,17 @@ class ReportAgent:
         system_prompt = (
             "Ты аналитик CustDev. Напиши один компактный раздел отчёта на русском языке. "
             "Опирайся только на предоставленные данные, явно отмечай нехватку фактов. "
+            "Реальные рыночные источники имеют вес 70%, синтетические реакции — 30%. "
+            "Не называй агентов реальными пользователями и не придумывай цитаты или статистику. "
             "Не используй Markdown-заголовки. Дай вывод, доказательства, возражения и практический следующий шаг. "
-            "Объём: 350–650 слов."
+            "Объём: 250–400 слов."
         )
         user_prompt = (
             f"Отчёт: {outline.title}\nРаздел: {section.title}\n"
             f"Гипотеза: {self.simulation_requirement}\n\n"
             f"Данные симуляции:\n{evidence or 'Данные графа не найдены.'}\n\n"
+            f"Реальные рыночные источники:\n{real_market or 'Подтверждённые внешние сигналы не найдены.'}\n\n"
+            f"Синтетические реакции общества:\n{synthetic_reactions or 'Реакции агентов не найдены.'}\n\n"
             f"Контекст рынка:\n{market or 'Внешний контекст недоступен.'}\n\n"
             f"Предыдущие выводы (не повторяй):\n{previous or 'Это первый раздел.'}"
         )
@@ -1370,7 +1398,7 @@ class ReportAgent:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.35,
-                max_tokens=1800,
+                max_tokens=1200,
             ).strip()
             if self.report_logger:
                 self.report_logger.log_llm_response(
@@ -1387,6 +1415,8 @@ class ReportAgent:
                 f"**Режим ограниченного отчёта.** {readable_error}; раздел собран напрямую из доступных данных.\n\n"
                 f"**Проверяемая гипотеза:** {self.simulation_requirement}\n\n"
                 f"**Наблюдения симуляции:**\n\n{evidence or 'В графе симуляции недостаточно фактов для достоверного вывода.'}\n\n"
+                f"**Реальные рыночные сигналы:**\n\n{real_market or 'Подтверждённые внешние сигналы не найдены.'}\n\n"
+                f"**Синтетические реакции:**\n\n{synthetic_reactions or 'Реакции агентов не найдены.'}\n\n"
                 f"**Рыночный контекст:**\n\n{market or 'Внешние рыночные данные не были получены.'}\n\n"
                 "**Следующий шаг:** подтвердить выводы прямыми интервью и повторить расширенный синтез после восстановления LLM-провайдера."
             )
@@ -1804,10 +1834,9 @@ class ReportAgent:
             if progress_callback:
                 progress_callback("planning", 0, "Start planning report outline...")
             
-            outline = self.plan_outline(
-                progress_callback=lambda stage, prog, msg: 
-                    progress_callback(stage, prog // 5, msg) if progress_callback else None
-            )
+            outline = self._fixed_custdev_outline()
+            if progress_callback:
+                progress_callback("planning", 15, "Evidence-first outline prepared")
             report.outline = outline
             
             # recordplancompletion log

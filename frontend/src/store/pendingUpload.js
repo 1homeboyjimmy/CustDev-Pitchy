@@ -7,6 +7,7 @@ import { reactive } from 'vue'
 const state = reactive({
   files: [],
   simulationRequirement: '',
+  preExtractedText: '',
   isPending: false,
   // Контекст гипотезы (для шага «Сигналы»): запрос разведки + сегменты ЦА.
   signalQuery: '',
@@ -19,6 +20,7 @@ const state = reactive({
 export function setPendingUpload(files, requirement) {
   state.files = files
   state.simulationRequirement = requirement
+  state.preExtractedText = ''
   state.isPending = true
 }
 
@@ -33,6 +35,10 @@ export function setSignalsResult(result) {
   state.signalsResult = result || null
 }
 
+export function setPreExtractedText(text) {
+  state.preExtractedText = typeof text === 'string' ? text : ''
+}
+
 // Сигналы живут дольше загрузки seed-файла: онтология и граф строятся
 // после экрана разведки, поэтому очистка upload-состояния не должна терять
 // результат, который ещё предстоит привязать к simulation_id.
@@ -44,6 +50,7 @@ export function getPendingUpload() {
   return {
     files: state.files,
     simulationRequirement: state.simulationRequirement,
+    preExtractedText: state.preExtractedText,
     isPending: state.isPending,
     signalQuery: state.signalQuery,
     segments: state.segments,
@@ -54,6 +61,7 @@ export function getPendingUpload() {
 export function clearPendingUpload() {
   state.files = []
   state.simulationRequirement = ''
+  state.preExtractedText = ''
   state.isPending = false
   state.signalQuery = ''
   state.segments = []

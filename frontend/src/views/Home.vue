@@ -325,6 +325,7 @@ import {
   Loader as LoaderIcon
 } from 'lucide-vue-next'
 import { listProjects, getProjectPassport } from '../api/projects'
+import { extractPresentationContext } from '../api/signals'
 import { clearSignalsResult } from '../store/pendingUpload'
 
 const steps = [
@@ -468,17 +469,34 @@ const startSimulation = async () => {
   try {
     // Новый прогон не должен унаследовать сигналы предыдущей гипотезы.
     clearSignalsResult()
-    const { setPendingUpload, setHypothesisContext } = await import('../store/pendingUpload.js')
+    const { setPendingUpload, setHypothesisContext, setPreExtractedText } = await import('../store/pendingUpload.js')
     if (entryMode.value === 'hypothesis') {
       const { file, requirement } = buildHypothesisSeed()
       setPendingUpload([file], requirement)
+      setPreExtractedText(await file.text())
       // Запрос для разведки сигналов — это боль/тема, плюс сегменты ЦА.
-      const sigQuery = (hyp.value.problem || hyp.value.name || hyp.value.question).trim()
+      const sigQuery = [
+        hyp.value.name && `Продукт: ${hyp.value.name}`,
+        hyp.value.problem && `Проблема: ${hyp.value.problem}`,
+        hyp.value.solution && `Решение: ${hyp.value.solution}`,
+        hyp.value.question && `Проверка: ${hyp.value.question}`,
+      ].filter(Boolean).join('. ').slice(0, 1800)
       setHypothesisContext(sigQuery, segments.value)
       router.push({ name: 'Signals' })
     } else {
       setPendingUpload(files.value, formData.value.simulationRequirement)
-      setHypothesisContext(formData.value.simulationRequirement, [])
+      let researchContext = formData.value.simulationRequirement
+      try {
+        const contextForm = new FormData()
+        files.value.forEach(file => contextForm.append('files', file))
+        contextForm.append('requirement', formData.value.simulationRequirement)
+        const contextResult = await extractPresentationContext(contextForm)
+        researchContext = contextResult.data?.research_context || researchContext
+        setPreExtractedText(contextResult.data?.extracted_text || '')
+      } catch (contextError) {
+        console.warn('Presentation pre-analysis unavailable; using the stated hypothesis', contextError)
+      }
+      setHypothesisContext(researchContext, [])
       router.push({ name: 'Signals' })
     }
   } catch (err) {
