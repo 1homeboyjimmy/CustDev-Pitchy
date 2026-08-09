@@ -47,14 +47,16 @@ jobs:
           unset CUSTDEV_SSO_SERVICE_SECRET
 
           # The runtime file is optional when the dedicated secrets were
-          # already provisioned in CustDev's persistent server env. Never
-          # weaken auth automatically: fail closed if either secret is absent.
+          # already provisioned in CustDev's persistent server env. Until the
+          # two SSO secrets are provisioned, keep the explicitly approved
+          # legacy validation through the main Pitchy /me endpoint.
           if grep -Eq '^CUSTDEV_SSO_SERVICE_SECRET=.{32,}$' .env \
             && grep -Eq '^CUSTDEV_SESSION_SECRET=.{32,}$' .env; then
             echo "    CustDev SSO configuration is ready."
           else
-            echo "    ERROR: CustDev SSO secrets are not fully provisioned."
-            exit 1
+            sed -i '/^CUSTDEV_SSO_MODE=/d' .env
+            printf 'CUSTDEV_SSO_MODE=legacy\n' >> .env
+            echo "    WARNING: SSO secrets unavailable; using approved legacy auth mode."
           fi
           chmod 600 .env
 
