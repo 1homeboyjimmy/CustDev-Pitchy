@@ -29,11 +29,8 @@ jobs:
           # the main site's APP_SECRET_KEY or the whole env file.
           if [ -f "/opt/ai-startup/.env.runtime" ]; then
             export CUSTDEV_SSO_SERVICE_SECRET="$(sed -n 's/^CUSTDEV_SSO_SERVICE_SECRET=//p' /opt/ai-startup/.env.runtime | tail -n 1)"
-            if [ -z "$CUSTDEV_SSO_SERVICE_SECRET" ]; then
-              echo "    ERROR: CUSTDEV_SSO_SERVICE_SECRET is missing from main runtime env."
-              exit 1
-            fi
-            python3 - <<'PY'
+            if [ -n "$CUSTDEV_SSO_SERVICE_SECRET" ]; then
+              python3 - <<'PY'
           import os
           from pathlib import Path
 
@@ -44,13 +41,22 @@ jobs:
           lines.append(f'CUSTDEV_SSO_SERVICE_SECRET={secret}')
           path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
-            unset CUSTDEV_SSO_SERVICE_SECRET
-            chmod 600 .env
-            echo "    CustDev SSO service secret synchronized."
+              echo "    CustDev SSO service secret synchronized."
+            fi
+          fi
+          unset CUSTDEV_SSO_SERVICE_SECRET
+
+          # The runtime file is optional when the dedicated secrets were
+          # already provisioned in CustDev's persistent server env. Never
+          # weaken auth automatically: fail closed if either secret is absent.
+          if grep -Eq '^CUSTDEV_SSO_SERVICE_SECRET=.{32,}$' .env \
+            && grep -Eq '^CUSTDEV_SESSION_SECRET=.{32,}$' .env; then
+            echo "    CustDev SSO configuration is ready."
           else
-            echo "    ERROR: /opt/ai-startup/.env.runtime not found; refusing SSO deploy."
+            echo "    ERROR: CustDev SSO secrets are not fully provisioned."
             exit 1
           fi
+          chmod 600 .env
 
           echo "==> Building containers (optimized)..."
           docker compose build
@@ -86,6 +92,10 @@ jobs:
 
           echo "==> Container Status:"
           docker compose ps
+
+          echo "==> Verifying durable uploads storage..."
+          docker compose exec -T pitchy test -d /app/backend/uploads/projects
+          docker compose exec -T pitchy test -d /app/backend/uploads/simulations
           
           echo "==> Recent Logs (last 20 lines):"
           docker compose logs --tail=20
