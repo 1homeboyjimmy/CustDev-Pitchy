@@ -1,7 +1,7 @@
 <template>
-  <div class="h-full flex flex-col lg:flex-row gap-8 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-700">
+  <div class="h-full flex flex-col lg:flex-row gap-4 lg:gap-8 overflow-y-auto lg:overflow-hidden animate-in fade-in slide-in-from-right-4 duration-700">
     <!-- LEFT: Persistent Report Context -->
-    <div class="w-full lg:w-1/3 flex flex-col space-y-6 overflow-y-auto custom-scrollbar pr-2">
+    <div class="w-full lg:w-1/3 max-h-[40vh] lg:max-h-none shrink-0 lg:shrink flex flex-col space-y-6 overflow-y-auto custom-scrollbar pr-2">
       <div v-if="reportOutline" class="space-y-6">
         <div class="space-y-2">
           <div class="text-[10px] font-bold text-white/90 uppercase tracking-[0.2em] opacity-60">Исходный документ</div>
@@ -49,10 +49,10 @@
     </div>
 
     <!-- RIGHT: Interaction Matrix -->
-    <div class="flex-1 flex flex-col min-w-0 bg-[#0A0A0F]/30 rounded-3xl border border-white/5 overflow-hidden">
+    <div class="flex-1 min-h-[32rem] lg:min-h-0 flex flex-col min-w-0 bg-[#0A0A0F]/30 rounded-2xl sm:rounded-3xl border border-white/5 overflow-hidden">
       <!-- Matrix Header / Tabs -->
-      <div class="h-16 px-6 border-b border-white/5 flex items-center justify-between shrink-0 bg-white/[0.02]">
-        <div class="flex items-center gap-2">
+      <div class="min-h-16 px-3 sm:px-6 border-b border-white/5 flex items-center justify-between shrink-0 bg-white/[0.02] overflow-x-auto">
+        <div class="flex items-center gap-1 sm:gap-2 min-w-max">
           <button 
             @click="selectReportAgentChat"
             :class="['px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2', activeTab === 'chat' && chatTarget === 'report_agent' ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'text-white/40 hover:text-white/60']"

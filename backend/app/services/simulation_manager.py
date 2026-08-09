@@ -8,6 +8,7 @@ import os
 import json
 import shutil
 import re
+import uuid
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,7 +16,7 @@ from enum import Enum
 
 from ..config import Config
 from ..utils.logger import get_logger
-from .entity_reader import EntityReader, FilteredEntities
+from .entity_reader import EntityReader, EntityNode, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
 from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
 from .rag_service import RagService
@@ -130,10 +131,7 @@ class SimulationManager:
     """
     
     # Simulation data storage directory
-    SIMULATION_DATA_DIR = os.path.join(
-        os.path.dirname(__file__), 
-        '../../uploads/simulations'
-    )
+    SIMULATION_DATA_DIR = Config.OASIS_SIMULATION_DATA_DIR
     
     def __init__(self):
         # Ensure directory exists
@@ -141,6 +139,94 @@ class SimulationManager:
         
         # In-memory simulation state cache
         self._simulations: Dict[str, SimulationState] = {}
+
+    @staticmethod
+    def synthesize_fallback_entities(
+        ontology: Optional[Dict[str, Any]],
+        simulation_requirement: str,
+        document_text: str,
+        target_count: int = 6,
+    ) -> FilteredEntities:
+        """Build deterministic persona archetypes when NER extracts no names.
+
+        A short CustDev hypothesis normally describes segments and pains, not
+        named people. Treating an empty named-entity graph as fatal made the
+        whole pipeline unusable for its primary input. These archetypes keep
+        the simulation evidence-bound while the profile LLM adds detail.
+        """
+        role_labels = {
+            'target_audience': 'Представитель целевой аудитории',
+            'expert_advisor': 'Отраслевой эксперт',
+            'investor': 'Инвестор',
+            'competitor': 'Представитель альтернативного решения',
+            'regulator': 'Представитель регулятора',
+            'media': 'Профильный журналист',
+            'observer': 'Наблюдатель рынка',
+            'institutional': 'Представитель организации',
+        }
+        priority = {
+            'target_audience': 0,
+            'expert_advisor': 1,
+            'investor': 2,
+            'competitor': 3,
+            'media': 4,
+            'regulator': 5,
+            'observer': 6,
+            'institutional': 7,
+        }
+
+        candidates = []
+        for item in (ontology or {}).get('entity_types', []) or []:
+            if not isinstance(item, dict) or not item.get('name'):
+                continue
+            role = item.get('default_agent_role') or 'target_audience'
+            if role == 'internal_team':
+                continue
+            candidates.append((priority.get(role, 8), item, role))
+        candidates.sort(key=lambda row: row[0])
+
+        if not candidates:
+            candidates = [(0, {
+                'name': 'Person',
+                'description': 'Potential customer affected by the stated problem.',
+            }, 'target_audience')]
+
+        hypothesis = (simulation_requirement or document_text or '').strip()
+        source_excerpt = ' '.join((document_text or '').split())[:500]
+        entities = []
+        count = max(3, min(10, int(target_count or 6)))
+        for index in range(count):
+            _, item, role = candidates[index % len(candidates)]
+            entity_type = str(item.get('name') or 'Person')
+            role_label = role_labels.get(role, 'Участник рынка')
+            cohort = index // len(candidates) + 1
+            name = f'{role_label} · {entity_type} {cohort}'
+            summary_parts = [
+                str(item.get('description') or ''),
+                f'Роль в CustDev: {role_label}.',
+                f'Проверяемая гипотеза: {hypothesis[:700]}',
+            ]
+            if source_excerpt:
+                summary_parts.append(f'Исходные данные проекта: {source_excerpt}')
+            entities.append(EntityNode(
+                uuid=f'synthetic-{uuid.uuid5(uuid.NAMESPACE_URL, hypothesis + entity_type + role + str(index))}',
+                name=name,
+                labels=['Entity', entity_type],
+                summary=' '.join(part for part in summary_parts if part).strip(),
+                attributes={
+                    'synthetic': True,
+                    'source': 'ontology_fallback',
+                    'agent_role': role,
+                },
+                agent_role=role,
+            ))
+
+        return FilteredEntities(
+            entities=entities,
+            entity_types={entity.get_entity_type() or 'Person' for entity in entities},
+            total_count=0,
+            filtered_count=len(entities),
+        )
     
     def _get_simulation_dir(self, simulation_id: str, create: bool = True) -> str:
         """Get simulation data directory"""
@@ -405,10 +491,26 @@ class SimulationManager:
                 )
             
             if filtered.filtered_count == 0:
-                state.status = SimulationStatus.FAILED
-                state.error = "No entities matching criteria found, check if graph is correctly constructed"
-                self._save_simulation_state(state)
-                return state
+                logger.warning(
+                    "Graph %s contains no usable named entities; synthesizing CustDev archetypes",
+                    state.graph_id,
+                )
+                filtered = self.synthesize_fallback_entities(
+                    ontology=ontology,
+                    simulation_requirement=simulation_requirement,
+                    document_text=document_text,
+                )
+                state.entities_count = filtered.filtered_count
+                state.entity_types = sorted(filtered.entity_types)
+                state.error = None
+                if progress_callback:
+                    progress_callback(
+                        "reading",
+                        100,
+                        f"Именованные сущности не найдены — создано {filtered.filtered_count} архетипов сегментов",
+                        current=filtered.filtered_count,
+                        total=filtered.filtered_count,
+                    )
             
             # ========== Phase 2: Generate Agent Profile ==========
             total_entities = len(filtered.entities)

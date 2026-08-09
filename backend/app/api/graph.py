@@ -487,7 +487,10 @@ def build_graph():
 
         # Create async task
         task_manager = TaskManager()
-        task_id = task_manager.create_task(f"Build graph: {graph_name}")
+        task_id = task_manager.create_task(
+            f"Build graph: {graph_name}",
+            metadata={'project_id': project_id, 'owner_id': current_user_id()},
+        )
         logger.info(f"Graph build task created: task_id={task_id}, project_id={project_id}")
         
         # Update project status
@@ -605,20 +608,26 @@ def build_graph():
 
                 node_count = graph_data.get("node_count", 0)
                 edge_count = graph_data.get("edge_count", 0)
+                empty_graph = node_count == 0
                 build_logger.info(f"[{task_id}] Graph build completed: graph_id={graph_id}, nodes={node_count}, edges={edge_count}")
 
                 # Complete
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.COMPLETED,
-                    message="Graph build completed",
+                    message=(
+                        "Граф не содержит именованных сущностей; персоны будут созданы из сегментов онтологии"
+                        if empty_graph else "Graph build completed"
+                    ),
                     progress=100,
                     result={
                         "project_id": project_id,
                         "graph_id": graph_id,
                         "node_count": node_count,
                         "edge_count": edge_count,
-                        "chunk_count": total_chunks
+                        "chunk_count": total_chunks,
+                        "empty_graph": empty_graph,
+                        "fallback": "ontology_archetypes" if empty_graph else None,
                     }
                 )
 
@@ -675,6 +684,10 @@ def get_task(task_id: str):
             "error": f"Task does not exist: {task_id}"
         }), 404
 
+    owner_id = (task.metadata or {}).get('owner_id')
+    if owner_id is not None and str(owner_id) != str(current_user_id()) and not is_admin_user():
+        return jsonify({"success": False, "error": "Task access denied"}), 403
+
     return jsonify({
         "success": True,
         "data": task.to_dict()
@@ -687,11 +700,16 @@ def list_tasks():
     """
     List all tasks
     """
-    tasks = TaskManager().list_tasks()
+    uid = current_user_id()
+    admin = is_admin_user()
+    tasks = [
+        task for task in TaskManager().list_tasks()
+        if admin or str((task.get('metadata') or {}).get('owner_id')) == str(uid)
+    ]
     
     return jsonify({
         "success": True,
-        "data": [t.to_dict() for t in tasks],
+        "data": tasks,
         "count": len(tasks)
     })
 

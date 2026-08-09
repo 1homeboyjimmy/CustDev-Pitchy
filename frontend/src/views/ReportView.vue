@@ -1,15 +1,15 @@
 <template>
   <StageShell active-id="custdev">
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
-        <div class="flex items-center gap-4">
+      <header class="min-h-14 border-b border-white/5 flex items-center justify-between gap-2 px-3 py-2 sm:px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="flex items-center gap-2 sm:gap-4 min-w-0">
           <button @click="router.push('/')" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <HomeIcon class="w-4 h-4" />
           </button>
           <div class="h-4 w-px bg-white/10"></div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 min-w-0">
             <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 4/5 · итог</span>
-            <span class="text-sm font-bold text-white tracking-tight">Вердикт: нужен ли рынку продукт</span>
+            <span class="text-sm font-bold text-white tracking-tight truncate">Вердикт: нужен ли рынку продукт</span>
           </div>
         </div>
         <button v-if="!loading" @click="loadVerdict" class="text-white/30 hover:text-white transition-colors" title="Пересобрать отчёт">
@@ -18,7 +18,7 @@
       </header>
 
       <main class="flex-1 overflow-y-auto custom-scrollbar bg-pitchy-bg/30">
-        <div class="p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+        <div class="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
 
           <!-- Загрузка -->
           <div v-if="loading" class="py-20 text-center space-y-4">
@@ -28,7 +28,7 @@
 
           <template v-else>
             <!-- Верхний вердикт -->
-            <div class="rounded-2xl border border-white/15 bg-white/[0.03] p-6 flex items-start gap-5">
+            <div class="rounded-2xl border border-white/15 bg-white/[0.03] p-4 sm:p-6 flex flex-col min-[420px]:flex-row items-start gap-4 sm:gap-5">
               <div class="w-14 h-14 rounded-2xl shrink-0 flex items-center justify-center border" :class="verdictBox">
                 <component :is="verdictIcon" class="w-7 h-7" />
               </div>

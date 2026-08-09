@@ -37,14 +37,14 @@
       </header>
 
       <!-- Main Layout -->
-      <main class="flex-1 flex overflow-hidden relative">
+      <main class="workflow-panels flex-1 flex lg:flex-row flex-col overflow-hidden relative">
         <!-- Left Panel: Knowledge Graph -->
         <div 
-          class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
+          class="workflow-panel h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
           :class="{
-            'w-full opacity-100': viewMode === 'graph',
-            'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
-            'w-1/2 opacity-100': viewMode === 'split'
+            'w-full opacity-100 panel-full': viewMode === 'graph',
+            'w-0 opacity-0 pointer-events-none panel-hidden': viewMode === 'workbench',
+            'w-1/2 opacity-100 panel-split': viewMode === 'split'
           }"
         >
           <GraphPanel 
@@ -57,15 +57,15 @@
 
         <!-- Right Panel: Workbench -->
         <div 
-          class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
+          class="workflow-panel h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
           :class="{
-            'w-full opacity-100': viewMode === 'workbench',
-            'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
-            'w-1/2 opacity-100': viewMode === 'split'
+            'w-full opacity-100 panel-full': viewMode === 'workbench',
+            'w-0 opacity-0 pointer-events-none panel-hidden': viewMode === 'graph',
+            'w-1/2 opacity-100 panel-split': viewMode === 'split'
           }"
         >
           <div class="h-full overflow-y-auto custom-scrollbar">
-            <div class="p-8 max-w-4xl mx-auto space-y-8">
+            <div class="p-4 sm:p-6 xl:p-8 max-w-4xl mx-auto space-y-8">
               <Step2EnvSetup
                 :simulationId="currentSimulationId"
                 :projectData="projectData"
@@ -224,7 +224,11 @@ onMounted(async () => {
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023.98px) {
+  .workflow-panel.panel-split { width: 100% !important; height: 50% !important; min-height: 0; }
+  .workflow-panel.panel-full { width: 100% !important; height: 100% !important; }
+  .workflow-panel.panel-hidden { width: 100% !important; height: 0 !important; border: 0; }
+
   .workflow-header {
     height: auto !important;
     min-height: 3.5rem;

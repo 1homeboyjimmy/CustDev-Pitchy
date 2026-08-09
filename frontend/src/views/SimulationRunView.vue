@@ -35,7 +35,7 @@
         <!-- Граф (реал-тайм) -->
         <div
           class="border-b border-white/5 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden shrink-0"
-          :class="graphCollapsed ? 'h-0 opacity-0' : 'h-[42vh] opacity-100'"
+          :class="graphCollapsed ? 'h-0 opacity-0' : 'h-[32vh] sm:h-[42vh] opacity-100'"
         >
           <GraphPanel
             :graphData="graphData"
@@ -48,7 +48,7 @@
 
         <!-- Фокус-группа + движок -->
         <div class="flex-1 overflow-y-auto custom-scrollbar bg-pitchy-bg/30">
-          <div class="p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+          <div class="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
             <FocusGroupPanel
               :profiles="profiles"
               :interviewQuestions="interviewQuestions"

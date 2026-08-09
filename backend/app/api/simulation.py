@@ -487,7 +487,10 @@ def prepare_simulation():
         
         entity_types_list = data.get('entity_types')
         use_llm_for_profiles = data.get('use_llm_for_profiles', True)
-        parallel_profile_count = data.get('parallel_profile_count', 5)
+        try:
+            parallel_profile_count = max(1, min(10, int(data.get('parallel_profile_count', 5))))
+        except (TypeError, ValueError):
+            parallel_profile_count = 5
         
         # ========== Get GraphStorage（Capture reference before background task starts） ==========
         storage = current_app.extensions.get('neo4j_storage')
@@ -508,6 +511,14 @@ def prepare_simulation():
             # Save entity count to status（For frontend to get immediately）
             state.entities_count = filtered_preview.filtered_count
             state.entity_types = list(filtered_preview.entity_types)
+            if filtered_preview.filtered_count == 0:
+                fallback_preview = manager.synthesize_fallback_entities(
+                    ontology=project.ontology,
+                    simulation_requirement=simulation_requirement,
+                    document_text=document_text,
+                )
+                state.entities_count = fallback_preview.filtered_count
+                state.entity_types = sorted(fallback_preview.entity_types)
             logger.info(f"Expected entity count: {filtered_preview.filtered_count}, [type][model]: {filtered_preview.entity_types}")
         except Exception as e:
             logger.warning(f"Synchronously get entity countFailed（Will retry in background task）: {e}")
@@ -519,7 +530,8 @@ def prepare_simulation():
             task_type="simulation_prepare",
             metadata={
                 "simulation_id": simulation_id,
-                "project_id": state.project_id
+                "project_id": state.project_id,
+                "owner_id": current_user_id(),
             }
         )
         
@@ -614,11 +626,16 @@ def prepare_simulation():
                     ontology=project.ontology,
                 )
                 
-                # Task complete
-                task_manager.complete_task(
-                    task_id,
-                    result=result_state.to_simple_dict()
-                )
+                if result_state.status == SimulationStatus.FAILED:
+                    task_manager.fail_task(
+                        task_id,
+                        result_state.error or "Simulation preparation failed",
+                    )
+                else:
+                    task_manager.complete_task(
+                        task_id,
+                        result=result_state.to_simple_dict()
+                    )
                 
             except Exception as e:
                 logger.error(f"Failed to prepare simulation: {str(e)}")
@@ -760,6 +777,10 @@ def get_prepare_status():
                 "success": False,
                 "error": f"Task does not exist: {task_id}"
             }), 404
+
+        owner_id = (task.metadata or {}).get('owner_id')
+        if owner_id is not None and str(owner_id) != str(current_user_id()) and not is_admin_user():
+            return jsonify({"success": False, "error": "Task access denied"}), 403
         
         task_dict = task.to_dict()
         task_dict["already_prepared"] = False

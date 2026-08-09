@@ -61,7 +61,7 @@ const visibleItems = computed(() =>
 <template>
   <aside
     :class="[
-      'self-start sticky top-20 h-[calc(100vh-5rem)] border-r border-white/5 bg-black flex flex-col py-8 z-40 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] shrink-0',
+      'self-start sticky top-20 h-[calc(100vh-5rem)] border-r border-white/5 bg-black hidden lg:flex flex-col py-8 z-40 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] shrink-0',
       isCollapsed ? 'w-20' : 'w-64',
     ]"
   >
@@ -174,4 +174,26 @@ const visibleItems = computed(() =>
       </a>
     </div>
   </aside>
+
+  <!-- Compact navigation on phones and tablets. It does not reduce the work area. -->
+  <nav
+    class="lg:hidden fixed inset-x-0 bottom-0 z-[90] h-16 border-t border-white/10 bg-black/95 backdrop-blur-xl px-2 pb-[env(safe-area-inset-bottom)]"
+    aria-label="Навигация CustDev"
+  >
+    <div class="h-full flex items-center justify-around max-w-xl mx-auto">
+      <a
+        v-for="item in visibleItems"
+        :key="`mobile-${item.id}`"
+        :href="item.href"
+        :aria-label="item.label"
+        :class="[
+          'min-w-12 h-12 px-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors',
+          activeId === item.id ? 'bg-white/10 text-white' : 'text-white/45 hover:text-white'
+        ]"
+      >
+        <component :is="item.icon" :size="18" :stroke-width="1.5" />
+        <span class="text-[8px] leading-none font-medium truncate max-w-16">{{ item.label }}</span>
+      </a>
+    </div>
+  </nav>
 </template>

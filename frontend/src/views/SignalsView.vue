@@ -2,25 +2,25 @@
   <StageShell active-id="custdev">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Header -->
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
-        <div class="flex items-center gap-4">
+      <header class="min-h-14 border-b border-white/5 flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="flex items-center gap-2 sm:gap-4 min-w-0">
           <button @click="router.push('/')" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <ArrowLeftIcon class="w-4 h-4" />
           </button>
           <div class="h-4 w-px bg-white/10"></div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 min-w-0">
             <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 2/5</span>
-            <span class="text-sm font-bold text-white tracking-tight">Сигналы рынка</span>
+            <span class="text-sm font-bold text-white tracking-tight truncate">Сигналы рынка</span>
           </div>
         </div>
-        <div class="flex items-center gap-2 text-[11px] text-white/40 bg-white/5 px-3 py-1.5 rounded-lg">
+        <div class="flex items-center gap-2 text-[10px] sm:text-[11px] text-white/40 bg-white/5 px-2 sm:px-3 py-1.5 rounded-lg shrink-0">
           <RadarIcon class="w-3.5 h-3.5" :class="done ? 'text-white/40' : 'text-white animate-pulse'" />
           {{ totalSources }} источников<template v-if="!done"> · {{ elapsedText }}</template>
         </div>
       </header>
 
       <main class="flex-1 overflow-y-auto custom-scrollbar bg-pitchy-bg/30">
-        <div class="p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+        <div class="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
 
           <!-- Нет контекста -->
           <div v-if="!query" class="py-16 text-center text-white/40">

@@ -1,5 +1,9 @@
 <template>
   <div class="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
+    <div v-if="errorMessage" class="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3" role="alert">
+      <span>{{ errorMessage }}</span>
+      <button @click="startPrepareSimulation" class="shrink-0 rounded-full border border-red-200/25 px-4 py-2 text-xs hover:bg-white/10">Повторить</button>
+    </div>
     <!-- Introduction -->
     <div class="block">
       <span class="block text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans mb-2">Подготовка</span>
@@ -13,7 +17,7 @@
 
     <!-- Step 01: Simulation Instance -->
     <GlassCard :class="{ 'border-white/30 bg-white/5': phase === 0 }">
-      <div class="flex items-start justify-between mb-6">
+      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
         <div class="space-y-1">
           <h3 class="text-lg font-bold text-white">Окружение фокус-группы</h3>
           <div class="text-[11px] text-white/35">готовим среду для общества персон</div>
@@ -33,7 +37,7 @@
 
     <!-- Step 02: Agent Personas -->
     <GlassCard :class="{ 'border-white/30 bg-white/5': phase === 1 }">
-      <div class="flex items-start justify-between mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-8">
         <div class="space-y-1">
           <h3 class="text-lg font-bold text-white">Персоны общества</h3>
           <div class="text-[11px] text-white/35">генерируем представителей сегментов</div>
@@ -54,7 +58,7 @@
 
       <div class="space-y-8">
         <!-- Stats Grid -->
-        <div v-if="profiles.length > 0" class="grid grid-cols-3 gap-4">
+        <div v-if="profiles.length > 0" class="grid grid-cols-1 min-[380px]:grid-cols-3 gap-3 sm:gap-4">
           <div v-for="(val, label) in { 'Агенты': profiles.length, 'Цель': expectedTotal || '-', 'Темы': totalTopicsCount }" :key="label" 
             class="p-4 rounded-2xl bg-white/[0.01] border border-white/5 text-center">
             <div class="text-xl font-bold text-white font-mono">{{ val }}</div>
@@ -104,7 +108,7 @@
 
     <!-- Step 03: Configuration Details -->
     <GlassCard v-if="simulationConfig" :class="{ 'border-white/30 bg-white/5': phase === 2 }">
-      <div class="flex items-start justify-between mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Параметры матрицы</span>
@@ -152,7 +156,7 @@
 
     <!-- Step 04: Narrative Arrangement -->
     <GlassCard v-if="simulationConfig?.event_config" :class="{ 'border-white/30 bg-white/5': phase === 3 }">
-      <div class="flex items-start justify-between mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-8">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
             <span>Слой оркестрации</span>
@@ -181,7 +185,7 @@
             <div v-for="(post, idx) in simulationConfig.event_config.initial_posts" :key="idx" class="relative pl-10 group/post">
               <div class="absolute left-2 top-2 w-2 h-2 rounded-full bg-white/20 border border-white/50 group-hover/post:bg-white/10 transition-all"></div>
               <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors space-y-2">
-                <div class="flex items-center justify-between text-[10px]">
+                <div class="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-2 text-[10px]">
                   <div class="flex items-center gap-2">
                     <span class="px-1.5 py-0.5 rounded bg-white/10 text-white/80 font-mono text-[8px] uppercase">{{ post.poster_type }}</span>
                     <span class="text-white/40 font-bold">Агент {{ post.poster_agent_id }}</span>
@@ -239,7 +243,7 @@
           </p>
         </div>
         
-        <div class="grid grid-cols-2 gap-4 w-full pt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full pt-4">
           <PitchyButton variant="secondary" @click="$emit('go-back')">Сбросить матрицу</PitchyButton>
           <PitchyButton variant="primary" @click="handleStartSimulation" shadow class="shadow-[0_0_20px_rgba(255,255,255,0.12)] shadow-white/20">
             Запустить симуляцию
@@ -251,9 +255,9 @@
     <!-- Profile Modal (Redesigned) -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="selectedProfile" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div v-if="selectedProfile" class="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
           <div class="absolute inset-0 bg-pitchy-bg/90 backdrop-blur-md" @click="selectedProfile = null"></div>
-          <GlassCard class="relative z-10 w-full max-w-2xl bg-[#0A0A0F] border-white/10 shadow-2xl p-0 overflow-hidden animate-in zoom-in duration-300">
+          <GlassCard class="relative z-10 w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] bg-[#0A0A0F] border-white/10 shadow-2xl p-0 overflow-y-auto animate-in zoom-in duration-300">
             <div class="p-6 border-b border-white/5 flex items-start justify-between bg-white/[0.02]">
               <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-white/70 flex items-center justify-center text-white font-bold text-xl">
@@ -354,6 +358,12 @@ const selectedProfile = ref(null)
 const logContent = ref(null)
 const useCustomRounds = ref(false)
 const customMaxRounds = ref(40)
+const errorMessage = ref('')
+let consecutiveStatusErrors = 0
+let statusRequestActive = false
+let profilesRequestActive = false
+let configRequestActive = false
+let lastStatusMessage = ''
 
 watch(currentStage, (ns) => {
   if (ns === 'GenerateAgentPersona' || ns === 'generating_profiles') phase.value = 1
@@ -383,6 +393,10 @@ const handleStartSimulation = () => {
 
 const startPrepareSimulation = async () => {
   if (!props.simulationId) return
+  stopAllTimers()
+  errorMessage.value = ''
+  consecutiveStatusErrors = 0
+  lastStatusMessage = ''
   phase.value = 1
   addLog(`Инициализация среды: ${props.simulationId}`)
   emit('update-status', 'processing')
@@ -391,11 +405,16 @@ const startPrepareSimulation = async () => {
     if (res.success && res.data) {
       if (res.data.already_prepared) { addLog('Обнаружена существующая матрица. Восстановление.'); await loadPreparedData(); return }
       taskId.value = res.data.task_id
-      expectedTotal.value = res.data.expected_total_profiles
+      expectedTotal.value = res.data.expected_entities_count
       startPolling()
       startProfilesPolling()
     }
-  } catch (err) { console.error(err); emit('update-status', 'error') }
+  } catch (err) {
+    console.error(err)
+    errorMessage.value = err?.response?.data?.error || err?.message || 'Не удалось запустить подготовку персон.'
+    addLog(`Ошибка подготовки: ${errorMessage.value}`)
+    emit('update-status', 'error')
+  }
 }
 
 const loadPreparedData = async () => {
@@ -408,7 +427,12 @@ const loadPreparedData = async () => {
       phase.value = 4
       emit('update-status', 'completed')
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+    errorMessage.value = 'Подготовка завершена, но итоговые данные пока не загрузились. Повторите синхронизацию.'
+    addLog(errorMessage.value)
+    emit('update-status', 'error')
+  }
 }
 
 const startPolling = () => { pollStatus(); pollTimer = setInterval(pollStatus, 5000) }
@@ -416,34 +440,49 @@ const startProfilesPolling = () => { pollProfiles(); profilesTimer = setInterval
 const startConfigPolling = () => { pollConfig(); configTimer = setInterval(pollConfig, 8000) }
 
 const pollStatus = async () => {
-  if (!taskId.value) return
+  if (!taskId.value || statusRequestActive) return
+  statusRequestActive = true
   try {
     const res = await getPrepareStatus({ 
       task_id: taskId.value, 
       simulation_id: props.simulationId 
     })
     if (res.success) {
+      consecutiveStatusErrors = 0
       const task = res.data
-      if (task.message) addLog(task.message)
+      if (task.message && task.message !== lastStatusMessage) {
+        addLog(task.message)
+        lastStatusMessage = task.message
+      }
       prepareProgress.value = task.progress || 0
-      currentStage.value = task.stage || ''
-      if (task.status === 'completed' || task.status === 'ready') {
+      currentStage.value = task.progress_detail?.current_stage || task.stage || ''
+      const failedResult = task.result?.status === 'failed'
+      if ((task.status === 'completed' || task.status === 'ready') && !failedResult) {
         stopAllTimers()
-        phase.value = 4
-        emit('update-status', 'completed')
+        await loadPreparedData()
         addLog('Общество агентов полностью активировано.')
-      } else if (task.status === 'failed') {
+      } else if (task.status === 'failed' || failedResult) {
         stopAllTimers()
-        addLog(`Ошибка активации: ${task.error}`)
+        errorMessage.value = task.error || task.result?.error || 'Подготовка не завершена.'
+        addLog(`Ошибка активации: ${errorMessage.value}`)
         emit('update-status', 'error')
       }
     }
   } catch (e) {
     console.error(e)
+    consecutiveStatusErrors += 1
+    if (consecutiveStatusErrors === 3) {
+      errorMessage.value = 'Связь с сервером нестабильна. Продолжаем автоматические попытки.'
+      addLog(errorMessage.value)
+    }
+  } finally {
+    statusRequestActive = false
   }
 }
 
 const pollProfiles = async () => {
+  if (profilesRequestActive) return
+  profilesRequestActive = true
   try {
     const res = await getSimulationProfilesRealtime(props.simulationId)
     if (res.success && res.data.length > 0) {
@@ -454,10 +493,14 @@ const pollProfiles = async () => {
     }
   } catch (e) {
     console.error(e)
+  } finally {
+    profilesRequestActive = false
   }
 }
 
 const pollConfig = async () => {
+  if (configRequestActive) return
+  configRequestActive = true
   try {
     const res = await getSimulationConfigRealtime(props.simulationId)
     if (res.success && res.data) {
@@ -465,9 +508,15 @@ const pollConfig = async () => {
       if (res.data.status === 'completed') stopConfigPolling()
     }
   } catch (e) { console.error(e) }
+  finally { configRequestActive = false }
 }
 
-const stopAllTimers = () => { clearInterval(pollTimer); clearInterval(profilesTimer); clearInterval(configTimer) }
+const stopAllTimers = () => {
+  clearInterval(pollTimer)
+  clearInterval(profilesTimer)
+  clearInterval(configTimer)
+  pollTimer = profilesTimer = configTimer = null
+}
 const stopConfigPolling = () => clearInterval(configTimer)
 const stopProfilesPolling = () => clearInterval(profilesTimer)
 

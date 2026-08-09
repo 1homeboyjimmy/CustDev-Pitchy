@@ -10,6 +10,7 @@ from app.services.ontology_generator import OntologyGenerator
 from app.services import verdict_service
 from app.services import passport_service
 from app.models.project import ProjectManager
+from app.services.simulation_manager import SimulationManager
 
 
 def test_search_hits_are_deduplicated_and_attributed():
@@ -133,3 +134,28 @@ def test_project_list_recreates_missing_storage(tmp_path, monkeypatch):
 
     assert ProjectManager.list_projects() == []
     assert projects_dir.is_dir()
+
+
+def test_empty_graph_fallback_builds_customer_archetypes():
+    ontology = {
+        "entity_types": [
+            {"name": "Founder", "default_agent_role": "internal_team"},
+            {
+                "name": "PotentialCustomer",
+                "default_agent_role": "target_audience",
+                "description": "A buyer evaluating the product.",
+            },
+            {"name": "Investor", "default_agent_role": "investor"},
+        ]
+    }
+
+    result = SimulationManager.synthesize_fallback_entities(
+        ontology,
+        "Will customers pay 2500 per month?",
+        "A short hypothesis without named people.",
+    )
+
+    assert result.filtered_count == 6
+    assert all(entity.agent_role != "internal_team" for entity in result.entities)
+    assert all(entity.attributes["synthetic"] is True for entity in result.entities)
+    assert len({entity.name for entity in result.entities}) == 6

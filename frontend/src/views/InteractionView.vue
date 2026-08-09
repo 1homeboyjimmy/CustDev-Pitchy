@@ -2,19 +2,19 @@
   <StageShell active-id="custdev">
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Specialized Workflow Header -->
-      <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
-        <div class="flex items-center gap-4">
+      <header class="workflow-header min-h-14 border-b border-white/5 flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-6 bg-pitchy-bg/50 backdrop-blur-md z-20">
+        <div class="workflow-header-left flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <button @click="router.push({ name: 'Report', params: { reportId: currentReportId } })" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-white">
             <ArrowLeftIcon class="w-4 h-4" />
           </button>
           <div class="h-4 w-px bg-white/10"></div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 min-w-0">
             <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 5/5</span>
-            <span class="text-sm font-bold text-white tracking-tight">Структурированный когнитивный диалог</span>
+            <span class="text-sm font-bold text-white tracking-tight truncate">Структурированный когнитивный диалог</span>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+        <div class="workflow-header-mode order-3 sm:order-none w-full sm:w-auto flex items-center justify-start sm:justify-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto">
           <button 
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
@@ -26,7 +26,7 @@
           </button>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="workflow-header-right flex items-center gap-4 shrink-0">
           <div class="flex flex-col items-end">
             <span class="text-[10px] font-mono text-white/20 uppercase tracking-tighter">{{ simulationId?.slice(0, 8) || 'БЕЗ_ID' }}</span>
             <StatusBadge :type="currentStatus === 'error' ? 'danger' : (currentStatus === 'processing' ? 'primary' : 'success')" :dot="currentStatus === 'processing'">
@@ -41,11 +41,11 @@
         <div class="flex-1 flex overflow-hidden lg:flex-row flex-col">
           <!-- Left Panel: Graph -->
           <div 
-            class="h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
+            class="workflow-panel h-full border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
             :class="{
-              'w-full opacity-100': viewMode === 'graph',
-              'w-0 opacity-0 pointer-events-none': viewMode === 'workbench',
-              'w-1/2 opacity-100': viewMode === 'split'
+              'w-full opacity-100 panel-full': viewMode === 'graph',
+              'w-0 opacity-0 pointer-events-none panel-hidden': viewMode === 'workbench',
+              'w-1/2 opacity-100 panel-split': viewMode === 'split'
             }"
           >
             <GraphPanel 
@@ -58,11 +58,11 @@
 
           <!-- Right Panel: Interaction -->
           <div 
-            class="h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
+            class="workflow-panel h-full transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-pitchy-bg/30"
             :class="{
-              'w-full opacity-100': viewMode === 'workbench',
-              'w-0 opacity-0 pointer-events-none': viewMode === 'graph',
-              'w-1/2 opacity-100': viewMode === 'split'
+              'w-full opacity-100 panel-full': viewMode === 'workbench',
+              'w-0 opacity-0 pointer-events-none panel-hidden': viewMode === 'graph',
+              'w-1/2 opacity-100 panel-split': viewMode === 'split'
             }"
           >
             <div class="h-full overflow-hidden">
@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StageShell from '../components/layout/StageShell.vue'
 import GraphPanel from '../components/GraphPanel.vue'
@@ -231,4 +231,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@media (max-width: 1023.98px) {
+  .workflow-panel.panel-split { width: 100% !important; height: 50% !important; min-height: 0; }
+  .workflow-panel.panel-full { width: 100% !important; height: 100% !important; }
+  .workflow-panel.panel-hidden { width: 100% !important; height: 0 !important; border: 0; }
+}
+
+@media (max-width: 640px) {
+  .workflow-header-right span:first-child { display: none; }
+  .workflow-header-mode { scrollbar-width: none; }
+  .workflow-header-mode::-webkit-scrollbar { display: none; }
+  .workflow-header-mode button { flex: 0 0 auto; }
+}
 </style>

@@ -1,14 +1,14 @@
 <template>
   <div class="h-full flex flex-col relative overflow-hidden group/graph">
     <!-- Graph Header -->
-    <div class="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-white/5 backdrop-blur-md z-10">
+    <div class="h-12 flex items-center justify-between gap-2 px-3 sm:px-4 border-b border-white/5 bg-white/5 backdrop-blur-md z-10">
       <div class="flex items-center gap-2">
         <NetworkIcon class="w-4 h-4 text-white/80 shadow-glow shadow-white/25" />
         <span class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Архитектура общества</span>
       </div>
 
       <div class="flex items-center gap-2">
-        <div class="flex items-center gap-4 mr-4 text-[10px] font-mono text-white/30 uppercase tracking-tighter">
+        <div class="hidden sm:flex items-center gap-4 mr-2 text-[10px] font-mono text-white/30 uppercase tracking-tighter">
           <span v-if="graphData">{{ graphData.node_count || 0 }} Узлов</span>
           <span v-if="graphData" class="w-px h-2 bg-white/10"></span>
           <span v-if="graphData">{{ graphData.edge_count || 0 }} Связей</span>
@@ -52,7 +52,7 @@
       
       <!-- Detail Panel Redesigned -->
       <Transition name="slide-left">
-        <div v-if="selectedItem" class="absolute top-4 right-4 bottom-4 w-80 z-30">
+        <div v-if="selectedItem" class="absolute top-2 sm:top-4 right-2 sm:right-4 bottom-2 sm:bottom-4 w-80 max-w-[calc(100%-1rem)] sm:max-w-[calc(100%-2rem)] z-30">
           <GlassCard class="h-full flex flex-col p-0 shadow-2xl border-white/10 bg-[#0A0A0F]/90">
             <div class="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
               <div class="space-y-1">
@@ -147,7 +147,7 @@
     </div>
 
     <!-- Bottom Legnd & Controls -->
-    <div v-if="graphData && entityTypes.length" class="absolute bottom-4 left-4 z-10 flex items-end gap-4 pointer-events-none">
+    <div v-if="graphData && entityTypes.length" class="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-auto z-10 flex flex-wrap items-end gap-2 sm:gap-4 pointer-events-none">
       
       <!-- Legend Toggle/Container -->
       <Transition name="fade-scale" mode="out-in">
