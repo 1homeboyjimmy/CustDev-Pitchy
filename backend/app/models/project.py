@@ -177,6 +177,7 @@ class ProjectManager:
         """Save project metadata"""
         project.updated_at = datetime.now().isoformat()
         meta_path = cls._get_project_meta_path(project.project_id)
+        os.makedirs(os.path.dirname(meta_path), exist_ok=True)
 
         with open(meta_path, 'w', encoding='utf-8') as f:
             json.dump(project.to_dict(), f, ensure_ascii=False, indent=2)
@@ -215,8 +216,16 @@ class ProjectManager:
         """
         cls._ensure_projects_dir()
 
+        try:
+            project_ids = os.listdir(cls.PROJECTS_DIR)
+        except FileNotFoundError:
+            # A storage mount may be attached/replaced while the process is
+            # starting. Recreate the directory and treat it as an empty list.
+            cls._ensure_projects_dir()
+            project_ids = []
+
         projects = []
-        for project_id in os.listdir(cls.PROJECTS_DIR):
+        for project_id in project_ids:
             project = cls.get_project(project_id)
             if project:
                 projects.append(project)

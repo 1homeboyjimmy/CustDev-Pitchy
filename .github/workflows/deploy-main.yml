@@ -55,6 +55,17 @@ jobs:
           echo "==> Building containers (optimized)..."
           docker compose build
 
+          echo "==> Preparing durable uploads storage..."
+          docker volume create pitchy-custdev-uploads >/dev/null
+          mkdir -p backend/uploads
+          # One-way, non-overwriting migration from the legacy runner bind
+          # mount. On later deploys the named volume remains authoritative.
+          docker run --rm --entrypoint sh \
+            -v "$PWD/backend/uploads:/legacy:ro" \
+            -v pitchy-custdev-uploads:/data \
+            custdev-pitchy-pitchy:latest \
+            -c 'cp -an /legacy/. /data/ 2>/dev/null || true; mkdir -p /data/projects /data/simulations /data/reports'
+
           echo "==> Fixing Nginx configuration if needed..."
           if [ -f "/etc/nginx/sites-available/custdev" ]; then
             sudo sed -i 's/proxy_pass http:\/\/127.0.0.1:5001\/;/proxy_pass http:\/\/127.0.0.1:5001;/' /etc/nginx/sites-available/custdev

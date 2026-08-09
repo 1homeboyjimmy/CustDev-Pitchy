@@ -9,6 +9,7 @@ from app.services.signals_research import _normalise_analysis
 from app.services.ontology_generator import OntologyGenerator
 from app.services import verdict_service
 from app.services import passport_service
+from app.models.project import ProjectManager
 
 
 def test_search_hits_are_deduplicated_and_attributed():
@@ -124,3 +125,11 @@ def test_passport_service_unwraps_wrapped_passport(monkeypatch):
     monkeypatch.setattr(passport_service.requests, "get", fake_get)
     assert passport_service.get_passport("2", "project/7")["passport"]["core"]["problem"] == "Pain"
     assert captured["url"].endswith("/projects/project%2F7/passport")
+
+
+def test_project_list_recreates_missing_storage(tmp_path, monkeypatch):
+    projects_dir = tmp_path / "uploads" / "projects"
+    monkeypatch.setattr(ProjectManager, "PROJECTS_DIR", str(projects_dir))
+
+    assert ProjectManager.list_projects() == []
+    assert projects_dir.is_dir()

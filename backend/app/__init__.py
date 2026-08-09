@@ -39,6 +39,12 @@ def create_app(config_class=Config):
     # Setup logging
     logger = setup_logger('pitchy')
 
+    # Uploads are durable runtime state. Create the required layout before
+    # any request or background worker can touch it, and fail startup clearly
+    # if the mounted storage is not writable.
+    for storage_dir in ('projects', 'simulations', 'reports'):
+        os.makedirs(os.path.join(Config.UPLOAD_FOLDER, storage_dir), exist_ok=True)
+
     # Only print startup info in reloader subprocess (avoid printing twice in debug mode)
     is_reloader_process = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
     debug_mode = app.config.get('DEBUG', False)

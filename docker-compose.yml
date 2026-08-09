@@ -9,7 +9,9 @@ services:
       - "5001:5001"
     restart: unless-stopped
     volumes:
-      - ./backend/uploads:/app/backend/uploads
+      # Runtime projects, tasks and reports must survive Actions checkout.
+      # A bind mount inside the runner worktree was cleaned between deploys.
+      - custdev_uploads:/app/backend/uploads
     depends_on:
       - neo4j
     # Ограничиваем ресурсы, чтобы сервер не зависал
@@ -39,5 +41,7 @@ services:
           memory: 2G
 
 volumes:
+  custdev_uploads:
+    name: pitchy-custdev-uploads
   neo4j_data:
   neo4j_logs:
