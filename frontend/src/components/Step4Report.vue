@@ -1,5 +1,10 @@
 <template>
   <div class="space-y-12 animate-in fade-in slide-in-from-right-4 duration-700 pb-20">
+    <div v-if="errorMessage" class="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-4 text-sm text-red-100" role="alert">
+      <div class="font-semibold mb-1">Генерация отчёта остановлена</div>
+      <div class="text-red-100/75">{{ errorMessage }}</div>
+      <button @click="goBackToSimulation" class="mt-3 rounded-full border border-red-200/25 px-4 py-2 text-xs hover:bg-white/10">Вернуться к симуляции</button>
+    </div>
     <!-- Main Analytical Dashboard -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <!-- LEFT: The Report Document -->
@@ -180,7 +185,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAgentLog, getConsoleLog } from '../api/report'
+import { getAgentLog, getConsoleLog, getReport } from '../api/report'
 import GlassCard from './ui/GlassCard.vue'
 import StatusBadge from './ui/StatusBadge.vue'
 import PitchyButton from './ui/PitchyButton.vue'
@@ -219,6 +224,8 @@ const generatedSections = ref({})
 const expandedLogs = ref(new Set())
 const collapsedSections = ref(new Set())
 const isComplete = ref(false)
+const isFailed = ref(false)
+const errorMessage = ref('')
 const startTime = ref(null)
 const logContent = ref(null)
 
@@ -270,23 +277,46 @@ const getToolDisplayName = n => ({ 'insight_forge': 'Глубинный инса
 
 // Polling
 let pollingTimer = null
+let pollActive = false
 const startPolling = () => { poll(); pollingTimer = setInterval(poll, 6000) }
-const stopPolling = () => clearInterval(pollingTimer)
+const stopPolling = () => { clearInterval(pollingTimer); pollingTimer = null }
 
 const poll = async () => {
-  if (!props.reportId || isComplete.value) return
+  if (!props.reportId || isComplete.value || isFailed.value || pollActive) return
+  pollActive = true
   try {
     const aRes = await getAgentLog(props.reportId, agentLogLine.value)
     if (aRes.success && aRes.data.logs.length > 0) {
       aRes.data.logs.forEach(processLog)
-      agentLogLine.value = aRes.data.next_line
+      agentLogLine.value = aRes.data.total_lines || agentLogLine.value
     }
     const cRes = await getConsoleLog(props.reportId, consoleLogLine.value)
     if (cRes.success && cRes.data.logs.length > 0) {
       consoleLogs.value.push(...cRes.data.logs)
-      consoleLogLine.value = cRes.data.next_line
+      consoleLogLine.value = cRes.data.total_lines || consoleLogLine.value
     }
-  } catch (e) {}
+    const reportRes = await getReport(props.reportId)
+    const status = reportRes?.data?.status
+    if (status === 'completed') {
+      isComplete.value = true
+      stopPolling()
+      emit('update-status', 'completed')
+    } else if (status === 'failed') {
+      failReport(reportRes.data.error || 'Не удалось сформировать отчёт.')
+    }
+  } catch (e) {
+    // A transient polling error is retried on the next interval.
+  } finally {
+    pollActive = false
+  }
+}
+
+const failReport = message => {
+  if (isFailed.value) return
+  isFailed.value = true
+  errorMessage.value = message
+  stopPolling()
+  emit('update-status', 'error')
 }
 
 const processLog = log => {
@@ -303,9 +333,13 @@ const processLog = log => {
     stopPolling()
     emit('update-status', 'completed')
   }
+  if (log.action === 'error' && log.stage !== 'degraded') {
+    failReport(log.details?.error || log.details?.message || 'Генерация отчёта завершилась ошибкой.')
+  }
 }
 
 const goToInteraction = () => router.push({ name: 'Interaction', params: { reportId: props.reportId } })
+const goBackToSimulation = () => router.push({ name: 'SimulationRun', params: { simulationId: props.simulationId } })
 
 watch(() => consoleLogs.value.length, () => nextTick(() => { if (logContent.value) logContent.value.scrollTop = logContent.value.scrollHeight }))
 onMounted(() => { if (props.reportId) startPolling() })

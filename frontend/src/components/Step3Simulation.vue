@@ -236,6 +236,8 @@ const doStartSimulation = async () => {
 }
 
 let statusTimer, detailTimer
+let lastActionTimestamp = ''
+let detailRequestActive = false
 const startPolling = () => {
   statusTimer = setInterval(fetchRunStatus, 5000)
   detailTimer = setInterval(fetchRunStatusDetail, 8000)
@@ -256,8 +258,10 @@ const fetchRunStatus = async () => {
 }
 
 const fetchRunStatusDetail = async () => {
+  if (detailRequestActive) return
+  detailRequestActive = true
   try {
-    const res = await getRunStatusDetail(props.simulationId)
+    const res = await getRunStatusDetail(props.simulationId, { since: lastActionTimestamp })
     if (res.success && res.data.all_actions) {
       res.data.all_actions.forEach(action => {
         const id = action.id || `${action.timestamp}-${action.agent_id}`
@@ -266,8 +270,14 @@ const fetchRunStatusDetail = async () => {
           allActions.value.push({ ...action, _uniqueId: id })
         }
       })
+      const timestamps = res.data.all_actions.map(action => action.timestamp).filter(Boolean)
+      if (timestamps.length) {
+        timestamps.sort()
+        lastActionTimestamp = timestamps[timestamps.length - 1]
+      }
     }
   } catch (e) {}
+  finally { detailRequestActive = false }
 }
 
 const getActionTypeLabel = t => ({
@@ -282,7 +292,7 @@ const handleNextStep = async () => {
   isGeneratingReport.value = true
   addLog('Запуск аналитического синтеза...')
   try {
-    const res = await generateReport({ simulation_id: props.simulationId, force_regenerate: true })
+    const res = await generateReport({ simulation_id: props.simulationId })
     if (res.success) router.push({ name: 'Report', params: { reportId: res.data.report_id } })
   } catch (e) { isGeneratingReport.value = false }
 }

@@ -104,8 +104,10 @@ export const getRunStatus = (simulationId) => {
  * Get simulation detailed run status (including recent actions)
  * @param {string} simulationId
  */
-export const getRunStatusDetail = (simulationId) => {
-  return service.get(`/api/simulation/${simulationId}/run-status/detail`)
+export const getRunStatusDetail = (simulationId, { since } = {}) => {
+  return service.get(`/api/simulation/${simulationId}/run-status/detail`, {
+    params: { compact: 1, limit: 200, ...(since ? { since } : {}) }
+  })
 }
 
 /**

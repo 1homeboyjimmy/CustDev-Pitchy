@@ -1969,6 +1969,12 @@ def get_run_status_detail(simulation_id: str):
     try:
         run_state = SimulationRunner.get_run_state(simulation_id)
         platform_filter = request.args.get('platform')
+        since = request.args.get('since')
+        compact = request.args.get('compact', '').lower() in {'1', 'true', 'yes'}
+        try:
+            action_limit = max(1, min(500, int(request.args.get('limit', 200))))
+        except (TypeError, ValueError):
+            action_limit = 200
         
         if not run_state:
             return jsonify({
@@ -1987,17 +1993,22 @@ def get_run_status_detail(simulation_id: str):
             simulation_id=simulation_id,
             platform=platform_filter
         )
+        if since:
+            # Inclusive comparison prevents losing actions with identical
+            # timestamps; the client de-duplicates the small overlap by id.
+            all_actions = [action for action in all_actions if action.timestamp >= since]
+        all_actions = all_actions[:action_limit]
         
         # Get actions by platform
         twitter_actions = SimulationRunner.get_all_actions(
             simulation_id=simulation_id,
             platform="twitter"
-        ) if not platform_filter or platform_filter == "twitter" else []
+        ) if not compact and (not platform_filter or platform_filter == "twitter") else []
         
         reddit_actions = SimulationRunner.get_all_actions(
             simulation_id=simulation_id,
             platform="reddit"
-        ) if not platform_filter or platform_filter == "reddit" else []
+        ) if not compact and (not platform_filter or platform_filter == "reddit") else []
         
         # Get current round actions（recent_actions Only show latest round）
         current_round = run_state.current_round
@@ -2005,7 +2016,7 @@ def get_run_status_detail(simulation_id: str):
             simulation_id=simulation_id,
             platform=platform_filter,
             round_num=current_round
-        ) if current_round > 0 else []
+        ) if not compact and current_round > 0 else []
         
         # Get basic status information
         result = run_state.to_dict()

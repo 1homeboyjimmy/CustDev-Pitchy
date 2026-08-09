@@ -901,7 +901,7 @@ class ReportAgent:
     """
     
     # Maximum tool call count (per section)
-    MAX_TOOL_CALLS_PER_SECTION = 5
+    MAX_TOOL_CALLS_PER_SECTION = 2
 
     # Maximum reflection rounds
     MAX_REFLECTION_ROUNDS = 3
@@ -965,7 +965,12 @@ class ReportAgent:
         try:
             import asyncio
             from .rag_service import RagService
-            ctx = asyncio.run(RagService.get_market_context(self.simulation_requirement))
+            result = asyncio.run(RagService.search(
+                self.simulation_requirement,
+                top_k=4,
+                timeout=5.0,
+            ))
+            ctx = result.context
             if ctx:
                 logger.info(f"Market context for report fetched ({len(ctx)} chars)")
                 return ctx
@@ -1262,7 +1267,8 @@ class ReportAgent:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3
+                temperature=0.3,
+                max_tokens=800,
             )
             
             if progress_callback:
@@ -1270,11 +1276,13 @@ class ReportAgent:
 
             # Parse outline
             sections = []
-            for section_data in response.get("sections", []):
+            for section_data in response.get("sections", [])[:3]:
                 sections.append(ReportSection(
                     title=section_data.get("title", ""),
                     content=""
                 ))
+            if len(sections) < 2:
+                raise ValueError("LLM outline must contain at least two sections")
             
             outline = ReportOutline(
                 title=response.get("title", "Simulation Analysis Report"),
@@ -1292,14 +1300,102 @@ class ReportAgent:
             logger.error(f"Outline planning failed: {str(e)}")
             # Return default outline (3 sections as fallback)
             return ReportOutline(
-                title="Future Prediction Report",
-                summary="Future trends and risk analysis based on simulation predictions",
+                title="Результаты CustDev-исследования",
+                summary="Ключевые выводы, реакции персон и риски по результатам симуляции.",
                 sections=[
-                    ReportSection(title="Prediction Scenario and Core Findings"),
-                    ReportSection(title="Crowd Behavior Prediction Analysis"),
-                    ReportSection(title="Trend Outlook and Risk Warning")
+                    ReportSection(title="Главные выводы и подтверждённые боли"),
+                    ReportSection(title="Реакции сегментов и возражения"),
+                    ReportSection(title="Рекомендации, риски и следующие проверки")
                 ]
             )
+
+    def _generate_section_fast(
+        self,
+        section: ReportSection,
+        outline: ReportOutline,
+        previous_sections: List[str],
+        section_index: int,
+        progress_callback: Optional[Callable] = None,
+    ) -> str:
+        """Generate one evidence-bound section with a single LLM request.
+
+        The previous ReACT path required 3–5 tools and up to six LLM calls per
+        section. A three-section report could therefore make 15–20 paid calls
+        and take tens of minutes. Retrieval is deterministic here and the LLM
+        only performs the final synthesis. Provider failures degrade to the
+        retrieved evidence instead of leaving the report in an endless state.
+        """
+        if self.report_logger:
+            self.report_logger.log_section_start(section.title, section_index)
+
+        query = f"{section.title}. {self.simulation_requirement}"
+        try:
+            evidence = self._execute_tool("quick_search", {"query": query, "limit": 12})
+        except Exception as exc:
+            logger.warning("Fast report retrieval failed: %s", exc)
+            evidence = ""
+
+        evidence = (evidence or "").strip()[:6000]
+        market = (self.market_context or "").strip()[:2000]
+        previous = "\n\n".join(previous_sections[-2:])[-2500:]
+
+        if self.report_logger:
+            self.report_logger.log_tool_call(
+                section.title, section_index, "quick_search", {"query": query, "limit": 12}, 1
+            )
+            self.report_logger.log_tool_result(
+                section.title, section_index, "quick_search", evidence, 1
+            )
+        if progress_callback:
+            progress_callback("generating", 45, "Доказательства собраны, формируем выводы")
+
+        system_prompt = (
+            "Ты аналитик CustDev. Напиши один компактный раздел отчёта на русском языке. "
+            "Опирайся только на предоставленные данные, явно отмечай нехватку фактов. "
+            "Не используй Markdown-заголовки. Дай вывод, доказательства, возражения и практический следующий шаг. "
+            "Объём: 350–650 слов."
+        )
+        user_prompt = (
+            f"Отчёт: {outline.title}\nРаздел: {section.title}\n"
+            f"Гипотеза: {self.simulation_requirement}\n\n"
+            f"Данные симуляции:\n{evidence or 'Данные графа не найдены.'}\n\n"
+            f"Контекст рынка:\n{market or 'Внешний контекст недоступен.'}\n\n"
+            f"Предыдущие выводы (не повторяй):\n{previous or 'Это первый раздел.'}"
+        )
+
+        try:
+            content = self.llm.chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.35,
+                max_tokens=1800,
+            ).strip()
+            if self.report_logger:
+                self.report_logger.log_llm_response(
+                    section.title, section_index, content, 1, False, True
+                )
+        except Exception as exc:
+            logger.warning("LLM unavailable for section %s; using evidence fallback: %s", section.title, exc)
+            if self.report_logger:
+                self.report_logger.log_error(str(exc), "degraded", section.title)
+            readable_error = "Сервис языковой модели временно недоступен"
+            if "402" in str(exc) or "средств" in str(exc).lower():
+                readable_error = "Лимит провайдера языковой модели исчерпан"
+            content = (
+                f"**Режим ограниченного отчёта.** {readable_error}; раздел собран напрямую из доступных данных.\n\n"
+                f"**Проверяемая гипотеза:** {self.simulation_requirement}\n\n"
+                f"**Наблюдения симуляции:**\n\n{evidence or 'В графе симуляции недостаточно фактов для достоверного вывода.'}\n\n"
+                f"**Рыночный контекст:**\n\n{market or 'Внешние рыночные данные не были получены.'}\n\n"
+                "**Следующий шаг:** подтвердить выводы прямыми интервью и повторить расширенный синтез после восстановления LLM-провайдера."
+            )
+
+        if self.report_logger:
+            self.report_logger.log_section_content(
+                section.title, section_index, content, 1
+            )
+        return content
     
     def _generate_section_react(
         self, 
@@ -1753,7 +1849,7 @@ class ReportAgent:
                     )
                 
                 # Generate main sectioncontent
-                section_content = self._generate_section_react(
+                section_content = self._generate_section_fast(
                     section=section,
                     outline=outline,
                     previous_sections=generated_sections,

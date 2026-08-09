@@ -67,13 +67,16 @@ def generate_report():
 
         if not force_regenerate:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
-            if existing_report and existing_report.status == ReportStatus.COMPLETED:
+            if existing_report and existing_report.status in {
+                ReportStatus.PENDING, ReportStatus.PLANNING,
+                ReportStatus.GENERATING, ReportStatus.COMPLETED,
+            }:
                 return jsonify({"success": True, "data": {
                     "simulation_id": simulation_id,
                     "report_id": existing_report.report_id,
-                    "status": "completed",
-                    "message": "Report already exists",
-                    "already_generated": True
+                    "status": existing_report.status.value,
+                    "message": "Report already exists or is being generated",
+                    "already_generated": existing_report.status == ReportStatus.COMPLETED
                 }})
 
         project = ProjectManager.get_project(state.project_id)
@@ -94,7 +97,12 @@ def generate_report():
         task_manager = TaskManager()
         task_id = task_manager.create_task(
             task_type="report_generate",
-            metadata={"simulation_id": simulation_id, "graph_id": graph_id, "report_id": report_id}
+            metadata={
+                "simulation_id": simulation_id,
+                "graph_id": graph_id,
+                "report_id": report_id,
+                "owner_id": current_user_id(),
+            }
         )
 
         # Initialize graph_tools in Flask context BEFORE spawning thread
@@ -179,6 +187,10 @@ def _generate_status(task_id=None, simulation_id=None):
         task = task_manager.get_task(task_id)
         if not task:
             return jsonify({"success": False, "error": f"Task does not exist: {task_id}"}), 404
+
+        owner_id = (task.metadata or {}).get('owner_id')
+        if owner_id is not None and str(owner_id) != str(current_user_id()) and not is_admin_user():
+            return jsonify({"success": False, "error": "Task access denied"}), 403
 
         return jsonify({"success": True, "data": task.to_dict()})
 

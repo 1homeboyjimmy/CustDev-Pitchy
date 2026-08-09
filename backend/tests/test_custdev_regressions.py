@@ -11,6 +11,7 @@ from app.services import verdict_service
 from app.services import passport_service
 from app.models.project import ProjectManager
 from app.services.simulation_manager import SimulationManager
+from app.services.report_agent import ReportAgent, ReportOutline, ReportSection
 
 
 def test_search_hits_are_deduplicated_and_attributed():
@@ -159,3 +160,63 @@ def test_empty_graph_fallback_builds_customer_archetypes():
     assert all(entity.agent_role != "internal_team" for entity in result.entities)
     assert all(entity.attributes["synthetic"] is True for entity in result.entities)
     assert len({entity.name for entity in result.entities}) == 6
+
+
+def test_report_section_degrades_immediately_when_llm_credit_is_exhausted():
+    class SearchResult:
+        @staticmethod
+        def to_text():
+            return "Пять из шести персон подтвердили повторяющуюся боль."
+
+    class GraphTools:
+        @staticmethod
+        def quick_search(**kwargs):
+            return SearchResult()
+
+    class EmptyBalanceLLM:
+        @staticmethod
+        def chat(**kwargs):
+            raise RuntimeError("402: недостаточно средств на балансе")
+
+    agent = ReportAgent(
+        graph_id="graph",
+        simulation_id="simulation",
+        simulation_requirement="Проверить готовность платить",
+        llm_client=EmptyBalanceLLM(),
+        graph_tools=GraphTools(),
+    )
+    content = agent._generate_section_fast(
+        ReportSection(title="Главные боли"),
+        ReportOutline(title="Отчёт", summary="", sections=[]),
+        previous_sections=[],
+        section_index=1,
+    )
+
+    assert "Лимит провайдера" in content
+    assert "Пять из шести персон" in content
+
+
+def test_report_outline_is_capped_to_three_sections():
+    class GraphTools:
+        @staticmethod
+        def get_simulation_context(**kwargs):
+            return {"graph_statistics": {}, "total_entities": 0, "related_facts": []}
+
+    class OutlineLLM:
+        @staticmethod
+        def chat_json(**kwargs):
+            return {
+                "title": "Отчёт",
+                "summary": "Кратко",
+                "sections": [{"title": f"Раздел {i}"} for i in range(5)],
+            }
+
+    outline = ReportAgent(
+        graph_id="graph",
+        simulation_id="simulation",
+        simulation_requirement="Гипотеза",
+        llm_client=OutlineLLM(),
+        graph_tools=GraphTools(),
+    ).plan_outline()
+
+    assert len(outline.sections) == 3
