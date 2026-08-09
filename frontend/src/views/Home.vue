@@ -114,8 +114,27 @@
           :transition="{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }"
         >
           <div class="rounded-3xl border border-white/[0.08] bg-white/[0.015] p-8 md:p-10 space-y-10">
-            <!-- Режим входа: только гипотеза. Загрузка дека временно отключена
-                 (переключатель и блок дека ниже сохранены для лёгкого возврата). -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1.5">
+              <button
+                type="button"
+                @click="entryMode = 'hypothesis'"
+                class="rounded-xl px-4 py-3 text-left transition-colors"
+                :class="entryMode === 'hypothesis' ? 'bg-white text-black' : 'text-white/55 hover:bg-white/[0.06] hover:text-white'"
+              >
+                <div class="text-xs font-semibold">Паспорт или гипотеза</div>
+                <div class="mt-0.5 text-[10px] opacity-60">Заполнить вручную или импортировать из Pitchy</div>
+              </button>
+              <button
+                type="button"
+                @click="entryMode = 'deck'"
+                class="rounded-xl px-4 py-3 text-left transition-colors"
+                :class="entryMode === 'deck' ? 'bg-white text-black' : 'text-white/55 hover:bg-white/[0.06] hover:text-white'"
+              >
+                <div class="text-xs font-semibold">Презентация</div>
+                <div class="mt-0.5 text-[10px] opacity-60">PDF или PowerPoint с анализом контекста</div>
+              </button>
+            </div>
+
             <template v-if="entryMode === 'hypothesis'">
               <div class="space-y-5">
                 <div class="space-y-1">
@@ -192,7 +211,7 @@
                   <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.25em] font-sans">01 / Источник</span>
                   <h3 class="text-3xl font-semibold text-white leading-none tracking-tight">Ваш питч-дек</h3>
                 </div>
-                <span class="text-[10px] font-mono text-white/30 hidden sm:block">PDF · MD · TXT</span>
+                <span class="text-[10px] font-mono text-white/30 hidden sm:block">PDF · PPTX</span>
               </div>
 
               <div
@@ -203,7 +222,7 @@
                 @drop.prevent="handleDrop"
                 @click="triggerFileInput"
               >
-                <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" @change="handleFileSelect" class="hidden" :disabled="loading" />
+                <input ref="fileInput" type="file" multiple accept=".pdf,.pptx" @change="handleFileSelect" class="hidden" :disabled="loading" />
 
                 <div v-if="files.length === 0" class="text-center space-y-4">
                   <div class="w-12 h-12 rounded-full border border-white/15 flex items-center justify-center mx-auto group-hover:border-white/40 transition-all">
@@ -227,6 +246,7 @@
                   </div>
                 </div>
               </div>
+              <div v-if="fileError" class="text-[12px] text-amber-300/80" role="alert">{{ fileError }}</div>
             </div>
 
             <!-- Subtle divider -->
@@ -334,6 +354,8 @@ const folderLoading = ref(false)
 const folderImporting = ref(false)
 const folderError = ref('')
 const folderProjects = ref([])
+const importedPassport = ref(null)
+const fileError = ref('')
 
 const addSegment = () => {
   const s = segmentDraft.value.trim()
@@ -353,7 +375,7 @@ const generateFromFolder = async () => {
     if (res.success) folderProjects.value = res.data?.projects || []
     else folderError.value = res.error || 'Не удалось загрузить проекты'
   } catch (e) {
-    folderError.value = 'Паспорт-сервис ещё не развёрнут на главном сервере.'
+    folderError.value = e?.message || 'Не удалось связаться с паспорт-сервисом Pitchy.'
   } finally {
     folderLoading.value = false
   }
@@ -368,15 +390,23 @@ const pickProject = async (p) => {
     if (res.success) {
       const ps = res.data?.passport || {}
       const core = ps.core || {}
+      importedPassport.value = ps
       hyp.value.name = core.name || p.name || hyp.value.name
       hyp.value.problem = core.problem || hyp.value.problem
       hyp.value.solution = core.solution || hyp.value.solution
       const ta = core.target_audience || ''
-      if (ta) segments.value = String(ta).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean).slice(0, 6)
+      if (ta) {
+        const rawSegments = Array.isArray(ta) ? ta : String(ta).split(/[,;\n]+/)
+        segments.value = rawSegments.map(s => String(s).trim()).filter(Boolean).slice(0, 8)
+      }
+      if (!hyp.value.question && hyp.value.problem) {
+        const audience = segments.value.length ? segments.value.join(', ') : 'целевая аудитория'
+        hyp.value.question = `Насколько ${audience} испытывает эту проблему и готова использовать предложенное решение?`
+      }
       folderOpen.value = false
     } else folderError.value = res.error || 'Не удалось загрузить паспорт'
   } catch (e) {
-    folderError.value = 'Не удалось загрузить паспорт проекта.'
+    folderError.value = e?.message || 'Не удалось загрузить паспорт проекта.'
   } finally {
     folderImporting.value = false
   }
@@ -396,9 +426,17 @@ const handleDragLeave = (e) => { isDragOver.value = false }
 const handleDrop = (e) => { isDragOver.value = false; addFiles(Array.from(e.dataTransfer.files)) }
 
 const addFiles = (newFiles) => {
-  const allowed = ['.pdf', '.md', '.txt']
-  const valid = newFiles.filter(f => allowed.some(ext => f.name.toLowerCase().endsWith(ext)))
-  files.value = [...files.value, ...valid]
+  fileError.value = ''
+  const allowed = ['.pdf', '.pptx']
+  const maxFileBytes = 25 * 1024 * 1024
+  const valid = newFiles.filter(file => {
+    const supported = allowed.some(ext => file.name.toLowerCase().endsWith(ext))
+    if (!supported) fileError.value = 'Поддерживаются только презентации PDF и PPTX.'
+    else if (file.size > maxFileBytes) fileError.value = `Файл ${file.name} превышает лимит 25 МБ.`
+    return supported && file.size <= maxFileBytes
+  })
+  const known = new Set(files.value.map(file => `${file.name}:${file.size}:${file.lastModified}`))
+  files.value = [...files.value, ...valid.filter(file => !known.has(`${file.name}:${file.size}:${file.lastModified}`))]
 }
 
 const removeFile = (index) => { files.value.splice(index, 1) }
@@ -406,12 +444,16 @@ const removeFile = (index) => { files.value.splice(index, 1) }
 // Собирает seed-файл и цель анализа из полей гипотезы (когда дек не загружают).
 const buildHypothesisSeed = () => {
   const segLine = segments.value.length ? segments.value.join(', ') : 'не указаны'
+  const passportSections = importedPassport.value
+    ? Object.fromEntries(Object.entries(importedPassport.value).filter(([key]) => !key.startsWith('_')))
+    : null
   const seedText =
     `Название проекта: ${hyp.value.name || 'не указано'}\n` +
     `Проблема (боль клиента): ${hyp.value.problem}\n` +
     `Решение: ${hyp.value.solution}\n` +
     `Сегменты целевой аудитории: ${segLine}\n` +
-    `Ключевая гипотеза для проверки: ${hyp.value.question}\n`
+    `Ключевая гипотеза для проверки: ${hyp.value.question}\n` +
+    (passportSections ? `\nПолный паспорт проекта Pitchy:\n${JSON.stringify(passportSections, null, 2)}\n` : '')
   const file = new File([seedText], 'Гипотеза.txt', { type: 'text/plain' })
   const requirement =
     `Цель CustDev: проверить, нужен ли рынку этот продукт. ` +
@@ -436,7 +478,8 @@ const startSimulation = async () => {
       router.push({ name: 'Signals' })
     } else {
       setPendingUpload(files.value, formData.value.simulationRequirement)
-      router.push({ name: 'Process', params: { projectId: 'new' } })
+      setHypothesisContext(formData.value.simulationRequirement, [])
+      router.push({ name: 'Signals' })
     }
   } catch (err) {
     console.error('Failed to start simulation:', err)

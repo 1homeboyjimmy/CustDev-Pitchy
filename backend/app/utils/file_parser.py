@@ -1,9 +1,9 @@
-"""
-File Parser Utility
-Supports text extraction from PDF, Markdown, TXT files
-"""
+"""File Parser Utility for PDF, PowerPoint and plain-text documents."""
 
 import os
+import re
+import zipfile
+from xml.etree import ElementTree
 from pathlib import Path
 from typing import List, Optional
 
@@ -61,7 +61,9 @@ def _read_text_with_fallback(file_path: str) -> str:
 class FileParser:
     """File Parser"""
 
-    SUPPORTED_EXTENSIONS = {'.pdf', '.md', '.markdown', '.txt'}
+    SUPPORTED_EXTENSIONS = {'.pdf', '.pptx', '.md', '.markdown', '.txt'}
+    _MAX_PPTX_ENTRIES = 2_000
+    _MAX_PPTX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
 
     @classmethod
     def extract_text(cls, file_path: str) -> str:
@@ -86,12 +88,86 @@ class FileParser:
 
         if suffix == '.pdf':
             return cls._extract_from_pdf(file_path)
+        elif suffix == '.pptx':
+            return cls._extract_from_pptx(file_path)
         elif suffix in {'.md', '.markdown'}:
             return cls._extract_from_md(file_path)
         elif suffix == '.txt':
             return cls._extract_from_txt(file_path)
 
         raise ValueError(f"Cannot handle file format: {suffix}")
+
+    @staticmethod
+    def _numbered_office_parts(names: List[str], prefix: str) -> List[str]:
+        """Return OOXML parts in human slide/page order, not lexicographic order."""
+        pattern = re.compile(rf"^{re.escape(prefix)}(\d+)\.xml$")
+        numbered = []
+        for name in names:
+            match = pattern.match(name)
+            if match:
+                numbered.append((int(match.group(1)), name))
+        return [name for _, name in sorted(numbered)]
+
+    @classmethod
+    def _extract_from_pptx(cls, file_path: str) -> str:
+        """Extract visible slide text and speaker notes from an OOXML deck.
+
+        PPTX is a ZIP container. Parsing its XML directly keeps the production
+        image small and covers text boxes, tables and diagram labels without
+        executing embedded content. Archive limits protect against zip bombs.
+        """
+        try:
+            with zipfile.ZipFile(file_path) as archive:
+                infos = archive.infolist()
+                if len(infos) > cls._MAX_PPTX_ENTRIES:
+                    raise ValueError("PPTX contains too many internal files")
+                if sum(info.file_size for info in infos) > cls._MAX_PPTX_UNCOMPRESSED_BYTES:
+                    raise ValueError("PPTX expands beyond the 100 MB safety limit")
+
+                names = archive.namelist()
+                slides = cls._numbered_office_parts(names, "ppt/slides/slide")
+                if not slides:
+                    raise ValueError("PPTX contains no readable slides")
+
+                notes_by_number = {}
+                for note_name in cls._numbered_office_parts(names, "ppt/notesSlides/notesSlide"):
+                    number = int(re.search(r"(\d+)\.xml$", note_name).group(1))
+                    notes_by_number[number] = cls._extract_ooxml_text(archive.read(note_name))
+
+                parts = []
+                for slide_name in slides:
+                    number = int(re.search(r"(\d+)\.xml$", slide_name).group(1))
+                    slide_text = cls._extract_ooxml_text(archive.read(slide_name))
+                    note_text = notes_by_number.get(number, "")
+                    content = slide_text
+                    if note_text:
+                        content += f"\nЗаметки докладчика: {note_text}"
+                    if content.strip():
+                        parts.append(f"[Слайд {number}]\n{content.strip()}")
+        except zipfile.BadZipFile as exc:
+            raise ValueError("PPTX is damaged or is not a valid PowerPoint file") from exc
+        except ElementTree.ParseError as exc:
+            raise ValueError("PPTX contains damaged slide XML") from exc
+
+        if not parts:
+            raise ValueError("PPTX contains no extractable text")
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def _extract_ooxml_text(xml_bytes: bytes) -> str:
+        root = ElementTree.fromstring(xml_bytes)
+        # DrawingML stores textual runs in <a:t>. Joining within paragraphs
+        # preserves enough structure for ontology and CustDev prompts.
+        paragraphs = []
+        for paragraph in root.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}p"):
+            runs = [
+                node.text.strip()
+                for node in paragraph.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}t")
+                if node.text and node.text.strip()
+            ]
+            if runs:
+                paragraphs.append(" ".join(runs))
+        return "\n".join(paragraphs)
 
     # Minimum non-whitespace chars per page before we treat the page as a scan
     # and fall back to OCR. PDFs that are pure images return only stray newlines
@@ -114,7 +190,7 @@ class FileParser:
         except ImportError:
             raise ImportError("PyMuPDF required: pip install PyMuPDF")
 
-        text_parts: List[str] = []
+        page_texts: dict[int, str] = {}
         ocr_needed_pages: List[int] = []
 
         with fitz.open(file_path) as doc:
@@ -122,27 +198,19 @@ class FileParser:
                 text = page.get_text() or ""
                 meaningful_len = len(text.strip())
                 if meaningful_len >= FileParser._OCR_FALLBACK_THRESHOLD:
-                    text_parts.append(text)
+                    page_texts[page_index] = text
                 else:
                     ocr_needed_pages.append(page_index)
 
             if ocr_needed_pages:
                 ocr_results = FileParser._ocr_pages(doc, ocr_needed_pages)
-                # Insert OCR'd text in original page order
-                if ocr_results:
-                    indexed = {p: t for p, t in ocr_results}
-                    # Rebuild in page order: native + OCR
-                    final = []
-                    for page_index, page in enumerate(doc):
-                        if page_index in indexed:
-                            final.append(indexed[page_index])
-                        else:
-                            native = page.get_text() or ""
-                            if native.strip():
-                                final.append(native)
-                    text_parts = final
+                page_texts.update({page: text for page, text in ocr_results})
 
-        joined = "\n\n".join(t for t in text_parts if t and t.strip())
+        joined = "\n\n".join(
+            f"[Страница {page_index + 1}]\n{page_texts[page_index].strip()}"
+            for page_index in sorted(page_texts)
+            if page_texts[page_index] and page_texts[page_index].strip()
+        )
 
         if not joined.strip() and ocr_needed_pages:
             raise ValueError(

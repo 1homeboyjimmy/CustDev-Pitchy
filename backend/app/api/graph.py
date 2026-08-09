@@ -170,7 +170,7 @@ def generate_ontology():
     Request method: multipart/form-data
 
     Parameters:
-        files: Uploaded files (PDF/MD/TXT), multiple allowed
+        files: Uploaded files (PDF/PPTX/MD/TXT), multiple allowed
         simulation_requirement: Simulation requirement description (required)
         project_name: Project name (optional)
         additional_context: Additional notes (optional)

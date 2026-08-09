@@ -1,6 +1,7 @@
 """Focused regressions for the CustDev evidence pipeline."""
 
 import json
+import zipfile
 
 from app.config import Config
 from app.utils import auth
@@ -12,6 +13,7 @@ from app.services import passport_service
 from app.models.project import ProjectManager
 from app.services.simulation_manager import SimulationManager
 from app.services.report_agent import ReportAgent, ReportOutline, ReportSection
+from app.utils.file_parser import FileParser
 
 
 def test_search_hits_are_deduplicated_and_attributed():
@@ -127,6 +129,38 @@ def test_passport_service_unwraps_wrapped_passport(monkeypatch):
     monkeypatch.setattr(passport_service.requests, "get", fake_get)
     assert passport_service.get_passport("2", "project/7")["passport"]["core"]["problem"] == "Pain"
     assert captured["url"].endswith("/projects/project%2F7/passport")
+
+
+def test_pptx_text_is_extracted_in_slide_order(tmp_path):
+    deck = tmp_path / "deck.pptx"
+    slide_xml = lambda text: (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        f'<p:cSld><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:cSld></p:sld>'
+    )
+    with zipfile.ZipFile(deck, "w") as archive:
+        archive.writestr("ppt/slides/slide10.xml", slide_xml("Десятый слайд"))
+        archive.writestr("ppt/slides/slide2.xml", slide_xml("Второй слайд"))
+        archive.writestr("ppt/slides/slide1.xml", slide_xml("Первый слайд"))
+
+    extracted = FileParser.extract_text(str(deck))
+
+    assert extracted.index("Первый слайд") < extracted.index("Второй слайд")
+    assert extracted.index("Второй слайд") < extracted.index("Десятый слайд")
+    assert "[Слайд 10]" in extracted
+
+
+def test_pptx_rejects_invalid_archive(tmp_path):
+    deck = tmp_path / "broken.pptx"
+    deck.write_bytes(b"not a zip")
+
+    try:
+        FileParser.extract_text(str(deck))
+    except ValueError as exc:
+        assert "damaged" in str(exc)
+    else:
+        raise AssertionError("Invalid PPTX must be rejected")
 
 
 def test_project_list_recreates_missing_storage(tmp_path, monkeypatch):

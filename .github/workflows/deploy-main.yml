@@ -46,6 +46,33 @@ jobs:
           fi
           unset CUSTDEV_SSO_SERVICE_SECRET
 
+          # Passport import and market RAG must use the same service token as
+          # the main Pitchy runtime. Keep it out of Git and synchronize it on
+          # every deploy so a stale CustDev .env cannot silently break imports.
+          if [ -f "/opt/ai-startup/.env.runtime" ]; then
+            export PITCHY_RAG_API_KEY="$(sed -n 's/^RAG_API_KEY=//p' /opt/ai-startup/.env.runtime | tail -n 1)"
+            if [ -n "$PITCHY_RAG_API_KEY" ]; then
+              python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path('.env')
+          values = {
+              'RAG_API_KEY': os.environ['PITCHY_RAG_API_KEY'],
+              'MAIN_SERVER_RAG_URL': 'https://pitchy.pro/api/rag/search',
+          }
+          lines = path.read_text(encoding='utf-8').splitlines()
+          lines = [line for line in lines if line.split('=', 1)[0] not in values]
+          lines.extend(f'{key}={value}' for key, value in values.items())
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+              echo "    Pitchy passport/RAG credentials synchronized."
+            else
+              echo "    WARNING: RAG_API_KEY missing in main Pitchy runtime; passport import will be unavailable."
+            fi
+          fi
+          unset PITCHY_RAG_API_KEY
+
           # The runtime file is optional when the dedicated secrets were
           # already provisioned in CustDev's persistent server env. Until the
           # two SSO secrets are provisioned, keep the explicitly approved
@@ -91,6 +118,9 @@ jobs:
 
           echo "==> Waiting for services to initialize (15s)..."
           sleep 15
+
+          echo "==> Verifying Pitchy passport bridge..."
+          docker compose exec -T pitchy python -c "import os,requests; r=requests.get('https://pitchy.pro/api/rag/projects',params={'user_id':0},headers={'Authorization':'Bearer '+os.environ['RAG_API_KEY']},timeout=15); print('passport bridge status:',r.status_code); r.raise_for_status()"
 
           echo "==> Container Status:"
           docker compose ps

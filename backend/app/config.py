@@ -130,7 +130,7 @@ class Config:
     # made storage diagnostics misleading and interacted badly with bind
     # mounts that were recreated by the deploy workspace.
     UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '../uploads'))
-    ALLOWED_EXTENSIONS = {'pdf', 'md', 'txt', 'markdown'}
+    ALLOWED_EXTENSIONS = {'pdf', 'pptx', 'md', 'txt', 'markdown'}
 
     # Text processing configuration
     DEFAULT_CHUNK_SIZE = 500  # Default chunk size
