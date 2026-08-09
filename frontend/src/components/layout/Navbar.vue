@@ -42,6 +42,7 @@ const toggleMobileMenu = () => {
     <div class="flex flex-row justify-between items-center py-4 px-8 w-full max-w-[1440px] mx-auto">
       <!-- Logo -->
       <a href="https://pitchy.pro/" class="flex items-center gap-2 relative z-[110]">
+        <img src="/icon.png" alt="Pitchy" class="w-7 h-7 object-contain invert" />
         <span class="font-display tracking-tight text-white inline-flex items-baseline text-xl">
           Pitchy<span class="text-white/30 italic">.pro</span>
         </span>

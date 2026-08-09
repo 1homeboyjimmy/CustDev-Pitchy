@@ -81,7 +81,7 @@ const visibleItems = computed(() =>
             v-if="isCollapsed"
             :src="logoUrl"
             alt="Pitchy"
-            class="w-8 h-8 rounded-lg object-contain"
+            class="w-8 h-8 rounded-lg object-contain invert"
           />
           <span v-else class="inline-flex items-baseline">
             Pitchy<span class="text-white/30 italic">.pro</span>
