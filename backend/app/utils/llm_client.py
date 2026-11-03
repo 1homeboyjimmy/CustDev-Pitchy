@@ -21,14 +21,15 @@ class LLMClient:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: float = 300.0
+        timeout: float = 300.0,
+        task: Optional[str] = None,
     ):
         self.api_key = api_key or Config.LLM_API_KEY
         self.base_url = base_url or Config.LLM_BASE_URL
-        self.model = model or Config.LLM_MODEL_NAME
+        self.model = model or (Config.model_for(task) if task else Config.LLM_MODEL_NAME)
 
         if not self.api_key:
-            raise ValueError("LLM_API_KEY not configured")
+            raise ValueError("POLZA_API_KEY not configured")
 
         self.client = OpenAI(
             api_key=self.api_key,

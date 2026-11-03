@@ -1,8 +1,5 @@
 """
-EmbeddingService — local embedding via Ollama API
-
-Replaces Zep Cloud's built-in embedding with local nomic-embed-text model.
-Uses Ollama's /api/embed endpoint for vector generation (768 dimensions).
+EmbeddingService — Polza embeddings for the Neo4j knowledge graph.
 """
 
 import time
@@ -18,7 +15,7 @@ logger = logging.getLogger('pitchy.embedding')
 
 
 class EmbeddingService:
-    """Generate embeddings using local Ollama server."""
+    """Generate embeddings through the same Polza account as chat."""
 
     def __init__(
         self,
@@ -157,8 +154,9 @@ class EmbeddingService:
                 "input": texts,
             }
             # For text-embedding-3-* models, we can request 768 dimensions directly
-            if "text-embedding-3" in self.model:
+            if "text-embedding-3" in self.model or "qwen3-embedding" in self.model:
                 payload["dimensions"] = 768
+            payload["encoding_format"] = "float"
         else:
             # Ollama /api/embed format
             payload = {
@@ -195,6 +193,9 @@ class EmbeddingService:
                     raise EmbeddingError(
                         f"Expected {len(texts)} embeddings, got {len(embeddings)}"
                     )
+
+                if any(len(vector) != 768 for vector in embeddings):
+                    raise EmbeddingError('Embedding provider must return 768 dimensions for Neo4j')
 
                 return embeddings
 

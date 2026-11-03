@@ -50,7 +50,7 @@ class NERExtractor:
     """Extract entities and relations from text using local LLM."""
 
     def __init__(self, llm_client: Optional[LLMClient] = None, max_retries: int = 2):
-        self.llm = llm_client or LLMClient()
+        self.llm = llm_client or LLMClient(task='extraction')
         self.max_retries = max_retries
 
     def extract(self, text: str, ontology: Dict[str, Any]) -> Dict[str, Any]:

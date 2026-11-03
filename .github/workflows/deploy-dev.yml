@@ -24,6 +24,17 @@ jobs:
             cp .env.example .env
           fi
 
+          echo "==> Checking Polza configuration..."
+          python3 - <<'PY'
+          from pathlib import Path
+          values = dict(line.split('=', 1) for line in Path('.env').read_text().splitlines()
+                        if '=' in line and not line.lstrip().startswith('#'))
+          if not values.get('POLZA_API_KEY', '').strip().strip('"').strip("'"):
+              raise SystemExit('POLZA_API_KEY must be configured in /root/CustDev-Pitchy/.env')
+          if values.get('POLZA_API_BASE', 'https://polza.ai/api/v1').rstrip('/') != 'https://polza.ai/api/v1':
+              raise SystemExit('CustDev requires the Polza API endpoint')
+          PY
+
           echo "==> Building containers (optimized)..."
           docker compose build
 

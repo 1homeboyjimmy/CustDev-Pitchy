@@ -2,7 +2,7 @@
 
 Сводит реальные сигналы (web/Reddit) и ответы фокус-группы агентов в один
 честный go/no-go + масштабный markdown-разбор взаимодействия агентов.
-LLM = routerai (Config.LLM_MODEL_NAME, сейчас MiMo).
+LLM: Polza, using the configured verdict model.
 """
 
 import os
@@ -178,6 +178,8 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
         'sources': sources,
         'answers': answers,
         'version': 2,
+        'model': Config.model_for('verdict'),
+        'provider': Config.LLM_BASE_URL,
     }
     fingerprint = hashlib.sha256(
         json.dumps(fingerprint_payload, ensure_ascii=False, sort_keys=True).encode('utf-8')
@@ -234,7 +236,7 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
     try:
         client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL, timeout=60.0)
         resp = client.chat.completions.create(
-            model=Config.LLM_MODEL_NAME,
+            model=Config.model_for('verdict'),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.4,
             max_tokens=2600,

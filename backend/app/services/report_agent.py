@@ -931,7 +931,8 @@ class ReportAgent:
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
 
-        self.llm = llm_client or LLMClient()
+        self.llm = llm_client or LLMClient(task='report')
+        self.chat_llm = llm_client or LLMClient(task='report_chat')
         if graph_tools is None:
             raise ValueError(
                 "graph_tools (GraphToolsService) is required. "
@@ -2049,7 +2050,7 @@ class ReportAgent:
         max_iterations = 2  # reduce iterations
         
         for iteration in range(max_iterations):
-            response = self.llm.chat(
+            response = self.chat_llm.chat(
                 messages=messages,
                 temperature=0.5
             )
@@ -2089,7 +2090,7 @@ class ReportAgent:
             })
         
         # Reachedmaximum iteration，Getfinalresponse
-        final_response = self.llm.chat(
+        final_response = self.chat_llm.chat(
             messages=messages,
             temperature=0.5
         )

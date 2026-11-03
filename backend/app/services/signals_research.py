@@ -110,7 +110,7 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict[str, str]:
     try:
         client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL, timeout=15.0)
         response = client.chat.completions.create(
-            model=Config.LLM_MODEL_NAME,
+            model=Config.model_for('search'),
             messages=[{'role': 'user', 'content': prompt}],
             temperature=0.2,
             max_tokens=700,
@@ -177,7 +177,7 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict]) -> dic
     try:
         client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL)
         resp = client.chat.completions.create(
-            model=Config.LLM_MODEL_NAME,
+            model=Config.model_for('signals'),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )

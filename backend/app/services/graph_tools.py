@@ -466,7 +466,7 @@ class GraphToolsService:
     def llm(self) -> LLMClient:
         """Lazy initialization of LLM client"""
         if self._llm_client is None:
-            self._llm_client = LLMClient()
+            self._llm_client = LLMClient(task='graph_analysis')
         return self._llm_client
 
     # ========== Basic Tools ==========

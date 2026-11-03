@@ -101,7 +101,7 @@ def test_openai_embedding_provider_receives_authorization(monkeypatch):
 
         @staticmethod
         def json():
-            return {'data': [{'index': 0, 'embedding': [0.1, 0.2]}]}
+            return {'data': [{'index': 0, 'embedding': [0.1] * 768}]}
 
     def fake_post(url, **kwargs):
         captured.update(url=url, kwargs=kwargs)
@@ -114,7 +114,7 @@ def test_openai_embedding_provider_receives_authorization(monkeypatch):
         api_key='embedding-secret',
     )
 
-    assert service.embed('рынок') == [0.1, 0.2]
+    assert service.embed('рынок') == [0.1] * 768
     assert captured['kwargs']['headers']['Authorization'] == 'Bearer embedding-secret'
 
 

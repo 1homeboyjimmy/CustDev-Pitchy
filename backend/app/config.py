@@ -35,6 +35,11 @@ bypass_check = os.environ.get('ALLOW_UNVERIFIED_SESSION')
 print(f"[CONFIG_DEBUG] ALLOW_UNVERIFIED_SESSION is set to: {bypass_check}")
 
 
+from llm_settings import sync_polza_environment
+
+_polza = sync_polza_environment()
+
+
 class Config:
     """Flask configuration class"""
 
@@ -109,10 +114,14 @@ class Config:
     JSON_AS_ASCII = False
 
     # LLM configuration (unified OpenAI format)
-    LLM_API_KEY = os.environ.get('LLM_API_KEY')
-    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://localhost:11434/v1')
-    # Текстовая быстрая модель (дек больше не грузим — vision не нужен).
-    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'deepseek/deepseek-v4-flash')
+    LLM_API_KEY = _polza['api_key']
+    LLM_BASE_URL = _polza['base_url']
+    LLM_MODEL_NAME = _polza['model']
+    LLM_MODELS = _polza['models']
+
+    @classmethod
+    def model_for(cls, task):
+        return cls.LLM_MODELS[task]
 
     # Neo4j configuration
     NEO4J_URI = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
@@ -121,9 +130,9 @@ class Config:
     NEO4J_CONNECTION_TIMEOUT = float(os.environ.get('NEO4J_CONNECTION_TIMEOUT', '5'))
 
     # Embedding configuration
-    EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'nomic-embed-text')
-    EMBEDDING_BASE_URL = os.environ.get('EMBEDDING_BASE_URL', 'http://localhost:11434')
-    EMBEDDING_API_KEY = os.environ.get('EMBEDDING_API_KEY') or LLM_API_KEY
+    EMBEDDING_MODEL = _polza['embedding_model']
+    EMBEDDING_BASE_URL = _polza['base_url']
+    EMBEDDING_API_KEY = LLM_API_KEY
 
     # File upload configuration
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
@@ -183,7 +192,7 @@ class Config:
         """Validate required configuration"""
         errors = []
         if not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY not configured (set to any non-empty value, e.g. 'ollama')")
+            errors.append("POLZA_API_KEY not configured")
         if not cls.SECRET_KEY or len(cls.SECRET_KEY) < 32:
             errors.append("APP_SECRET_KEY/SECRET_KEY must be configured with at least 32 characters")
         if not cls.NEO4J_URI:

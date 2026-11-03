@@ -432,40 +432,20 @@ class RedditSimulationRunner:
         return os.path.join(self.simulation_dir, "reddit_simulation.db")
     
     def _create_model(self):
-        """
-        Create LLM model
-        
-        Unified use of configuration in project root .env file (highest priority)：
-        - LLM_API_KEY: API key
-        - LLM_BASE_URL: API base URL
-        - LLM_MODEL_NAME: Model name
-        """
-        # Read configuration from .env first
-        llm_api_key = os.environ.get("LLM_API_KEY", "")
-        llm_base_url = os.environ.get("LLM_BASE_URL", "")
-        llm_model = os.environ.get("LLM_MODEL_NAME", "")
-        
-        # If not in .env, use config as fallback
-        if not llm_model:
-            llm_model = self.config.get("llm_model", "gpt-4o-mini")
-        
-        # Set environment variables required by camel-ai
-        if llm_api_key:
-            os.environ["OPENAI_API_KEY"] = llm_api_key
-        
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("Missing API Key configuration, please set LLM_API_KEY in .env file in project root")
-        
-        if llm_base_url:
-            os.environ["OPENAI_API_BASE_URL"] = llm_base_url
-        
-        print(f"LLM configuration: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
-        
+        """Create a Polza model; saved configs and legacy BOOST cannot change provider."""
+        from llm_settings import sync_polza_environment
+
+        settings = sync_polza_environment()
+        if not settings['api_key']:
+            raise ValueError('POLZA_API_KEY not configured')
         return ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
-            model_type=llm_model,
+            model_type=settings['models']['simulation'],
+            api_key=settings['api_key'],
+            url=settings['base_url'],
         )
-    
+
+
     def _get_active_agents_for_round(
         self, 
         env, 
