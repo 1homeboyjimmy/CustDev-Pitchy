@@ -97,13 +97,14 @@
         <p class="text-white/30 text-sm mb-3">Общество ответит на стандартный список CustDev-вопросов.</p>
         <button
           @click="$emit('run-interview')"
-          :disabled="running || !profiles || profiles.length === 0"
+          :disabled="running || !interviewAvailable || !profiles || profiles.length === 0"
           class="bg-white text-black rounded-full px-5 py-2 text-sm font-bold disabled:opacity-40 inline-flex items-center gap-2 shadow-[0_0_24px_rgba(255,255,255,0.1)]"
         >
           <LoaderIcon v-if="running" class="w-4 h-4 animate-spin" />
           <PlayIcon v-else class="w-4 h-4" />
           Провести CustDev-интервью
         </button>
+        <p v-if="!interviewAvailable" role="status" class="text-white/40 text-xs mt-3 px-3">{{ interviewNotice }}</p>
       </div>
 
       <div v-else class="space-y-2.5">
@@ -159,6 +160,8 @@ const props = defineProps({
   sending: { type: Boolean, default: false },
   running: { type: Boolean, default: false },
   interviewDone: { type: Boolean, default: false },
+  interviewAvailable: { type: Boolean, default: false },
+  interviewNotice: { type: String, default: 'Интервью станет доступно после завершения симуляции.' },
   warmth: { type: Object, default: () => ({}) },
 })
 

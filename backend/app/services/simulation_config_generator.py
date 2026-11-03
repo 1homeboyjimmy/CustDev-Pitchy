@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
 from openai import OpenAI
+from llm_settings import polza_chat_options
 
 from ..config import Config
 from ..utils.logger import get_logger
@@ -466,7 +467,8 @@ class SimulationConfigGenerator:
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)  # Lower temperature with each retry
+                    temperature=0.7 - (attempt * 0.1),  # Lower temperature with each retry
+                    **polza_chat_options(self.model_name),
                     # Don't set max_tokens, let LLM generate freely
                 )
 

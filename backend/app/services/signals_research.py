@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from openai import OpenAI
+from llm_settings import polza_chat_options
 
 from ..config import Config
 from ..models.task import TaskManager, TaskStatus
@@ -113,8 +114,9 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict[str, str]:
             model=Config.model_for('search'),
             messages=[{'role': 'user', 'content': prompt}],
             temperature=0.2,
-            max_tokens=700,
+            max_tokens=1600,
             response_format={'type': 'json_object'},
+            **polza_chat_options(Config.model_for('search')),
         )
         data = json.loads(response.choices[0].message.content)
         for agent in AGENTS:

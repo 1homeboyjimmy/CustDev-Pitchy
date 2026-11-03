@@ -11,6 +11,20 @@ from app.config import Config
 from app.storage.embedding_service import EmbeddingService, EmbeddingError
 
 
+def test_flash_json_requests_disable_reasoning_without_changing_analysis_models(monkeypatch):
+    from app.utils import llm_client
+    monkeypatch.setattr(Config, 'LLM_API_KEY', 'polza-test')
+    captured = []
+    def create(**kwargs):
+        captured.append(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": true}'))])
+    monkeypatch.setattr(llm_client, 'OpenAI', lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
+    llm_client.LLMClient(task='extraction').chat_json(messages=[])
+    llm_client.LLMClient(task='ontology').chat_json(messages=[])
+    assert captured[0]['extra_body'] == {'reasoning': {'enabled': False}}
+    assert 'extra_body' not in captured[1]
+
+
 def test_old_provider_settings_cannot_escape_to_workers():
     env = {'POLZA_API_KEY': 'polza-test'}
     for prefix in ('LLM', 'LLM_BOOST', 'OPENAI', 'EMBEDDING'):

@@ -1771,6 +1771,12 @@ def start_simulation():
             
             logger.info(f"Enable knowledge graph memory update: simulation_id={simulation_id}, graph_id={graph_id}")
         
+        storage = None
+        if enable_graph_memory_update:
+            storage = current_app.extensions.get('neo4j_storage')
+            if storage is None:
+                return jsonify({'success': False, 'error': 'Graph storage unavailable; simulation was not started'}), 503
+
         # Debit only after every local validation passed and immediately before
         # the expensive run starts. request_id makes transport retries safe.
         from ..services.pitchy_billing import consume_custdev_run, BillingError
@@ -1789,7 +1795,8 @@ def start_simulation():
             platform=platform,
             max_rounds=max_rounds,
             enable_graph_memory_update=enable_graph_memory_update,
-            graph_id=graph_id
+            graph_id=graph_id,
+            storage=storage,
         )
         
         # Update simulation status
@@ -2828,6 +2835,17 @@ def get_env_status():
         # Get more detailed status information
         env_status = SimulationRunner.get_env_status_detail(simulation_id)
 
+        run_state = SimulationRunner.get_run_state(simulation_id)
+        runner_status = run_state.runner_status.value if run_state else None
+        interview_state = 'ready' if env_alive else (
+            'preparing' if runner_status in ('starting', 'running', 'completed') and env_status.get('status') != 'stopped'
+            else 'closed'
+        )
+        # During the simulation the IPC file has not been created yet.
+        # Its absence means the interview is preparing, not that the run failed.
+        if not env_alive and runner_status in ('starting', 'running'):
+            interview_state = 'preparing'
+
         if env_alive:
             message = "Environment running, ready to receive interview requests"
         else:
@@ -2838,6 +2856,8 @@ def get_env_status():
             "data": {
                 "simulation_id": simulation_id,
                 "env_alive": env_alive,
+                "interview_state": interview_state,
+                "runner_status": runner_status,
                 "twitter_available": env_status.get("twitter_available", False),
                 "reddit_available": env_status.get("reddit_available", False),
                 "message": message

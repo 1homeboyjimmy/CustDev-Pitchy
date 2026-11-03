@@ -58,6 +58,8 @@
               :sending="chatSending"
               :running="interviewRunning"
               :interviewDone="interviewDone"
+              :interviewAvailable="interviewAvailable"
+              :interviewNotice="interviewNotice"
               :warmth="warmthMap"
               @select-agent="onSelectAgent"
               @send="onSendToAgent"
@@ -102,6 +104,7 @@ import {
   ArrowLeft as ArrowLeftIcon
 } from 'lucide-vue-next'
 import { getProject, getGraphData } from '../api/graph'
+import { normaliseInterviewResults } from '../utils/interviewResults'
 import {
   getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus,
   getSimulationProfiles, interviewAgents, saveCustdevAnswers
@@ -136,6 +139,27 @@ const chatHistory = ref([])
 const chatSending = ref(false)
 const interviewRunning = ref(false)
 const interviewDone = ref(false)
+const interviewAvailable = ref(false)
+const interviewNotice = ref('Интервью станет доступно после завершения симуляции.')
+let interviewAvailabilityTimer = null
+let checkingInterviewAvailability = false
+
+const refreshInterviewAvailability = async () => {
+  if (checkingInterviewAvailability) return
+  checkingInterviewAvailability = true
+  try {
+    const env = await getEnvStatus({ simulation_id: currentSimulationId.value })
+    interviewAvailable.value = Boolean(env.success && env.data?.env_alive && env.data?.reddit_available)
+    interviewNotice.value = env.data?.interview_state === 'closed'
+      ? 'Среда интервью закрыта. Ответы симуляции сохранены и доступны для отчёта.'
+      : 'Интервью станет доступно после завершения симуляции.'
+  } catch (e) {
+    interviewAvailable.value = false
+    interviewNotice.value = 'Проверяем доступность интервью. Повторим проверку автоматически.'
+  } finally {
+    checkingInterviewAvailability = false
+  }
+}
 
 // «Температура» персоны из её ответов (позитив/готовность → hot, скепсис → cold).
 const POS = ['готов плат', 'куплю', 'подпиш', 'очень нужно', 'давно ищу', 'сразу возьм', 'удобно', 'сэконом', 'интересно', 'это боль', 'не хватает', 'жду такое']
@@ -222,7 +246,7 @@ const loadProfiles = async () => {
 
 // Парсит ответ batch-интервью { reddit_<idx>: {response} } в записи аккордеона.
 const pushInterviewResults = (results, question) => {
-  Object.entries(results || {}).forEach(([k, v]) => {
+  Object.entries(normaliseInterviewResults(results)).forEach(([k, v]) => {
     const idx = parseInt(String(k).split('_').pop())
     const p = profiles.value[idx]
     interviews.value.push({
@@ -239,16 +263,9 @@ const pushInterviewResults = (results, question) => {
 // Прогон стандартного CustDev-интервью: по одному вопросу за раз (аккордеон наполняется вживую).
 const runInterview = async () => {
   if (interviewRunning.value || profiles.value.length === 0) return
-  try {
-    const env = await getEnvStatus({ simulation_id: currentSimulationId.value })
-    if (!env.success || !env.data?.env_alive) {
-      interviewDone.value = false
-      addLog('Интервью недоступно: среда симуляции уже закрыта. Запустите цикл заново.')
-      currentStatus.value = 'error'
-      return
-    }
-  } catch (e) {
-    addLog(`Не удалось проверить среду интервью: ${e.message}`)
+  await refreshInterviewAvailability()
+  if (!interviewAvailable.value) {
+    addLog(interviewNotice.value)
     return
   }
   interviewRunning.value = true
@@ -264,15 +281,21 @@ const runInterview = async () => {
           platform: 'reddit', // одна платформа = индексы совпадают с профилями и нет дублей
           interviews: agentIdxs.map((i) => ({ agent_id: i, prompt: q })),
         })
-        if (res.success) pushInterviewResults(res.data?.results || res.data, q)
+        if (res.success) pushInterviewResults(res, q)
       } catch (e) {
         addLog(`Вопрос пропущен: ${e.message}`)
         // A closed environment cannot recover on the next question.
         if (/not running|closed|не запущ/i.test(e?.message || '')) break
       }
     }
+    interviewDone.value = interviews.value.some((answer) => answer.response?.trim())
+    if (!interviewDone.value) {
+      interviewQuestions.value = []
+      addLog('Ответы интервью не получены. Можно повторить попытку; результаты симуляции сохранены.')
+      await refreshInterviewAvailability()
+      return
+    }
     addLog('CustDev-интервью завершено.')
-    interviewDone.value = true
     // Сохраняем ответы на бэк — для финального отчёта «Сигналы × Симуляция».
     try {
       await saveCustdevAnswers(currentSimulationId.value, interviews.value)
@@ -312,7 +335,7 @@ const onSendToAgent = async (text) => {
       interviews: [{ agent_id: idx, prompt }],
     })
     if (res.success) {
-      const results = res.data?.results || res.data || {}
+      const results = normaliseInterviewResults(res)
       const agentRes = results[`reddit_${idx}`] || results[`twitter_${idx}`] || Object.values(results)[0]
       const content = agentRes?.response || agentRes?.answer || (typeof agentRes === 'string' ? agentRes : '…')
       chatHistory.value.push({ role: 'assistant', content })
@@ -392,9 +415,14 @@ onMounted(() => {
   addLog('Цикл симуляции манифестирован.')
   loadSimulationData()
   loadProfiles()
+  refreshInterviewAvailability()
+  interviewAvailabilityTimer = setInterval(refreshInterviewAvailability, 5000)
 })
 
-onUnmounted(stopGraphRefresh)
+onUnmounted(() => {
+  stopGraphRefresh()
+  clearInterval(interviewAvailabilityTimer)
+})
 </script>
 
 <style scoped>

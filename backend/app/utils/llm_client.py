@@ -9,6 +9,7 @@ import os
 import re
 from typing import Optional, Dict, Any, List
 from openai import OpenAI
+from llm_settings import polza_chat_options
 
 from ..config import Config
 
@@ -70,6 +71,7 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        kwargs.update(polza_chat_options(self.model))
 
         if response_format:
             kwargs["response_format"] = response_format
@@ -83,7 +85,13 @@ class LLMClient:
         response = self.client.chat.completions.create(**kwargs)
         content = response.choices[0].message.content
         if not content or not content.strip():
-            raise ValueError("LLM returned empty content")
+            usage = response.usage
+            details = getattr(usage, 'completion_tokens_details', None)
+            raise ValueError(
+                f"LLM returned empty content (model={self.model}, "
+                f"finish_reason={response.choices[0].finish_reason}, "
+                f"reasoning_tokens={getattr(details, 'reasoning_tokens', None)})"
+            )
         # Some models (like MiniMax M2.5) include <think>thinking content in response, need to remove
         content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
         return content

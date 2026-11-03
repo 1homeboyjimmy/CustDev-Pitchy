@@ -22,6 +22,13 @@ DEFAULT_MODELS = {
 }
 
 
+def polza_chat_options(model):
+    """Reserve the bounded output budget for the JSON answer on Flash tasks."""
+    if model == 'deepseek/deepseek-v4-flash':
+        return {'extra_body': {'reasoning': {'enabled': False}}}
+    return {}
+
+
 def polza_settings(environ=None):
     env = os.environ if environ is None else environ
     base = (env.get('POLZA_API_BASE') or 'https://polza.ai/api/v1').strip().rstrip('/')
