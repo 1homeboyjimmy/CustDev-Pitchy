@@ -58,6 +58,10 @@ SSO, billing and LLM calls do not inherit this scoped setting.
 
 The production deployment copies the search proxy from
 `/opt/ai-startup/.env.runtime` when CustDev has no dedicated proxy setting.
+When the main application runs on a different host, the repository secret
+`SEARCH_HTTPS_PROXY` provides that same setting. It also reaches the browser
+installer through a BuildKit secret, so slow regional CDN access does not
+block deployment and proxy credentials do not enter image layers.
 Actual values are deployment secrets and are never written to tracked files
 or printed by the collector. Staging can set the same env variables directly.
 

@@ -41,8 +41,14 @@ COPY --from=uv-builder /app/backend/.venv /app/backend/.venv
 ENV PATH="/app/backend/.venv/bin:$PATH"
 COPY backend/requirements-research.txt /tmp/requirements-research.txt
 RUN uv pip install --python /app/backend/.venv/bin/python -r /tmp/requirements-research.txt
-RUN python -m playwright install-deps chromium && rm -rf /var/lib/apt/lists/*
-RUN python -m playwright install --only-shell chromium
+RUN --mount=type=secret,id=research_proxy \
+    proxy="$(cat /run/secrets/research_proxy 2>/dev/null || true)" \
+    && export HTTP_PROXY="$proxy" HTTPS_PROXY="$proxy" http_proxy="$proxy" https_proxy="$proxy" \
+    && python -m playwright install-deps chromium && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=secret,id=research_proxy \
+    proxy="$(cat /run/secrets/research_proxy 2>/dev/null || true)" \
+    && export HTTP_PROXY="$proxy" HTTPS_PROXY="$proxy" http_proxy="$proxy" https_proxy="$proxy" \
+    && python -m playwright install --only-shell chromium
 
 # Local virtualenvs/node_modules are excluded by .dockerignore.
 COPY . .

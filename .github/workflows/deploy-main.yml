@@ -15,6 +15,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and Deploy
+        env:
+          CUSTDEV_BUILD_PROXY: ${{ secrets.SEARCH_HTTPS_PROXY }}
         run: |
           echo "==> Preparing Environment..."
           # Copy the .env file configured previously on the server to the current workspace
@@ -97,6 +99,13 @@ jobs:
                   lines = [line for line in lines if not line.startswith('SEARCH_HTTPS_PROXY=')]
                   lines.append('SEARCH_HTTPS_PROXY=' + value)
                   target.write_text('\n'.join(lines) + '\n')
+          import os
+          proxy = os.environ.get('CUSTDEV_BUILD_PROXY', '').strip()
+          if proxy:
+              lines = [line for line in target.read_text().splitlines() if not line.startswith('SEARCH_HTTPS_PROXY=')]
+              quoted = "'" + proxy.replace('\\', '\\\\').replace("'", "\\'") + "'"
+              lines.append('SEARCH_HTTPS_PROXY=' + quoted)
+              target.write_text('\n'.join(lines) + '\n')
           PY
 
           # The runtime file is optional when the dedicated secrets were
@@ -125,7 +134,7 @@ jobs:
           PY
 
           echo "==> Building containers (optimized)..."
-          docker compose build
+          docker build --secret id=research_proxy,env=CUSTDEV_BUILD_PROXY -t custdev-pitchy-pitchy:latest .
 
           echo "==> Preparing durable uploads storage..."
           docker volume create pitchy-custdev-uploads >/dev/null
