@@ -32,7 +32,51 @@ def clean_text(value):
 
 def source_link(base, value):
     url = urljoin(base, str(value or ''))
-    return url if urlsplit(url).scheme in ('https', 'http') else base
+    try:
+        parsed = urlsplit(url)
+        return url if parsed.scheme in ('https', 'http') and parsed.hostname and not parsed.username and not parsed.password else base
+    except ValueError:
+        return base
+
+
+def tweet_metadata(payload):
+    """Extract only public post IDs/parent IDs; never retain network headers."""
+    found, pending = {}, [payload]
+    for _ in range(10000):
+        if not pending or len(found) >= 200:
+            break
+        value = pending.pop()
+        if isinstance(value, list):
+            pending.extend(value[:500])
+        elif isinstance(value, dict):
+            legacy = value.get('legacy') if isinstance(value.get('legacy'), dict) else value
+            identifier = str(value.get('rest_id') or legacy.get('id_str') or value.get('id') or '')
+            parent = legacy.get('in_reply_to_status_id_str')
+            references = value.get('referenced_tweets')
+            if isinstance(references, list):
+                parent = next((ref.get('id') for ref in references if isinstance(ref, dict) and ref.get('type') == 'replied_to'), parent)
+            if identifier.isdigit() and (legacy.get('full_text') or legacy.get('text')):
+                found[identifier] = {'parent_id': str(parent) if parent else None}
+            pending.extend(item for item in value.values() if isinstance(item, (dict, list)))
+    return found
+
+
+async def observe_public_tweets(page, request):
+    request.meta['tweet_metadata'] = {}
+    async def received(response):
+        try:
+            if (urlsplit(response.url).hostname not in X_HOSTS or '/i/api/' not in response.url
+                    or 'json' not in response.headers.get('content-type', '')):
+                return
+            body = await response.body()
+            if len(body) <= 3 * 1024 * 1024:
+                metadata = request.meta['tweet_metadata']
+                for identifier, item in tweet_metadata(json.loads(body)).items():
+                    if identifier in metadata or len(metadata) < 1000:
+                        metadata[identifier] = item
+        except Exception:
+            pass
+    page.on('response', received)
 
 
 @lru_cache(maxsize=512)
@@ -55,9 +99,13 @@ def public_url(url):
 
 
 def blocked(response):
-    text = response.text[:100000].lower()
+    if not isinstance(response, scrapy.http.HtmlResponse):
+        return response.status in (401, 403, 429, 451)
     title = clean_text(response.css('title::text').get()).lower()
-    return (response.status in (401, 403, 429, 451) or any(marker in text for marker in BLOCK_MARKERS)
+    article = response.css('article, .tm-article-body, shreddit-post')
+    text = clean_text(' '.join(response.xpath('//body//text()[not(ancestor::script) and not(ancestor::style)]').getall())).lower()
+    return (response.status in (401, 403, 429, 451) or (not article and any(marker in text for marker in BLOCK_MARKERS))
+            or title in ('log in', 'sign in', 'login', 'вход', 'войти')
             or any(marker in title for marker in ('just a moment', 'access denied', 'robot or human', 'attention required')))
 
 
@@ -147,21 +195,60 @@ def extract_html(response, max_comments=20):
         if not post_id:
             return None
         main = None
+        metadata = dict(response.meta.get('tweet_metadata') or {})
+        visible = {}
         for article in response.css('article[data-testid="tweet"]'):
-            text = clean_text(' '.join(article.css('[data-testid="tweetText"] ::text').getall()))
-            href = next((link for link in article.css('a::attr(href)').getall() if '/status/' in link and '/photo/' not in link), '')
-            if not text or not href:
+            text = clean_text(' '.join(article.css('[data-testid="tweetText"]')[:1].xpath('.//text()').getall()))
+            href = article.xpath('.//a[.//time]/@href').get() or ''
+            identifier = re.search(r'/status/(\d+)', href)
+            if not text or not identifier:
                 continue
+            identifier = identifier.group(1)
+            if article.attrib.get('data-in-reply-to-status-id'):
+                metadata[identifier] = {'parent_id': article.attrib['data-in-reply-to-status-id']}
             item = {'text': text, 'url': urljoin('https://x.com', href),
+                    'id': identifier, 'parent_id': metadata.get(identifier, {}).get('parent_id'),
                     'published_at': article.css('time::attr(datetime)').get()}
-            if re.search(r'/status/' + post_id.group(1) + r'(?:[/?#]|$)', href):
+            if identifier == post_id.group(1):
                 main = item
-            elif len(comments) < max_comments:
-                comments.append(item)
+            visible[identifier] = item
         if not main:
             return None
+        for identifier, item in visible.items():
+            parent, seen = item['parent_id'], {identifier}
+            while parent and parent not in seen and parent != post_id.group(1):
+                seen.add(parent)
+                parent = metadata.get(parent, {}).get('parent_id')
+            if parent == post_id.group(1) and len(comments) < max_comments:
+                comments.append(item)
         return {'content': main['text'], 'comments': comments,
                 'published_at': main['published_at'], 'discussion_status': 'partial'}
+
+    if host == 'reddit.com' or host.endswith('.reddit.com'):
+        # A login/landing page is not the requested Reddit discussion.
+        identifier = re.search(r'/comments/([^/]+)', response.url)
+        post = response.css('shreddit-post')[:1]
+        if post and identifier and post.attrib.get('id', post.attrib.get('post-id', '')).removeprefix('t3_') == identifier.group(1):
+            title = post.attrib.get('post-title') or post.css('[slot="title"] ::text').get() or ''
+            body = clean_text(' '.join(post.css('[slot="text-body"] ::text').getall()))
+            for node in response.css('shreddit-comment')[:max_comments]:
+                text = clean_text(' '.join(node.css('[slot="comment"]')[:1].xpath('.//text()').getall()))
+                if text:
+                    comments.append({'id': node.attrib.get('thingid') or node.attrib.get('comment-id'),
+                                     'parent_id': node.attrib.get('parentid'), 'text': text[:2500],
+                                     'url': source_link(response.url, node.attrib.get('permalink'))})
+            return {'title': clean_text(title), 'content': body or clean_text(title),
+                    'comments': comments, 'discussion_status': 'partial'}
+        old_post = response.css('.thing.link')[:1]
+        if old_post and identifier and old_post.attrib.get('data-fullname') == 't3_' + identifier.group(1):
+            title = clean_text(' '.join(old_post.css('a.title::text').getall()))
+            body = clean_text(' '.join(old_post.css('.usertext-body ::text').getall()))
+            for node in response.css('.comment .entry > .usertext .usertext-body')[:max_comments]:
+                text = clean_text(' '.join(node.xpath('.//text()').getall()))
+                if text:
+                    comments.append({'text': text[:2500], 'url': response.url})
+            return {'title': title, 'content': body or title, 'comments': comments, 'discussion_status': 'partial'}
+        return None
 
     comment_css = ('.tm-comment__body-content, .comment__message, .comment__content, '
                    '.comments__item .comment__text, .comment-body, [itemprop="commentText"], '
@@ -218,11 +305,16 @@ class MarketSpider(scrapy.Spider):
         self.job, self.output = job, output
         self.proxy = job.get('proxy') or ''
         self.fetched = set()
+        self.best = {}
 
     async def start(self):
         for index, source in enumerate(self.job['sources']):
             url = source.get('url') or ''
-            parsed = urlsplit(url)
+            try:
+                parsed = urlsplit(url)
+            except ValueError:
+                self.save(index, crawl_status='invalid_url')
+                continue
             if not parsed.hostname or parsed.scheme not in ('http', 'https'):
                 self.save(index, crawl_status='invalid_url')
                 continue
@@ -237,6 +329,7 @@ class MarketSpider(scrapy.Spider):
                     self.save(index, crawl_status='browser_disabled')
                     continue
                 meta.update(self.browser_meta())
+                meta['playwright_page_init_callback'] = observe_public_tweets
             yield scrapy.Request(url, callback=self.parse_page, errback=self.failed, meta=meta)
 
     def browser_meta(self, via_proxy=False):
@@ -258,12 +351,34 @@ class MarketSpider(scrapy.Spider):
             return
         if fields.get('crawl_status') == 'fetched':
             self.fetched.add(index)
+            previous = self.best.get(index)
+            if previous:
+                merged = {comment.get('url', '') + '|' + comment['text']: comment
+                          for comment in previous.get('comments', []) + fields.get('comments', [])}
+                fields['comments'] = list(merged.values())[:self.job.get('max_comments', 20)]
+                if fields['comments']:
+                    fields['discussion_status'] = 'partial'
+                if len(previous.get('content', '')) > len(fields.get('content', '')):
+                    fields['content'] = previous['content']
+                fields['highlights'] = [fields.get('content', '')[:1200]] + [c['text'][:700] for c in fields['comments'][:4]]
+            self.best[index] = dict(fields)
         fields.update(_index=index, retrieved_at=datetime.now(timezone.utc).isoformat())
         with open(self.output, 'a', encoding='utf-8') as stream:
             stream.write(json.dumps(fields, ensure_ascii=False) + '\n')
 
     def parse_page(self, response):
         index = response.meta['_index']
+        original_host = urlsplit(self.job['sources'][index]['url']).hostname or ''
+        final_host = urlsplit(response.url).hostname or ''
+        platform_hosts = X_HOSTS if original_host in X_HOSTS else {'reddit.com', 'www.reddit.com', 'old.reddit.com', 'new.reddit.com', 'sh.reddit.com'} if original_host == 'reddit.com' or original_host.endswith('.reddit.com') else None
+        if platform_hosts and final_host not in platform_hosts:
+            self.save(index, crawl_status='unexpected_redirect')
+            return
+        origin = original_host.removeprefix('www.')
+        destination = final_host.removeprefix('www.')
+        if not platform_hosts and destination != origin and not destination.endswith('.' + origin):
+            self.save(index, crawl_status='unexpected_redirect')
+            return
         if not isinstance(response, scrapy.http.TextResponse):
             self.save(index, crawl_status='unsupported_content')
             return
@@ -318,7 +433,10 @@ class MarketSpider(scrapy.Spider):
                                  errback=self.failed, meta=meta, dont_filter=True)
 
     def failed(self, failure):
-        self.save(failure.request.meta['_index'], crawl_status='request_failed', error_type=type(failure.value).__name__)
+        missing_browser = failure.request.meta.get('playwright') and any(
+            marker in str(failure.value) for marker in ("Executable doesn't exist", 'Host system is missing dependencies'))
+        self.save(failure.request.meta['_index'], crawl_status='browser_unavailable' if missing_browser else 'request_failed',
+                  error_type=type(failure.value).__name__)
 
 
 def run(request_path, output_path):

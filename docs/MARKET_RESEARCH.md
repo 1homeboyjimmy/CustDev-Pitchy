@@ -21,12 +21,18 @@ Existing saved runs remain readable and are not automatically recollected.
    evidence set. Search snippets and block pages do not count as demand.
 5. The Polza `signals` model synthesizes Russian evidence and foreign experience
    separately. The same distinction is passed to the final verdict model.
+   New demand counts derive from distinct cited Russian source indices, not
+   the model's proposed totals. Invalid, duplicate and foreign citations are
+   discarded. Legacy saved results retain compatibility.
 
 Public access does not guarantee complete discussions. Login walls, removed
 posts, rate limits, collapsed replies and the time limit
 may prevent collection. `discussion_status=partial` explicitly marks a bounded
 discussion; the collector does not sign in or purchase platform API access.
 One page is counted as one source, even when it contains multiple replies.
+X timeline neighbors are excluded from replies unless public parent metadata
+connects them to the selected post. Login screens are not Reddit evidence.
+Browser retries merge collected replies and preserve the longer article.
 
 ## Setup
 
@@ -81,6 +87,15 @@ At the deadline, completed pages are retained and Chromium is stopped.
 appear in `sources`; `unread_sources_count`, `comments_count` and the separate
 Russian/international counts describe coverage. A missing proxy is not silently
 treated as a successful retry.
+`discovered_sources` contains compact diagnostics; full text and comments live
+only in `sources`. `search_status` distinguishes an unavailable search provider
+from a successful search with no matches. Research creation accepts an optional
+owner-scoped `request_id`; retries with the same ID reuse the task. The browser
+polls serially and discards responses belonging to a previous run or page.
+
+The manual check script reports `verification_status=passed|partial|failed`.
+Exit codes are 0/2/1 respectively. Habr alone cannot pass a Reddit/X check, and
+full verification also requires an available synthesis result.
 
 Local live checks found links on Habr, Reddit and X; Habr article extraction
 succeeded. Direct X access returned HTTP 403 and Reddit was not collected in

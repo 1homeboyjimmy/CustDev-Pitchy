@@ -11,6 +11,15 @@ import tempfile
 from ..config import Config
 
 
+def source_diagnostics(sources):
+    """Keep coverage without duplicating full articles/replies in every task."""
+    keys = ('url', 'title', 'domain', 'source', 'search_angle', 'market_scope', 'crawl_status',
+            'http_status', 'error_type', 'egress', 'discussion_status')
+    return [{**{key: source[key] for key in keys if key in source},
+             'content_characters': len(source.get('content') or ''),
+             'comments_count': len(source.get('comments') or [])} for source in sources]
+
+
 def collect_pages(sources: list[dict], timeout: float | None = None) -> list[dict]:
     if not sources:
         return []

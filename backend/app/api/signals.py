@@ -108,16 +108,22 @@ def scan_signals():
     Returns: { success, data: { available, sources:[{title,url,domain,highlights}], context, query } }
     """
     try:
-        data = request.get_json() or {}
-        query = (data.get('query') or '').strip()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('query'), str):
+            return jsonify({'success': False, 'error': 'query должен быть строкой'}), 400
+        query = data['query'].strip()
         if not query:
             return jsonify({"success": False, "error": "Please provide query"}), 400
 
         max_results = int(data.get('max_results', 8) or 8)
+        if len(query) > 16000:
+            return jsonify({'success': False, 'error': 'Слишком большой контекст исследования'}), 400
         max_results = max(1, min(max_results, 20))
 
         result = SignalsService.scan(query, max_results=max_results)
         return jsonify({"success": True, "data": result})
+    except (ValueError, TypeError, OverflowError):
+        return jsonify({'success': False, 'error': 'max_results должен быть числом'}), 400
     except Exception as e:
         logger.error(f"Signals scan failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -131,15 +137,26 @@ def start_signals_research():
     Request (JSON): { "query": str, "segments"?: [str] }
     """
     try:
-        data = request.get_json() or {}
-        query = (data.get('query') or '').strip()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('query'), str):
+            return jsonify({'success': False, 'error': 'query должен быть строкой'}), 400
+        query = data['query'].strip()
         if not query:
             return jsonify({"success": False, "error": "Please provide query"}), 400
-        segments = data.get('segments') or []
-        if not isinstance(segments, list):
+        segments = data.get('segments')
+        if segments is None:
             segments = []
-        task_id = start_research(query, segments, owner_id=current_user_id())
+        if not isinstance(segments, list):
+            return jsonify({'success': False, 'error': 'segments должен быть массивом строк'}), 400
+        if len(query) > 16000 or len(segments) > 20 or any(not isinstance(item, str) or len(item) > 200 for item in segments):
+            return jsonify({'success': False, 'error': 'Слишком большой контекст исследования'}), 400
+        request_id = data.get('request_id')
+        if request_id is not None and (not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', request_id)):
+            return jsonify({'success': False, 'error': 'Неверный request_id'}), 400
+        task_id = start_research(query, segments, owner_id=current_user_id(), request_id=request_id)
         return jsonify({"success": True, "data": {"task_id": task_id}})
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
     except Exception as e:
         logger.error(f"Signals research start failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -153,10 +170,10 @@ def signals_research_status():
     if not task_id:
         return jsonify({"success": False, "error": "Please provide task_id"}), 400
     task = TaskManager().get_task(task_id)
-    if not task:
+    if not task or task.task_type != 'signals_research':
         return jsonify({"success": False, "error": "Task not found"}), 404
     owner_id = (task.metadata or {}).get('owner_id')
-    if owner_id and str(owner_id) != str(current_user_id()) and not is_admin_user():
+    if (owner_id is None or str(owner_id) != str(current_user_id())) and not is_admin_user():
         return jsonify({"success": False, "error": "Task access denied"}), 403
     return jsonify({"success": True, "data": task.to_dict()})
 
@@ -181,9 +198,21 @@ def attach_signals():
             return access_error
         if not isinstance(result, dict):
             return jsonify({"success": False, "error": "Please provide result object"}), 400
+        for key in ('sources', 'discovered_sources', 'sources_by_platform'):
+            if key in result and (not isinstance(result[key], list) or any(not isinstance(item, dict) for item in result[key])):
+                return jsonify({'success': False, 'error': f'{key} должен быть массивом объектов'}), 400
+        if 'analysis' in result and not isinstance(result['analysis'], dict):
+            return jsonify({'success': False, 'error': 'analysis должен быть объектом'}), 400
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(result, f, ensure_ascii=False)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=os.path.dirname(path), delete=False) as stream:
+                temporary_path = stream.name
+                json.dump(result, stream, ensure_ascii=False)
+            os.replace(temporary_path, path)
+        finally:
+            if temporary_path and os.path.exists(temporary_path):
+                os.unlink(temporary_path)
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Signals attach failed: {e}")

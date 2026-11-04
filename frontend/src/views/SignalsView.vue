@@ -23,7 +23,11 @@
         <div class="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
 
           <!-- Нет контекста -->
-          <div v-if="!query" class="py-16 text-center text-white/40">
+          <div v-if="readonly && !done" class="py-16 text-center text-white/40 space-y-4">
+            <p>{{ errorMessage || 'Загружаем сохранённое исследование…' }}</p>
+            <button v-if="errorMessage" @click="loadSaved" class="text-xs underline hover:text-white">Повторить загрузку</button>
+          </div>
+          <div v-else-if="!query" class="py-16 text-center text-white/40">
             Нет гипотезы для разведки. Вернитесь на главную и опишите гипотезу.
           </div>
 
@@ -67,6 +71,7 @@
             <div v-if="result.market === 'russia'" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-white/60 space-y-2">
               <p>Российский рынок: {{ result.russian_market_sources || 0 }} источников · зарубежный опыт: {{ result.international_reference_sources || 0 }} · комментариев и ответов: {{ result.comments_count || 0 }}.</p>
               <p>Материалы Reddit и X помогают изучить зарубежный опыт; вывод о спросе в России опирается на российские источники.</p>
+              <p v-if="unavailableSearches.length">Поиск недоступен: {{ unavailableSearches.map(item => item.name || item.id).join(', ') }}. Отсутствие результатов здесь не означает отсутствие спроса.</p>
               <p v-if="result.unread_sources_count">Не удалось прочитать {{ result.unread_sources_count }} страниц. Они не включены в доказательства спроса.</p>
               <p v-if="!result.analysis_available">Аналитический вывод недоступен. Ниже показаны собранные материалы.</p>
             </div>
@@ -78,11 +83,11 @@
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Горячих сегментов</div>
-                <div class="text-2xl font-bold text-white mt-1">{{ hotCount }} / {{ segs.length || '—' }}</div>
+                <div class="text-2xl font-bold text-white mt-1">{{ hotCount }} / {{ segments.length || '—' }}</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
-                <div class="text-[11px] uppercase tracking-wide text-white/40">Готовы платить · РФ</div>
-                <div class="text-2xl font-bold mt-1" :class="payPct >= 5 ? 'text-emerald-400' : 'text-white'">{{ payPct }}%</div>
+                <div class="text-[11px] uppercase tracking-wide text-white/40">Сигналы оплаты · РФ</div>
+                <div class="text-2xl font-bold mt-1" :class="analysis.willingness?.paying > 0 ? 'text-emerald-400' : 'text-white'">{{ analysis.willingness?.paying ?? '—' }}</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Спрос-вердикт</div>
@@ -96,8 +101,8 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
                 <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Спрос по сегментам</div>
-                <div v-if="segs.length" class="space-y-3">
-                  <div v-for="(s, i) in segs" :key="i">
+                <div v-if="segments.length" class="space-y-3">
+                  <div v-for="(s, i) in segments" :key="i">
                     <div class="flex items-center justify-between mb-1.5">
                       <span class="text-sm text-white flex items-center gap-2">
                         <component :is="tempIcon(s.temperature)" class="w-4 h-4" :class="tempColor(s.temperature)" />
@@ -129,7 +134,8 @@
 
             <!-- Воронка готовности -->
             <section v-if="analysis.willingness" class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
-              <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Спрос ≠ жалобы — воронка готовности</div>
+              <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Что подтверждают российские источники</div>
+              <p class="text-xs text-white/40">Считаем страницы, а не людей. Один источник может подтверждать несколько наблюдений.</p>
               <div class="space-y-2.5">
                 <div v-for="row in funnel" :key="row.key" class="flex items-center gap-3">
                   <span class="text-[13px] w-32" :class="row.key === 'paying' ? 'text-emerald-400' : 'text-white/55'">{{ row.label }}</span>
@@ -147,7 +153,12 @@
                 <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Топ болей</div>
                 <div v-if="analysis.top_pains && analysis.top_pains.length" class="space-y-2.5">
                   <div v-for="(p, i) in analysis.top_pains" :key="i" class="flex items-start justify-between gap-3">
-                    <span class="text-[13px] text-white/80 leading-snug">{{ p.text }}</span>
+                    <div class="text-[13px] text-white/80 leading-snug">
+                      <span>{{ p.text }}</span>
+                      <div v-if="p.evidence?.length" class="mt-1 flex flex-wrap gap-2">
+                        <a v-for="index in p.evidence" :key="index" :href="sourceLink(result.sources?.[index]?.url)" target="_blank" rel="noopener noreferrer" class="text-[11px] text-white/45 underline hover:text-white">Источник {{ index + 1 }}</a>
+                      </div>
+                    </div>
                     <span class="text-[12px] font-mono shrink-0" :class="p.tag === 'pay' ? 'text-emerald-400' : 'text-orange-300'">{{ p.count }}</span>
                   </div>
                 </div>
@@ -168,24 +179,32 @@
 
             <!-- Лента реальных голосов -->
             <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
-              <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Реальные голоса ({{ result.sources_count }})</div>
+              <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Прочитанные источники ({{ result.sources_count }})</div>
               <div class="space-y-2.5 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
-                <a v-for="(s, i) in feed" :key="i" :href="s.url" target="_blank" rel="noopener noreferrer"
-                   class="block rounded-xl bg-white/[0.03] border border-white/8 p-3 hover:border-white/25 transition-colors">
+                <div v-for="(s, i) in feed" :key="i" class="rounded-xl bg-white/[0.03] border border-white/8 p-3">
+                  <a :href="sourceLink(s.url)" target="_blank" rel="noopener noreferrer" class="block hover:opacity-80">
                   <div class="flex items-center gap-2 mb-1.5">
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono">{{ s.domain || 'web' }}</span>
                     <span v-if="s.market_scope === 'international_reference'" class="text-[10px] text-amber-300 shrink-0">Зарубежный опыт</span>
                     <span class="text-[12px] font-bold text-white truncate">{{ s.title }}</span>
                   </div>
                   <p v-if="s.highlights && s.highlights.length" class="text-[12px] italic text-white/55 leading-relaxed">«{{ s.highlights[0] }}»</p>
-                  <div v-if="s.comments?.length" class="mt-2 space-y-1 border-t border-white/10 pt-2">
-                    <p class="text-[10px] text-white/40">Комментарии и ответы · {{ s.comments.length }}<span v-if="s.discussion_status === 'partial'"> · часть обсуждения</span></p>
-                    <p v-for="(comment, ci) in s.comments.slice(0, 3)" :key="ci" class="text-[12px] text-white/55 leading-relaxed">«{{ comment.text }}»</p>
-                  </div>
-                </a>
+                  </a>
+                  <details v-if="s.comments?.length" class="mt-2 space-y-2 border-t border-white/10 pt-2">
+                    <summary class="text-[11px] text-white/50 cursor-pointer">Комментарии и ответы · {{ s.comments.length }}<span v-if="s.discussion_status === 'partial'"> · часть обсуждения</span></summary>
+                    <a v-for="(comment, ci) in s.comments" :key="ci" :href="sourceLink(comment.url) || sourceLink(s.url)" target="_blank" rel="noopener noreferrer" class="block text-[12px] text-white/55 leading-relaxed hover:text-white">«{{ comment.text }}»</a>
+                  </details>
+                </div>
               </div>
             </section>
 
+            <details v-if="unreadSources.length" class="rounded-2xl border border-white/10 p-4 text-sm text-white/60">
+              <summary class="cursor-pointer">Непрочитанные страницы · {{ unreadSources.length }}</summary>
+              <div v-for="(source, i) in unreadSources" :key="i" class="mt-3 flex flex-wrap justify-between gap-2 text-xs">
+                <a :href="sourceLink(source.url)" target="_blank" rel="noopener noreferrer" class="break-all hover:text-white">{{ source.title || source.url }}</a>
+                <span>{{ unreadReason(source.crawl_status) }}</span>
+              </div>
+            </details>
             <div v-if="!readonly" class="flex items-center justify-between pt-2">
               <button @click="rerun" class="text-[12px] text-white/40 hover:text-white flex items-center gap-1.5">
                 <RefreshIcon class="w-3.5 h-3.5" /> Пересканировать
@@ -210,6 +229,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import StageShell from '../components/layout/StageShell.vue'
+import { sourceLink, unreadReason, searchProblems } from '../utils/marketEvidence'
 import {
   ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, Radar as RadarIcon,
   Loader as LoaderIcon, Check as CheckIcon, Clock as ClockIcon, RefreshCw as RefreshIcon,
@@ -236,7 +256,14 @@ const progressMessage = ref('Разведка спроса идёт…')
 const result = ref({ sources_count: 0, sources: [], sources_by_platform: [], analysis: {} })
 let timer = null
 let taskId = null
+let elapsedTimer = null
+let requestId = null
+let generation = 0
+let disposed = false
+let consecutivePollErrors = 0
 
+const unavailableSearches = computed(() => searchProblems(result.value.search_status))
+const unreadSources = computed(() => (result.value.discovered_sources || []).filter(item => item.crawl_status !== 'fetched'))
 const analysis = computed(() => result.value.analysis || {})
 const elapsedText = computed(() => {
   const m = Math.floor(elapsed.value / 60), s = elapsed.value % 60
@@ -244,15 +271,8 @@ const elapsedText = computed(() => {
 })
 
 // --- дашборд computed ---
-const segments = computed(() => analysis.value.segments || [])
+const segments = computed(() => Array.isArray(analysis.value.segments) ? analysis.value.segments.filter(item => item && typeof item === 'object') : [])
 const hotCount = computed(() => segments.value.filter(s => s.temperature === 'hot').length)
-const payPct = computed(() => {
-  const w = analysis.value.willingness
-  if (!w) return 0
-  // Это воронка, а не три независимые группы: доля платящих считается
-  // относительно тех, кто явно жалуется на проблему.
-  return w.complaining ? Math.min(100, Math.round((w.paying || 0) * 100 / w.complaining)) : 0
-})
 const verdictClass = computed(() => {
   const v = (analysis.value.verdict || '').toLowerCase()
   if (v.includes('есть')) return 'text-emerald-400'
@@ -274,81 +294,116 @@ const funnel = computed(() => {
 const funnelMax = computed(() => Math.max(1, ...funnel.value.map(r => r.value)))
 const funnelW = (v) => `${Math.round((v || 0) * 100 / funnelMax.value)}%`
 
-const feed = computed(() => (result.value.sources || []).filter(s => s.highlights && s.highlights.length).slice(0, 40))
+const feed = computed(() => (result.value.sources || []).filter(s => s.highlights && s.highlights.length))
 
 const tempIcon = (t) => (t === 'hot' ? FlameIcon : t === 'warm' ? ThermoIcon : SnowIcon)
 const tempColor = (t) => (t === 'hot' ? 'text-orange-400' : t === 'warm' ? 'text-amber-300' : 'text-sky-400')
 const tempBar = (t) => (t === 'hot' ? 'bg-orange-400/70' : t === 'warm' ? 'bg-amber-300/60' : 'bg-sky-400/50')
-const tempLabel = (t) => (t === 'hot' ? 'Горит' : t === 'warm' ? 'Тепло' : 'Холодно')
+const tempLabel = (t) => (t === 'hot' ? 'Горит' : t === 'warm' ? 'Тепло' : t === 'cold' ? 'Холодно' : 'Недостаточно данных')
 
-// --- логика опроса ---
+// Poll serially, discard stale responses, and stop all timers on navigation.
+const stopPoll = () => {
+  clearTimeout(timer)
+  clearInterval(elapsedTimer)
+  timer = null
+  elapsedTimer = null
+}
 const applyStatus = (task) => {
   progressMessage.value = task.message || 'Разведка спроса идёт…'
   const d = task.progress_detail || {}
   agents.value = d.agents || agents.value
   totalSources.value = d.total_sources ?? totalSources.value
-  elapsed.value = d.elapsed ?? elapsed.value
+  elapsed.value = Math.max(elapsed.value, d.elapsed || 0)
   if (task.status === 'completed' && task.result) {
     result.value = task.result
     totalSources.value = task.result.sources_count ?? 0
     done.value = true
-    // Сохраняем итог разведки, чтобы прикрепить его к прогону (доступ из истории).
     setSignalsResult(task.result)
     stopPoll()
   } else if (task.status === 'failed') {
-    errorMessage.value = task.error || 'Разведка не завершилась. Попробуйте повторить.'
+    errorMessage.value = 'Исследование не завершилось. Можно повторить запуск.'
+    requestId = null
     stopPoll()
   }
 }
-
-const poll = async () => {
-  if (!taskId) return
+const poll = async (token) => {
+  if (!taskId || token !== generation || disposed) return
   try {
     const res = await getSignalsResearchStatus(taskId)
-    if (res.success && res.data) applyStatus(res.data)
-  } catch (e) { /* мягко игнорируем сетевые сбои опроса */ }
-}
-
-const stopPoll = () => { if (timer) { clearInterval(timer); timer = null } }
-
-const startResearch = async () => {
-  if (!query.value) return
-  done.value = false
-  errorMessage.value = ''
-  try {
-    const res = await startSignalsResearch({ query: query.value, segments: segs.value })
-    if (res.success && res.data?.task_id) {
-      taskId = res.data.task_id
-      poll()
-      timer = setInterval(poll, 2500)
+    if (token !== generation || disposed) return
+    if (res.success && res.data) {
+      errorMessage.value = ''
+      consecutivePollErrors = 0
+      applyStatus(res.data)
     }
-  } catch (e) {
-    errorMessage.value = e?.response?.data?.error || e?.message || 'Не удалось запустить разведку.'
+  } catch (error) {
+    if (token !== generation || disposed) return
+    errorMessage.value = 'Не удалось получить статус. Повторяем запрос…'
+    if (++consecutivePollErrors >= 5) {
+      errorMessage.value = 'Связь с исследованием потеряна. Нажмите «Повторить», чтобы получить результат той же задачи.'
+      stopPoll()
+      return
+    }
+    if ([401, 403, 404].includes(error?.response?.status)) {
+      errorMessage.value = 'Задача недоступна. Проверьте вход и повторите запуск.'
+      taskId = null
+      stopPoll()
+      return
+    }
+  }
+  if (token === generation && !disposed && !done.value && elapsedTimer) timer = setTimeout(() => poll(token), 2500)
+}
+const startResearch = async () => {
+  if (!query.value || disposed) return
+  stopPoll()
+  const token = ++generation
+  taskId = null
+  done.value = false
+  elapsed.value = 0
+  consecutivePollErrors = 0
+  errorMessage.value = ''
+  requestId ||= crypto.randomUUID()
+  try {
+    const res = await startSignalsResearch({ query: query.value, segments: segs.value, request_id: requestId })
+    if (token !== generation || disposed) return
+    if (!res.success || !res.data?.task_id) throw new Error('Не удалось запустить исследование')
+    taskId = res.data.task_id
+    elapsedTimer = setInterval(() => elapsed.value++, 1000)
+    poll(token)
+  } catch (error) {
+    if (token === generation && !disposed) errorMessage.value = error?.message || 'Не удалось запустить разведку.'
   }
 }
-
-const rerun = () => { result.value = { sources_count: 0, sources: [], sources_by_platform: [], analysis: {} }; agents.value = []; totalSources.value = 0; startResearch() }
+const rerun = () => {
+  requestId = null
+  result.value = { sources_count: 0, sources: [], sources_by_platform: [], analysis: {} }
+  agents.value = []
+  totalSources.value = 0
+  startResearch()
+}
 const goNext = () => router.push({ name: 'Process', params: { projectId: 'new' } })
 
 // Read-only: грузим сохранённые сигналы прогона (без повторной разведки).
 const loadSaved = async () => {
+  errorMessage.value = ''
   try {
     const res = await getSavedSignals(savedSim)
+    if (disposed) return
     if (res.success && res.data) {
       result.value = res.data
       totalSources.value = res.data.sources_count || 0
       query.value = '(сохранённый прогон)'
       done.value = true
     } else {
-      query.value = ''
+      errorMessage.value = 'Сохранённое исследование недоступно.'
     }
   } catch (e) {
-    query.value = ''
+    if (!disposed) errorMessage.value = 'Не удалось загрузить сохранённое исследование. Попробуйте ещё раз.'
   }
 }
 
 onMounted(() => { readonly.value ? loadSaved() : startResearch() })
-onUnmounted(stopPoll)
+onUnmounted(() => { disposed = true; generation++; stopPoll() })
 </script>
 
 <style scoped>

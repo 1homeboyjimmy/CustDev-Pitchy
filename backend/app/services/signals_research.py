@@ -19,10 +19,11 @@ from llm_settings import polza_chat_options
 from ..config import Config
 from ..models.task import TaskManager, TaskStatus
 from ..utils.logger import get_logger
-from .page_crawler import collect_pages
-from .signals_service import SignalsService, _normalise_sources
+from .page_crawler import collect_pages, source_diagnostics
+from .signals_service import SignalsService, SearchUnavailable, _normalise_sources
 
 logger = get_logger('pitchy.signals_research')
+_start_lock = threading.Lock()
 
 
 def _bounded_call(function, seconds, *args, **kwargs):
@@ -75,7 +76,7 @@ def _agent_search(agent: dict, query: str, n: int = 6) -> list[dict]:
         return found
     except Exception as e:
         logger.warning("Search angle %s unavailable", agent["id"])
-        return []
+        raise SearchUnavailable("search_failed") from None
 
 
 def _fallback_search_brief(query: str) -> str:
@@ -115,8 +116,11 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict[str, str]:
             **polza_chat_options(Config.model_for('search')),
         )
         data = json.loads(response.choices[0].message.content)
+        if not isinstance(data, dict):
+            return planned
         for agent in AGENTS:
-            value = str(data.get(agent['id']) or '').strip()
+            raw = data.get(agent['id'])
+            value = raw.strip() if isinstance(raw, str) else ''
             if value:
                 planned[agent['id']] = value[:240]
     except Exception as exc:
@@ -151,9 +155,9 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict], timeou
         return None
     # Компактный дайджест найденного (ограничиваем объём).
     lines = []
-    for index, s in enumerate(sources[:70]):
+    for index, s in enumerate(sources):
         quotes = ' | '.join(str(value)[:180] for value in (s.get('highlights') or [])[:5])
-        lines.append(f"[{index}] {s.get('market_scope', 'unknown')} {s.get('url', '')} — {s.get('title', '')}: {quotes}")
+        lines.append(f"[{index}] {s.get('market_scope', 'unknown')} {s.get('url', '')} — {s.get('title', '')}: {quotes}"[:max(200, 39000 // max(1, len(sources)))])
     digest = "\n".join(lines)[:40000]
     seg_line = ", ".join(segments) if segments else "не заданы"
 
@@ -161,16 +165,18 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict], timeou
         "Ты аналитик CustDev. Оцени спрос именно на российском рынке. "
         "Материалы international_reference — зарубежный опыт; не включай их в подсчёты российского спроса. "
         "Если российских данных нет, укажи недостаток данных. Отдельно поясни зарубежный опыт в summary. "
-        "В evidence укажи индексы подтверждающих источников из дайджеста. "
+        "В evidence и willingness_evidence укажи индексы подтверждающих РОССИЙСКИХ источников из дайджеста. "
+        "Нет подтверждающих источников — пустой массив. Не подставляй зарубежные ссылки. "
         "Гипотеза/продукт: " + query[:6000] + ". Сегменты ЦА: " + seg_line + ".\n\n"
         "СЫРЫЕ СИГНАЛЫ:\n" + digest + "\n\n"
         "Верни СТРОГО JSON без пояснений по схеме:\n"
         "{\n"
-        '  "segments": [{"name": str, "temperature": "hot|warm|cold", "pain_count": int, "note": str}],\n'
+        '  "segments": [{"name": str, "temperature": "hot|warm|cold", "pain_count": int, "note": str, "evidence": [int]}],\n'
         '  "willingness": {"complaining": int, "seeking": int, "paying": int},\n'
+        '  "willingness_evidence": {"complaining": [int], "seeking": [int], "paying": [int]},\n'
         '  "top_pains": [{"text": str, "count": int, "tag": "pain|pay", "evidence": [int]}],\n'
         '  "competitors": [{"name": str, "weakness": str}],\n'
-        '  "verdict": "Есть|Слабый|Нет",\n'
+        '  "verdict": "Есть|Слабый|Нет|Недостаточно данных",\n'
         '  "summary": str\n'
         "}\n"
         "Все числа должны быть подсчётом сигналов из входного дайджеста, а не оценкой размера рынка. "
@@ -212,45 +218,77 @@ def _sources_by_platform(sources: list[dict]) -> list[dict]:
 
 
 def _normalise_analysis(analysis: dict, sources: list[dict]) -> dict:
-    """Keep LLM-derived dashboard numbers bounded by observed evidence."""
+    """Validate model output and count new research only from cited RU pages."""
     if not isinstance(analysis, dict):
         return {}
-    max_count = sum(source.get('market_scope') != 'international_reference' for source in sources)
-    willingness = analysis.get('willingness')
-    if isinstance(willingness, dict):
-        for key in ('complaining', 'seeking', 'paying'):
-            try:
-                willingness[key] = max(0, min(int(willingness.get(key, 0)), max_count))
-            except (TypeError, ValueError):
-                willingness[key] = 0
-    for segment in analysis.get('segments') or []:
-        if isinstance(segment, dict):
-            try:
-                segment['pain_count'] = max(0, min(int(segment.get('pain_count', 0)), max_count))
-            except (TypeError, ValueError):
-                segment['pain_count'] = 0
-    for pain in analysis.get('top_pains') or []:
-        if isinstance(pain, dict):
-            try:
-                pain['count'] = max(0, min(int(pain.get('count', 0)), max_count))
-            except (TypeError, ValueError):
-                pain['count'] = 0
-    analysis['observed_sources'] = len(sources)
-    analysis['russian_market_sources'] = max_count
-    analysis['international_reference_sources'] = len(sources) - max_count
-    analysis['data_quality'] = 'evidence_bounded' if max_count else 'no_evidence'
-    if not max_count:
-        analysis.update(verdict='Недостаточно данных', segments=[], top_pains=[],
-                        willingness={'complaining': 0, 'seeking': 0, 'paying': 0})
-    return analysis
+    russian = {i for i, source in enumerate(sources) if source.get('market_scope') != 'international_reference'}
+    strict = any('market_scope' in source for source in sources)
+    limit = len(russian)
+    def string(value, length=1200):
+        return value.strip()[:length] if isinstance(value, str) else ''
+    def items(value):
+        return [item for item in value[:30] if isinstance(item, dict)] if isinstance(value, list) else []
+    def refs(value):
+        return sorted({i for i in value if type(i) is int and i in russian}) if isinstance(value, list) else []
+    def count(value):
+        try:
+            return max(0, min(int(value), limit))
+        except (TypeError, ValueError, OverflowError):
+            return 0
+    willingness = analysis.get('willingness') if isinstance(analysis.get('willingness'), dict) else {}
+    citations = analysis.get('willingness_evidence') if isinstance(analysis.get('willingness_evidence'), dict) else {}
+    result = {
+        'summary': string(analysis.get('summary'), 5000),
+        'verdict': string(analysis.get('verdict'), 80),
+        'willingness_evidence': {key: refs(citations.get(key)) for key in ('complaining', 'seeking', 'paying')},
+        'segments': [], 'top_pains': [], 'competitors': [],
+        'observed_sources': len(sources), 'russian_market_sources': limit,
+        'international_reference_sources': len(sources) - limit,
+        'data_quality': 'cited_evidence' if strict and limit else 'evidence_bounded' if limit else 'no_evidence',
+    }
+    result['willingness'] = {key: len(result['willingness_evidence'][key]) if strict else count(willingness.get(key))
+                             for key in ('complaining', 'seeking', 'paying')}
+    for segment in items(analysis.get('segments')):
+        evidence = refs(segment.get('evidence'))
+        pain_count = len(evidence) if strict else count(segment.get('pain_count'))
+        temperature = segment.get('temperature') if segment.get('temperature') in ('hot', 'warm', 'cold') else 'unknown'
+        if strict and not evidence:
+            temperature = 'unknown'
+        if string(segment.get('name')) or not strict:
+            result['segments'].append({'name': string(segment.get('name'), 160) or 'Сегмент', 'temperature': temperature,
+                                       'pain_count': pain_count, 'evidence': evidence, 'note': string(segment.get('note'))})
+    for pain in items(analysis.get('top_pains')):
+        evidence = refs(pain.get('evidence'))
+        if (string(pain.get('text')) and evidence) or not strict:
+            result['top_pains'].append({'text': string(pain.get('text')) or 'Боль', 'count': len(evidence) if strict else count(pain.get('count')),
+                                        'tag': 'pay' if pain.get('tag') == 'pay' else 'pain', 'evidence': evidence})
+    for competitor in items(analysis.get('competitors')):
+        if string(competitor.get('name')):
+            result['competitors'].append({'name': string(competitor['name'], 160), 'weakness': string(competitor.get('weakness'))})
+    if not limit or (strict and not any(result['willingness'].values()) and not result['top_pains']):
+        result['verdict'] = 'Недостаточно данных'
+    if not limit:
+        result.update(segments=[], top_pains=[], willingness={'complaining': 0, 'seeking': 0, 'paying': 0})
+    if result['verdict'] not in ('Есть', 'Слабый', 'Нет', 'Недостаточно данных'):
+        result['verdict'] = 'Недостаточно данных'
+    return result
 
 
-def start_research(query: str, segments: list[str], owner_id: str | None = None) -> str:
+def start_research(query: str, segments: list[str], owner_id: str | None = None, request_id: str | None = None) -> str:
     """Создаёт задачу и запускает рой агентов в фоне. Возвращает task_id."""
     tm = TaskManager()
-    task_id = tm.create_task("signals_research", metadata={
-        "query": query, "segments": segments, "owner_id": str(owner_id) if owner_id else None,
-    })
+    owner = str(owner_id) if owner_id is not None else None
+    with _start_lock:
+        if request_id:
+            for task in tm.list_tasks('signals_research'):
+                metadata = task.get('metadata') or {}
+                if metadata.get('request_id') == request_id and metadata.get('owner_id') == owner:
+                    if metadata.get('query') != query or metadata.get('segments') != segments:
+                        raise ValueError('request_id уже использован для другой гипотезы')
+                    return task['task_id']
+        task_id = tm.create_task("signals_research", metadata={
+            "query": query, "segments": segments, "owner_id": owner, "request_id": request_id,
+        })
 
     active_agents = [a for a in AGENTS if a['kind'] != 'reddit' or Config.ENABLE_REDDIT_SIGNALS]
     agents_state = [{"id": a["id"], "name": a["name"], "status": "queued",
@@ -291,16 +329,25 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None)
                 try:
                     found = future.result()
                 except Exception:
-                    found = []
+                    agents_state[i].update(status='Поиск недоступен', search_status='unavailable', sources=0, done=True)
+                    continue
                 all_sources.extend(found)
+                agents_state[i]['search_status'] = 'found' if found else 'empty'
                 agents_state[i].update(status="Найдены ссылки" if found else "Нет результатов", sources=len(found), done=True)
             for future in pending:
                 future.cancel()
-                agents_state[futures[future]].update(status="Истекло время поиска", done=True)
+                agents_state[futures[future]].update(status="Истекло время поиска", search_status="timed_out", done=True)
             executor.shutdown(wait=False, cancel_futures=True)
             # Stable angle order keeps all platforms represented before limits.
             order = {agent['id']: i for i, agent in enumerate(active_agents)}
-            all_sources.sort(key=lambda item: order.get(item.get('search_angle'), 99))
+            # Round-robin angles before a low page limit; no platform monopolizes the budget.
+            ranks = {}
+            def priority(item):
+                angle = item.get('search_angle')
+                rank = ranks.get(angle, 0)
+                ranks[angle] = rank + 1
+                return rank, order.get(angle, 99)
+            all_sources.sort(key=priority)
             all_sources = _normalise_sources(all_sources)
             tm.update_task(task_id, progress=45, message="Читаю страницы, комментарии и ответы…",
                            progress_detail=_detail(agents_state, len(all_sources)))
@@ -319,12 +366,14 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None)
             result = {
                 "query": query,
                 "market": "russia",
-                "discovered_sources": discovered,
+                "discovered_sources": source_diagnostics(discovered),
                 "unread_sources_count": sum(s.get('crawl_status') != 'fetched' for s in discovered),
                 "comments_count": sum(len(s.get('comments') or []) for s in all_sources),
                 "russian_market_sources": sum(s.get('market_scope') == 'russian_market' for s in all_sources),
                 "international_reference_sources": sum(s.get('market_scope') == 'international_reference' for s in all_sources),
-                "degraded": bool(pending or any(s.get('crawl_status') != 'fetched' for s in discovered)),
+                "search_status": agents_state,
+                "degraded": bool(pending or any(s.get('crawl_status') != 'fetched' for s in discovered)
+                                 or any(a.get('search_status') == 'unavailable' for a in agents_state) or not raw_analysis),
                 "time_budget_seconds": Config.SIGNAL_RESEARCH_SECONDS,
                 "segments_input": segments,
                 "sources": all_sources,
@@ -336,7 +385,7 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None)
                 "sources_by_platform": _sources_by_platform(all_sources),
                 "elapsed": int(time.time() - started),
                 "analysis": analysis,
-                "analysis_available": bool(raw_analysis),
+                "analysis_available": isinstance(raw_analysis, dict) and bool(analysis.get("summary") or analysis.get("segments") or analysis.get("top_pains")),
             }
             tm.complete_task(task_id, result)
             logger.info(f"Signals research {task_id}: {len(all_sources)} источников, analysis={bool(analysis)}")

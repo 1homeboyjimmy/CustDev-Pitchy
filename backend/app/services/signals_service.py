@@ -19,9 +19,14 @@ from ..utils.logger import get_logger
 logger = get_logger('pitchy.signals_service')
 
 
+class SearchUnavailable(RuntimeError):
+    """A safe operational code, never a raw provider/proxy exception."""
+
+
+
 def _domain(url: str) -> str:
     try:
-        host = urlparse(url).netloc.lower()
+        host = (urlparse(url).hostname or '').lower()
         return host[4:] if host.startswith('www.') else host
     except Exception:
         return ''
@@ -42,11 +47,20 @@ def _normalise_sources(sources: list[dict]) -> list[dict]:
     seen = set()
     retrieved_at = datetime.now(timezone.utc).isoformat()
     for source in sources:
+        if not isinstance(source, dict):
+            continue
         source = dict(source)
-        url = (source.get('url') or '').strip().split('#', 1)[0].rstrip('/')
+        raw_url = source.get('url')
+        if not isinstance(raw_url, str) or len(raw_url) > 4096:
+            continue
+        url = raw_url.strip().split('#', 1)[0].rstrip('/')
         try:
             parts = urlsplit(url)
+            if parts.scheme not in ('https', 'http') or not parts.hostname or parts.username or parts.password:
+                continue
             host = parts.netloc.lower()
+            if host in ('www.reddit.com', 'old.reddit.com', 'new.reddit.com', 'sh.reddit.com'):
+                host = 'reddit.com'
             if host in ('twitter.com', 'www.twitter.com', 'mobile.twitter.com', 'www.x.com'):
                 host = 'x.com'
             query = urlencode([(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
@@ -56,9 +70,13 @@ def _normalise_sources(sources: list[dict]) -> list[dict]:
             url = urlunsplit((parts.scheme, host, parts.path.rstrip('/'), query, ''))
         except ValueError:
             continue
-        title = ' '.join((source.get('title') or '').lower().split())
-        highlights = ' '.join(source.get('highlights') or []).lower().strip()
-        key = url or f"{title}|{highlights[:180]}"
+        key = url
+        if host == 'reddit.com':
+            import re
+            thread = re.search(r'/comments/([^/]+)', parts.path)
+            if thread:
+                key = 'reddit:' + thread.group(1)
+        source['domain'] = _domain(url)
         if not key or key in seen:
             continue
         seen.add(key)
@@ -83,8 +101,7 @@ class SignalsService:
         try:
             from ddgs import DDGS
         except ImportError:
-            logger.error("Пакет ddgs не установлен — провайдер ddg недоступен.")
-            return []
+            raise SearchUnavailable("provider_unavailable") from None
         out = []
         try:
             with DDGS(proxy=Config.SEARCH_HTTPS_PROXY or None, timeout=8) as ddgs:
@@ -99,6 +116,7 @@ class SignalsService:
                     })
         except Exception as e:
             logger.warning("DDG search unavailable")
+            raise SearchUnavailable("provider_failed") from None
         return out
 
     @staticmethod
@@ -121,6 +139,7 @@ class SignalsService:
                             'domain': _domain(url), 'highlights': [], 'source': 'web'})
         except Exception:
             logger.warning('Exa search unavailable')
+            raise SearchUnavailable("provider_failed") from None
         return out
 
     @staticmethod
@@ -141,6 +160,7 @@ class SignalsService:
                             'source': 'web'})
         except Exception as e:
             logger.warning("Google CSE search unavailable")
+            raise SearchUnavailable("provider_failed") from None
         return out
 
     @staticmethod
@@ -161,6 +181,7 @@ class SignalsService:
                             'source': 'web'})
         except Exception as e:
             logger.warning("Brave search unavailable")
+            raise SearchUnavailable("provider_failed") from None
         return out
 
     @staticmethod
@@ -185,6 +206,7 @@ class SignalsService:
                             'source': 'web'})
         except Exception as e:
             logger.warning("SearXNG search unavailable")
+            raise SearchUnavailable("provider_failed") from None
         return out
 
     @staticmethod
@@ -218,7 +240,7 @@ class SignalsService:
     @staticmethod
     def search(query: str, n: int, domains=None, region='ru-ru') -> list[dict]:
         if not SignalsService._web_provider_usable():
-            return []
+            raise SearchUnavailable("provider_not_configured")
         found = SignalsService._web_provider()(query, n, domains=domains, region=region)
         allowed = Config.SIGNAL_DOMAINS if domains is None else domains
         return [item for item in found if not allowed or any(
@@ -243,46 +265,42 @@ class SignalsService:
 
     @staticmethod
     def scan(query: str, max_results: int = 8) -> dict:
-        """Возвращает {available, sources:[{title,url,domain,highlights,source}], context, query, provider}."""
-        result = {"available": False, "sources": [], "context": "", "query": query,
-                  "provider": Config.SIGNAL_PROVIDER}
-        query = (query or "").strip()
+        """Compatibility endpoint with the same verified-page evidence rules."""
+        import time
+        from concurrent.futures import ThreadPoolExecutor, wait
+        from .page_crawler import collect_pages, source_diagnostics
+        query = query.strip() if isinstance(query, str) else ''
+        result = {'available': False, 'sources': [], 'context': '', 'query': query,
+                  'provider': Config.SIGNAL_PROVIDER, 'market': 'russia'}
         if not query:
             return result
-
-        web_usable = SignalsService._web_provider_usable()
-        reddit_on = Config.ENABLE_REDDIT_SIGNALS
-        if not web_usable and not reddit_on:
-            return result  # gated: нечем искать
-
-        sources = []
-        if web_usable:
-            sources += [dict(item, market_scope='russian_market')
-                        for item in SignalsService.search(query, max_results)]
-        if reddit_on:
-            sources += SignalsService._search_reddit(query, max(3, max_results // 2))
-        sources += SignalsService._search_x(query, max(3, max_results // 2))
-
-        from .page_crawler import collect_pages
-        discovered = collect_pages(_normalise_sources(sources))
+        deadline = time.monotonic() + Config.SIGNAL_RESEARCH_SECONDS
+        jobs = [('web', lambda: [dict(item, market_scope='russian_market') for item in SignalsService.search(query, max_results)])]
+        if Config.ENABLE_REDDIT_SIGNALS:
+            jobs.append(('reddit', lambda: SignalsService._search_reddit(query, max(3, max_results // 2))))
+        jobs.append(('x', lambda: SignalsService._search_x(query, max(3, max_results // 2))))
+        pool = ThreadPoolExecutor(max_workers=len(jobs))
+        futures = {pool.submit(function): name for name, function in jobs}
+        completed, pending = wait(futures, timeout=min(35, Config.SIGNAL_RESEARCH_SECONDS / 3))
+        sources, statuses = [], []
+        for future in completed:
+            try:
+                found = future.result()
+                sources.extend(found)
+                statuses.append({'id': futures[future], 'status': 'found' if found else 'empty', 'sources': len(found)})
+            except Exception:
+                statuses.append({'id': futures[future], 'status': 'unavailable', 'sources': 0})
+        for future in pending:
+            future.cancel()
+            statuses.append({'id': futures[future], 'status': 'timed_out', 'sources': 0})
+        pool.shutdown(wait=False, cancel_futures=True)
+        discovered = collect_pages(_normalise_sources(sources), timeout=max(0, deadline - time.monotonic()))
         sources = [item for item in discovered if item.get('crawl_status') == 'fetched']
-        result['discovered_sources'] = discovered
-        result['unread_sources_count'] = len(discovered) - len(sources)
-
-        sources = _normalise_sources(sources)
-        compiled = ""
-        for idx, s in enumerate(sources, 1):
-            if s.get('highlights'):
-                compiled += f"### Сигнал {idx} ({s.get('domain', '')}): {s.get('title', '')}\n" + \
-                            "\n".join(f"- {h}" for h in s['highlights'][:3]) + "\n\n"
-
-        result.update(
-            available=bool(sources),
-            sources=sources,
-            context=compiled.strip(),
-            source_count=len(sources),
-            source_domains=sorted({s.get('domain') for s in sources if s.get('domain')}),
-            degraded=bool(result['unread_sources_count'] or not sources),
-        )
-        logger.info(f"Сигналы [{Config.SIGNAL_PROVIDER}+reddit]: {len(sources)} источников по «{query}».")
+        context = '\n\n'.join(f"### {item.get('market_scope', 'unknown')} {item['url']}\n" +
+                              '\n'.join(item.get('highlights') or []) for item in sources)
+        result.update(available=bool(sources), sources=sources, context=context,
+                      discovered_sources=source_diagnostics(discovered), search_status=statuses,
+                      source_count=len(sources), source_domains=sorted({item['domain'] for item in sources}),
+                      unread_sources_count=len(discovered) - len(sources),
+                      degraded=bool(len(discovered) != len(sources) or any(item['status'] not in ('found', 'empty') for item in statuses)))
         return result

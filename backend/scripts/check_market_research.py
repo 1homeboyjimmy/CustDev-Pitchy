@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import sys
 import time
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 with contextlib.redirect_stdout(io.StringIO()):
@@ -45,10 +46,26 @@ def coverage(result):
         'pages': [{'url': item.get('url'), 'platform': item.get('source'),
                    'crawl_status': item.get('crawl_status'), 'egress': item.get('egress'),
                    'error_type': item.get('error_type'), 'http_status': item.get('http_status'),
-                   'characters': len(item.get('content') or ''),
-                   'comments': len(item.get('comments') or [])}
+                   'characters': item.get('content_characters', len(item.get('content') or '')),
+                   'comments': item.get('comments_count', len(item.get('comments') or []))}
                   for item in result.get('discovered_sources') or sources],
     }
+
+
+def verification_status(report, full=False):
+    """A single readable Russian page must not turn all-platform checks green."""
+    fetched = set()
+    for page in report.get('collection', {}).get('pages', []):
+        if page.get('crawl_status') != 'fetched':
+            continue
+        host = (urlsplit(page.get('url') or '').hostname or '').removeprefix('www.')
+        fetched.add('reddit' if host == 'reddit.com' or host.endswith('.reddit.com')
+                    else 'x' if host in ('x.com', 'twitter.com', 'mobile.twitter.com') else 'russia')
+    if not fetched or (full and report.get('research_status') != 'completed'):
+        return 'failed'
+    if fetched != {'russia', 'reddit', 'x'} or (full and not report.get('research', {}).get('analysis_available')):
+        return 'partial'
+    return 'passed'
 
 
 def main():
@@ -93,8 +110,9 @@ def main():
         else:
             report['research_status'] = 'timed_out'
     report['total_elapsed'] = round(time.monotonic() - started, 1)
+    report['verification_status'] = verification_status(report, args.full)
     print(json.dumps({'phase': 'complete', **report}, ensure_ascii=False), flush=True)
-    return 0 if report['collection']['sources'] and report.get('research_status', 'completed') == 'completed' else 1
+    return {'passed': 0, 'partial': 2, 'failed': 1}[report['verification_status']]
 
 
 if __name__ == '__main__':

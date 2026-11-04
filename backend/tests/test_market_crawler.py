@@ -49,15 +49,165 @@ def test_reddit_nested_replies_are_bounded_and_deleted_text_is_excluded():
     assert result['discussion_status'] == 'partial'
 
 
+def test_public_reddit_json_passes_through_scrapy_callback(tmp_path):
+    from scrapy.http import JsonResponse
+    url = 'https://reddit.com/r/startups/comments/123/title'
+    output = tmp_path / 'pages.jsonl'
+    spider = worker.MarketSpider(job={'proxy': '', 'browser': False, 'max_comments': 20,
+                                     'sources': [{'url': url}]}, output=str(output))
+    payload = [{'data': {'children': [{'data': {'title': 'A concrete problem', 'selftext': 'I keep seeing verify you are human', 'num_comments': 0}}]}},
+               {'data': {'children': []}}]
+    request = scrapy.Request(url + '.json', meta={'_index': 0, 'reddit_json': True})
+    response = JsonResponse(request.url, body=json.dumps(payload).encode(), request=request)
+    assert list(spider.parse_page(response)) == []
+    result = json.loads(output.read_text())
+    assert result['crawl_status'] == 'fetched'
+    assert result['title'] == 'A concrete problem'
+
+
+def test_article_discussing_captcha_is_not_itself_a_block_page():
+    response = html('<body><article>Our users constantly see verify you are human prompts.</article></body>')
+    assert not worker.blocked(response)
+
+
+def test_redirect_to_another_site_is_not_attributed_to_russian_origin(tmp_path):
+    output = tmp_path / 'out.jsonl'
+    spider = worker.MarketSpider(job={'proxy': '', 'sources': [{'url': 'https://habr.com/article'}]}, output=str(output))
+    response = html('<article>' + 'unrelated text ' * 20 + '</article>',
+                    'https://other.example/article', meta={'_index': 0})
+    assert list(spider.parse_page(response)) == []
+    assert json.loads(output.read_text())['crawl_status'] == 'unexpected_redirect'
+
+
+def test_browser_installation_failure_is_explicit_without_leaking_error_secrets(tmp_path):
+    output = tmp_path / 'out.jsonl'
+    spider = worker.MarketSpider(job={'proxy': ''}, output=str(output))
+    spider.failed(SimpleNamespace(value=RuntimeError("Executable doesn't exist: http://user:secret@proxy.test"),
+        request=scrapy.Request('https://x.com/a/status/1', meta={'_index': 0, 'playwright': True})))
+    assert json.loads(output.read_text())['crawl_status'] == 'browser_unavailable'
+    assert 'secret' not in output.read_text()
+
+
 def test_x_extracts_target_post_and_visible_thread_without_login_page_evidence():
     def tweet(identifier, text):
         return f'<article data-testid="tweet"><a href="/someone/status/{identifier}"><time datetime="2026-11-01"/></a><div data-testid="tweetText">{text}</div></article>'
     response = html(tweet(123, 'Need a better workflow') + tweet(124, 'I use a spreadsheet'),
-                    'https://x.com/someone/status/123')
+                    'https://x.com/someone/status/123', meta={'tweet_metadata': {'124': {'parent_id': '123'}}})
     result = worker.extract_html(response)
     assert result['content'] == 'Need a better workflow'
     assert result['comments'][0]['url'] == 'https://x.com/someone/status/124'
     assert worker.extract_html(html('<main>Sign in to X</main>', 'https://x.com/someone/status/123')) is None
+
+
+def test_x_recommendations_and_ancestors_do_not_become_customer_replies():
+    def tweet(identifier):
+        return f'<article data-testid="tweet"><a href="/a/status/{identifier}"><time/></a><div data-testid="tweetText">text {identifier}</div></article>'
+    payload = {'data': [
+        {'rest_id': '10', 'legacy': {'full_text': 'parent'}},
+        {'rest_id': '11', 'legacy': {'full_text': 'target', 'in_reply_to_status_id_str': '10'}},
+        {'rest_id': '12', 'legacy': {'full_text': 'reply', 'in_reply_to_status_id_str': '11'}},
+        {'id': '13', 'text': 'nested reply', 'referenced_tweets': [{'type': 'replied_to', 'id': '12'}]},
+        {'rest_id': '14', 'legacy': {'full_text': 'advertisement'}},
+    ]}
+    response = html(''.join(tweet(i) for i in range(10, 15)), 'https://x.com/a/status/11',
+                    meta={'tweet_metadata': worker.tweet_metadata(payload)})
+    result = worker.extract_html(response)
+    assert [item['id'] for item in result['comments']] == ['12', '13']
+
+
+def test_reddit_login_page_is_not_evidence_even_with_long_body():
+    response = html('<main>' + 'Log in to explore recommended communities. ' * 20 + '</main>',
+                    'https://reddit.com/r/startups/comments/123/title')
+    assert worker.extract_html(response) is None
+
+
+def test_rendered_reddit_thread_extracts_public_comment_text():
+    response = html('''<shreddit-post id="t3_123" post-title="A concrete customer problem">
+        <div slot="text-body">I spend too long on interviews</div></shreddit-post>
+        <shreddit-comment comment-id="t1_456" parentid="t3_123" permalink="/r/startups/comments/123/title/456/">
+        <div slot="comment">I would pay for this</div></shreddit-comment>''',
+        'https://reddit.com/r/startups/comments/123/title')
+    result = worker.extract_html(response)
+    assert result['comments'][0]['text'] == 'I would pay for this'
+    assert result['comments'][0]['url'].endswith('/456/')
+
+
+def test_render_preserves_longer_article_and_all_already_fetched_replies(tmp_path):
+    output = tmp_path / 'out.jsonl'
+    spider = worker.MarketSpider(job={'proxy': '', 'max_comments': 20}, output=str(output))
+    spider.save(0, crawl_status='fetched', content='complete article', comments=[{'text': 'A', 'url': '#a'}])
+    spider.save(0, crawl_status='fetched', content='short', comments=[{'text': 'B', 'url': '#b'}])
+    last = json.loads(output.read_text().splitlines()[-1])
+    assert last['content'] == 'complete article'
+    assert [item['text'] for item in last['comments']] == ['A', 'B']
+
+
+def test_citation_counts_exclude_foreign_invalid_and_duplicate_references():
+    sources = [{'market_scope': 'russian_market'}, {'market_scope': 'international_reference'}]
+    result = signals_research._normalise_analysis({
+        'summary': 'Test', 'verdict': 'Есть',
+        'willingness': {'paying': 100},
+        'willingness_evidence': {'paying': [0, 0, 1, 99, True, '0']},
+        'segments': [{'name': 'Founders', 'temperature': 'hot', 'evidence': [1]}],
+        'top_pains': [{'text': 'A verified pain', 'count': 99, 'evidence': [0, 1]},
+                      {'text': 'Foreign only', 'count': 99, 'evidence': [1]}],
+    }, sources)
+    assert result['willingness']['paying'] == 1
+    assert result['segments'][0]['temperature'] == 'unknown'
+    assert result['top_pains'] == [{'text': 'A verified pain', 'count': 1, 'tag': 'pain', 'evidence': [0]}]
+
+
+def test_malformed_model_fields_do_not_break_the_dashboard():
+    result = signals_research._normalise_analysis({'summary': {'bad': True}, 'verdict': ['Есть'],
+        'segments': 'wrong', 'top_pains': [None, 'bad'], 'competitors': {},
+        'willingness': ['bad'], 'willingness_evidence': 'bad'}, [{'market_scope': 'russian_market'}])
+    assert result['summary'] == ''
+    assert result['segments'] == result['top_pains'] == result['competitors'] == []
+    assert result['verdict'] == 'Недостаточно данных'
+
+
+def test_reddit_aliases_and_comment_links_count_as_one_thread():
+    assert len(_normalise_sources([
+        {'url': 'https://www.reddit.com/r/a/comments/123/title?utm_source=share'},
+        {'url': 'https://old.reddit.com/r/a/comments/123/title/456/'},
+        {'url': ''}, {'url': 'javascript:alert(1)'}, {'url': 'https://user:password@example.com'},
+    ])) == 1
+
+
+def test_research_retries_reuse_task_for_same_owner_only(monkeypatch):
+    import threading
+    tasks = []
+    class Tasks:
+        def list_tasks(self, *args):
+            return tasks
+        def create_task(self, kind, metadata):
+            task_id = str(len(tasks))
+            tasks.append({'task_id': task_id, 'metadata': metadata})
+            return task_id
+        def update_task(self, *args, **kwargs):
+            pass
+    class NoStart:
+        def __init__(self, *args, **kwargs): pass
+        def start(self): pass
+    monkeypatch.setattr(signals_research, 'TaskManager', Tasks)
+    monkeypatch.setattr(threading, 'Thread', NoStart)
+    assert signals_research.start_research('q', [], '1', 'same-request') == '0'
+    assert signals_research.start_research('q', [], '1', 'same-request') == '0'
+    assert signals_research.start_research('q', [], '2', 'same-request') == '1'
+    assert len(tasks) == 2
+
+
+def test_server_verification_does_not_pass_when_only_habr_works():
+    from scripts.check_market_research import verification_status
+    report = {'collection': {'pages': [{'url': 'https://habr.com/post', 'crawl_status': 'fetched'},
+               {'url': 'https://x.com/a/status/123', 'crawl_status': 'blocked'}]}}
+    assert verification_status(report) == 'partial'
+    report['collection']['pages'] += [
+        {'url': 'https://reddit.com/r/a/comments/123/', 'crawl_status': 'fetched'},
+        {'url': 'https://x.com/a/status/123', 'crawl_status': 'fetched'}]
+    assert verification_status(report) == 'passed'
+    report.update(research_status='completed', research={'analysis_available': False})
+    assert verification_status(report, full=True) == 'partial'
 
 
 def test_proxy_fallback_is_scoped_once_and_handles_browser_credentials():
