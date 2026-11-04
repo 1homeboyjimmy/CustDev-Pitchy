@@ -101,12 +101,14 @@ def _signals_digest(sources: list[dict], limit: int = 40) -> str:
     lines = []
     for s in sources[:limit]:
         hl = (s.get('highlights') or [''])[0]
-        lines.append(f"[{s.get('domain', 'web')}] {s.get('title', '')} — {hl}")
+        replies = ' | '.join(str(c.get('text') or '')[:200] for c in (s.get('comments') or [])[:3])
+        lines.append(f"[{s.get('market_scope', 'unknown')}] {s.get('url', '')} {s.get('title', '')} — {hl} {replies}")
     return "\n".join(lines)[:6000]
 
 
 def _market_evidence_stats(signals: dict, reactions: list[dict]) -> dict:
-    sources = [s for s in signals.get('sources', []) if (s.get('highlights') or [])]
+    sources = [s for s in signals.get('sources', []) if (s.get('highlights') or [])
+               and s.get('market_scope') != 'international_reference']
     domains = {str(s.get('domain') or '').lower() for s in sources if s.get('domain')}
     community_domains = {
         'reddit.com', 'habr.com', 'vc.ru', 'pikabu.ru', 'otzovik.com',
@@ -177,7 +179,7 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
         'query': query,
         'sources': sources,
         'answers': answers,
-        'version': 2,
+        'version': 3,
         'model': Config.model_for('verdict'),
         'provider': Config.LLM_BASE_URL,
     }
@@ -212,6 +214,8 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
     prompt = (
         "Ты ведущий аналитик CustDev. Сведи две опоры в честный вердикт по продукту. "
         "Реальные рыночные источники имеют вес 70%, синтетическая симуляция — 30%. "
+        "Оценивай спрос в России. international_reference — только зарубежный опыт, "
+        "не доказательство российского спроса. При недостатке российских данных явно укажи это. "
         "Никогда не называй агентов реальными пользователями и не придумывай цитаты, проценты или факты.\n"
         f"Продукт/гипотеза: {query}\n\n"
         f"ОПОРА 1 — РЕАЛЬНЫЕ СИГНАЛЫ РЫНКА (из сообществ):\n{_signals_digest(sources) or 'нет данных'}\n\n"

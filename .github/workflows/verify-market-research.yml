@@ -1,0 +1,26 @@
+name: Verify deployed market research
+
+on:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Also run real Polza query planning and synthesis
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: [self-hosted, prod-server]
+    timeout-minutes: 10
+    steps:
+      - name: Check deployed collector and live sources
+        env:
+          FULL_RESEARCH: ${{ inputs.full }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$FULL_RESEARCH" = "true" ]; then args+=(--full); fi
+          docker exec pitchy-offline python backend/scripts/check_market_research.py "${args[@]}"

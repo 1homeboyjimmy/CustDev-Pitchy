@@ -73,6 +73,30 @@ jobs:
           fi
           unset PITCHY_RAG_API_KEY
 
+          # Reuse only the scoped German search egress from main Pitchy.
+          # Keep dedicated CustDev overrides and never print proxy credentials.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          runtime = Path('/opt/ai-startup/.env.runtime')
+          target = Path('.env')
+          def settings(text):
+              return dict(line.split('=', 1) for line in text.splitlines()
+                          if '=' in line and not line.lstrip().startswith('#'))
+          if runtime.exists():
+              upstream = settings(runtime.read_text())
+              lines = target.read_text().splitlines()
+              current = settings('\n'.join(lines))
+              value = upstream.get('SEARCH_HTTPS_PROXY') or upstream.get('EXA_HTTPS_PROXY', '')
+              if value.strip().strip('\"\'') and not any(
+                  current.get(key, '').strip().strip('\"\'')
+                  for key in ('SEARCH_HTTPS_PROXY', 'EXA_HTTPS_PROXY', 'SIGNAL_HTTPS_PROXY')
+              ):
+                  lines = [line for line in lines if not line.startswith('SEARCH_HTTPS_PROXY=')]
+                  lines.append('SEARCH_HTTPS_PROXY=' + value)
+                  target.write_text('\n'.join(lines) + '\n')
+          PY
+
           # The runtime file is optional when the dedicated secrets were
           # already provisioned in CustDev's persistent server env. Until the
           # two SSO secrets are provisioned, keep the explicitly approved

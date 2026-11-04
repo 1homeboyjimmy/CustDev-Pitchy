@@ -50,8 +50,9 @@ RUN npm install
 # Set environment variables to use the virtual environment
 ENV PATH="/app/backend/.venv/bin:$PATH"
 
-# «Сигналы» (pain-mining): ddgs нет в uv.lock — доставляем поверх venv.
-RUN uv pip install --python /app/backend/.venv/bin/python "ddgs>=6.0.0"
+# Research dependencies are isolated from the locked OASIS/Torch environment.
+RUN uv pip install --python /app/backend/.venv/bin/python -r backend/requirements-research.txt \
+    && python -m playwright install --with-deps chromium
 
 EXPOSE 3000 5001
 

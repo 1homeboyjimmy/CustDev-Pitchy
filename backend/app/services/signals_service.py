@@ -12,7 +12,7 @@
 
 import requests
 from datetime import datetime, timezone
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, urlsplit, urlunsplit, parse_qsl, urlencode
 from ..config import Config
 from ..utils.logger import get_logger
 
@@ -44,6 +44,18 @@ def _normalise_sources(sources: list[dict]) -> list[dict]:
     for source in sources:
         source = dict(source)
         url = (source.get('url') or '').strip().split('#', 1)[0].rstrip('/')
+        try:
+            parts = urlsplit(url)
+            host = parts.netloc.lower()
+            if host in ('twitter.com', 'www.twitter.com', 'mobile.twitter.com', 'www.x.com'):
+                host = 'x.com'
+            query = urlencode([(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
+                               if not key.startswith('utm_') and key not in ('fbclid', 'gclid')])
+            if host == 'x.com' and '/status/' in parts.path:
+                query = ''
+            url = urlunsplit((parts.scheme, host, parts.path.rstrip('/'), query, ''))
+        except ValueError:
+            continue
         title = ' '.join((source.get('title') or '').lower().split())
         highlights = ' '.join(source.get('highlights') or []).lower().strip()
         key = url or f"{title}|{highlights[:180]}"
@@ -62,12 +74,12 @@ class SignalsService:
     # ---- Веб-провайдеры (RU-сообщества) ----
 
     @staticmethod
-    def _site_filter() -> str:
-        domains = Config.SIGNAL_DOMAINS or []
+    def _site_filter(domains=None) -> str:
+        domains = Config.SIGNAL_DOMAINS if domains is None else domains
         return ' (' + ' OR '.join(f'site:{d}' for d in domains) + ')' if domains else ''
 
     @staticmethod
-    def _web_ddg(query: str, n: int) -> list[dict]:
+    def _web_ddg(query: str, n: int, domains=None, region="ru-ru") -> list[dict]:
         try:
             from ddgs import DDGS
         except ImportError:
@@ -75,8 +87,8 @@ class SignalsService:
             return []
         out = []
         try:
-            with DDGS() as ddgs:
-                for r in ddgs.text(query + SignalsService._site_filter(), region='ru-ru', max_results=n):
+            with DDGS(proxy=Config.SEARCH_HTTPS_PROXY or None, timeout=8) as ddgs:
+                for r in ddgs.text(query + SignalsService._site_filter(domains), region=region, max_results=n):
                     url = r.get('href') or r.get('url') or ''
                     out.append({
                         'title': r.get('title') or 'Источник',
@@ -86,44 +98,41 @@ class SignalsService:
                         'source': 'web',
                     })
         except Exception as e:
-            logger.error(f"DDG search error: {e}")
+            logger.warning("DDG search unavailable")
         return out
 
     @staticmethod
-    def _web_exa(query: str, n: int) -> list[dict]:
+    def _web_exa(query: str, n: int, domains=None, region="ru-ru") -> list[dict]:
         if not Config.EXA_API_KEY:
-            return []
-        try:
-            from exa_py import Exa
-        except ImportError:
             return []
         out = []
         try:
-            resp = Exa(Config.EXA_API_KEY).search_and_contents(
-                query, type='auto', num_results=n,
-                include_domains=Config.SIGNAL_DOMAINS or None, highlights=True,
-            )
-            for r in (getattr(resp, 'results', None) or []):
-                url = getattr(r, 'url', '') or ''
-                hl = list(getattr(r, 'highlights', None) or [])
-                if not hl and getattr(r, 'text', ''):
-                    hl = [_clip(r.text)]
-                out.append({'title': getattr(r, 'title', None) or 'Источник', 'url': url,
-                            'domain': _domain(url), 'highlights': hl[:3], 'source': 'web'})
-        except Exception as e:
-            logger.error(f"Exa search error: {e}")
+            # As in main Pitchy, use REST to attach a scoped egress proxy.
+            proxy = Config.EXA_HTTPS_PROXY
+            resp = requests.post('https://api.exa.ai/search',
+                json={'query': query, 'numResults': n, 'type': 'auto',
+                      'includeDomains': Config.SIGNAL_DOMAINS if domains is None else domains},
+                headers={'x-api-key': Config.EXA_API_KEY}, timeout=12,
+                proxies={'http': proxy, 'https': proxy} if proxy else {})
+            resp.raise_for_status()
+            for item in resp.json().get('results') or []:
+                url = item.get('url') or ''
+                out.append({'title': item.get('title') or 'Источник', 'url': url,
+                            'domain': _domain(url), 'highlights': [], 'source': 'web'})
+        except Exception:
+            logger.warning('Exa search unavailable')
         return out
 
     @staticmethod
-    def _web_google_cse(query: str, n: int) -> list[dict]:
+    def _web_google_cse(query: str, n: int, domains=None, region="ru-ru") -> list[dict]:
         if not (Config.GOOGLE_CSE_KEY and Config.GOOGLE_CSE_CX):
             return []
         out = []
         try:
             resp = requests.get('https://www.googleapis.com/customsearch/v1', params={
                 'key': Config.GOOGLE_CSE_KEY, 'cx': Config.GOOGLE_CSE_CX,
-                'q': query + SignalsService._site_filter(), 'num': min(n, 10),
-            }, timeout=20)
+                'q': query + SignalsService._site_filter(domains), 'num': min(n, 10),
+            }, timeout=12, proxies=SignalsService._proxies())
             resp.raise_for_status()
             for item in (resp.json().get('items') or []):
                 url = item.get('link', '')
@@ -131,19 +140,19 @@ class SignalsService:
                             'domain': _domain(url), 'highlights': [_clip(item.get('snippet'))] if item.get('snippet') else [],
                             'source': 'web'})
         except Exception as e:
-            logger.error(f"Google CSE error: {e}")
+            logger.warning("Google CSE search unavailable")
         return out
 
     @staticmethod
-    def _web_brave(query: str, n: int) -> list[dict]:
+    def _web_brave(query: str, n: int, domains=None, region="ru-ru") -> list[dict]:
         if not Config.BRAVE_API_KEY:
             return []
         out = []
         try:
             resp = requests.get('https://api.search.brave.com/res/v1/web/search',
-                                params={'q': query + SignalsService._site_filter(), 'count': min(n, 20)},
+                                params={'q': query + SignalsService._site_filter(domains), 'count': min(n, 20)},
                                 headers={'X-Subscription-Token': Config.BRAVE_API_KEY, 'Accept': 'application/json'},
-                                timeout=20)
+                                timeout=12, proxies=SignalsService._proxies())
             resp.raise_for_status()
             for item in ((resp.json().get('web') or {}).get('results') or []):
                 url = item.get('url', '')
@@ -151,21 +160,21 @@ class SignalsService:
                             'domain': _domain(url), 'highlights': [_clip(item.get('description'))] if item.get('description') else [],
                             'source': 'web'})
         except Exception as e:
-            logger.error(f"Brave search error: {e}")
+            logger.warning("Brave search unavailable")
         return out
 
     @staticmethod
-    def _web_searxng(query: str, n: int) -> list[dict]:
+    def _web_searxng(query: str, n: int, domains=None, region="ru-ru") -> list[dict]:
         if not Config.SEARXNG_URL:
             return []
         out = []
         try:
             resp = requests.get(
                 Config.SEARXNG_URL.rstrip('/') + '/search',
-                params={'q': query + SignalsService._site_filter(), 'format': 'json',
-                        'language': 'ru', 'categories': 'general'},
+                params={'q': query + SignalsService._site_filter(domains), 'format': 'json',
+                        'language': 'ru' if region == 'ru-ru' else 'en', 'categories': 'general'},
                 headers={'Accept': 'application/json', 'User-Agent': Config.REDDIT_USER_AGENT},
-                timeout=20,
+                timeout=12, proxies=SignalsService._proxies(),
             )
             resp.raise_for_status()
             for item in (resp.json().get('results') or [])[:n]:
@@ -175,7 +184,7 @@ class SignalsService:
                             'highlights': [_clip(item.get('content'))] if item.get('content') else [],
                             'source': 'web'})
         except Exception as e:
-            logger.error(f"SearXNG search error: {e}")
+            logger.warning("SearXNG search unavailable")
         return out
 
     @staticmethod
@@ -201,59 +210,34 @@ class SignalsService:
             return bool(Config.SEARXNG_URL)
         return True  # ddg — без ключей
 
-    # ---- Reddit (бесплатный публичный поиск) ----
+    @staticmethod
+    def _proxies():
+        proxy = Config.SEARCH_HTTPS_PROXY
+        return {'http': proxy, 'https': proxy} if proxy else {}
 
     @staticmethod
-    def _reddit_token() -> str:
-        """OAuth client_credentials токен (бесплатный script-app). '' если нет ключей."""
-        if not (Config.REDDIT_CLIENT_ID and Config.REDDIT_CLIENT_SECRET):
-            return ''
-        try:
-            resp = requests.post(
-                'https://www.reddit.com/api/v1/access_token',
-                data={'grant_type': 'client_credentials'},
-                auth=(Config.REDDIT_CLIENT_ID, Config.REDDIT_CLIENT_SECRET),
-                headers={'User-Agent': Config.REDDIT_USER_AGENT}, timeout=15,
-            )
-            return resp.json().get('access_token', '') or ''
-        except Exception as e:
-            logger.error(f"Reddit token error: {e}")
-            return ''
+    def search(query: str, n: int, domains=None, region='ru-ru') -> list[dict]:
+        if not SignalsService._web_provider_usable():
+            return []
+        found = SignalsService._web_provider()(query, n, domains=domains, region=region)
+        allowed = Config.SIGNAL_DOMAINS if domains is None else domains
+        return [item for item in found if not allowed or any(
+            _domain(item.get('url') or '') == domain or
+            _domain(item.get('url') or '').endswith('.' + domain)
+            for domain in allowed)]
 
     @staticmethod
     def _search_reddit(query: str, n: int) -> list[dict]:
-        out = []
-        try:
-            token = SignalsService._reddit_token()
-            if token:
-                # Авторизованный путь (надёжно с серверных IP).
-                resp = requests.get(
-                    f'https://oauth.reddit.com/search?q={quote(query)}&sort=relevance&t=year&limit={min(n, 25)}',
-                    headers={'User-Agent': Config.REDDIT_USER_AGENT, 'Authorization': f'Bearer {token}'},
-                    timeout=20,
-                )
-            else:
-                # Публичный путь (часто блокируется на серверных IP — деградирует мягко).
-                resp = requests.get(
-                    f'https://www.reddit.com/search.json?q={quote(query)}&sort=relevance&t=year&limit={min(n, 25)}',
-                    headers={'User-Agent': Config.REDDIT_USER_AGENT}, timeout=20,
-                )
-            resp.raise_for_status()
-            for child in (resp.json().get('data', {}).get('children') or []):
-                d = child.get('data', {})
-                permalink = d.get('permalink', '')
-                url = f'https://www.reddit.com{permalink}' if permalink else (d.get('url') or '')
-                snippet = _clip(d.get('selftext')) or _clip(d.get('title'))
-                out.append({
-                    'title': d.get('title') or 'Reddit',
-                    'url': url,
-                    'domain': f"reddit.com/r/{d.get('subreddit', '')}",
-                    'highlights': [snippet] if snippet else [],
-                    'source': 'reddit',
-                })
-        except Exception as e:
-            logger.error(f"Reddit search error: {e}")
-        return out
+        # Discover through the configured index; read posts/replies via Scrapy.
+        return [dict(item, source='reddit', market_scope='international_reference')
+                for item in SignalsService.search(query, n, ['reddit.com'], 'wt-wt')
+                if '/comments/' in urlparse(item.get('url') or '').path]
+
+    @staticmethod
+    def _search_x(query: str, n: int) -> list[dict]:
+        return [dict(item, source='x', market_scope='international_reference')
+                for item in SignalsService.search(query, n, ['x.com', 'twitter.com'], 'wt-wt')
+                if '/status/' in urlparse(item.get('url') or '').path]
 
     # ---- Оркестратор ----
 
@@ -273,16 +257,17 @@ class SignalsService:
 
         sources = []
         if web_usable:
-            sources += SignalsService._web_provider()(query, max_results)
+            sources += [dict(item, market_scope='russian_market')
+                        for item in SignalsService.search(query, max_results)]
         if reddit_on:
             sources += SignalsService._search_reddit(query, max(3, max_results // 2))
+        sources += SignalsService._search_x(query, max(3, max_results // 2))
 
-        # Сборка текстового контекста для вердикта.
-        compiled = ""
-        for idx, s in enumerate(sources, 1):
-            if s['highlights']:
-                compiled += f"### Сигнал {idx} ({s['domain']}): {s['title']}\n" + \
-                            "\n".join(f"- {h}" for h in s['highlights'][:3]) + "\n\n"
+        from .page_crawler import collect_pages
+        discovered = collect_pages(_normalise_sources(sources))
+        sources = [item for item in discovered if item.get('crawl_status') == 'fetched']
+        result['discovered_sources'] = discovered
+        result['unread_sources_count'] = len(discovered) - len(sources)
 
         sources = _normalise_sources(sources)
         compiled = ""
@@ -297,7 +282,7 @@ class SignalsService:
             context=compiled.strip(),
             source_count=len(sources),
             source_domains=sorted({s.get('domain') for s in sources if s.get('domain')}),
-            degraded=bool((web_usable or reddit_on) and not sources),
+            degraded=bool(result['unread_sources_count'] or not sources),
         )
         logger.info(f"Сигналы [{Config.SIGNAL_PROVIDER}+reddit]: {len(sources)} источников по «{query}».")
         return result

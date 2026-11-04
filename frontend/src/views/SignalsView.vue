@@ -36,8 +36,8 @@
             <div class="flex items-center gap-3">
               <LoaderIcon class="w-5 h-5 animate-spin text-white/70" />
               <div>
-                <div class="text-lg font-semibold text-white">Разведка спроса идёт…</div>
-                <div class="text-sm text-white/45">Рой агентов сканит сообщества по твоей гипотезе</div>
+                <div class="text-lg font-semibold text-white">{{ progressMessage }}</div>
+                <div class="text-sm text-white/45">Российские сообщества, Reddit и X · обычно до 3 минут</div>
               </div>
             </div>
 
@@ -52,7 +52,7 @@
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-bold text-white truncate">{{ a.name }}</div>
                   <div class="text-[12px] text-white/40 truncate">
-                    <template v-if="a.done">Готово</template>
+                    <template v-if="a.done">{{ a.status }}</template>
                     <template v-else-if="a.status === 'searching'">Ищу сигналы…</template>
                     <template v-else>В очереди</template>
                   </div>
@@ -64,6 +64,12 @@
 
           <!-- ФАЗА 2 — дашборд -->
           <template v-else>
+            <div v-if="result.market === 'russia'" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-white/60 space-y-2">
+              <p>Российский рынок: {{ result.russian_market_sources || 0 }} источников · зарубежный опыт: {{ result.international_reference_sources || 0 }} · комментариев и ответов: {{ result.comments_count || 0 }}.</p>
+              <p>Материалы Reddit и X помогают изучить зарубежный опыт; вывод о спросе в России опирается на российские источники.</p>
+              <p v-if="result.unread_sources_count">Не удалось прочитать {{ result.unread_sources_count }} страниц. Они не включены в доказательства спроса.</p>
+              <p v-if="!result.analysis_available">Аналитический вывод недоступен. Ниже показаны собранные материалы.</p>
+            </div>
             <!-- Метрики -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
@@ -75,7 +81,7 @@
                 <div class="text-2xl font-bold text-white mt-1">{{ hotCount }} / {{ segs.length || '—' }}</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
-                <div class="text-[11px] uppercase tracking-wide text-white/40">Готовы платить</div>
+                <div class="text-[11px] uppercase tracking-wide text-white/40">Готовы платить · РФ</div>
                 <div class="text-2xl font-bold mt-1" :class="payPct >= 5 ? 'text-emerald-400' : 'text-white'">{{ payPct }}%</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
@@ -168,9 +174,14 @@
                    class="block rounded-xl bg-white/[0.03] border border-white/8 p-3 hover:border-white/25 transition-colors">
                   <div class="flex items-center gap-2 mb-1.5">
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono">{{ s.domain || 'web' }}</span>
+                    <span v-if="s.market_scope === 'international_reference'" class="text-[10px] text-amber-300 shrink-0">Зарубежный опыт</span>
                     <span class="text-[12px] font-bold text-white truncate">{{ s.title }}</span>
                   </div>
                   <p v-if="s.highlights && s.highlights.length" class="text-[12px] italic text-white/55 leading-relaxed">«{{ s.highlights[0] }}»</p>
+                  <div v-if="s.comments?.length" class="mt-2 space-y-1 border-t border-white/10 pt-2">
+                    <p class="text-[10px] text-white/40">Комментарии и ответы · {{ s.comments.length }}<span v-if="s.discussion_status === 'partial'"> · часть обсуждения</span></p>
+                    <p v-for="(comment, ci) in s.comments.slice(0, 3)" :key="ci" class="text-[12px] text-white/55 leading-relaxed">«{{ comment.text }}»</p>
+                  </div>
                 </a>
               </div>
             </section>
@@ -221,6 +232,7 @@ const totalSources = ref(0)
 const elapsed = ref(0)
 const done = ref(false)
 const errorMessage = ref('')
+const progressMessage = ref('Разведка спроса идёт…')
 const result = ref({ sources_count: 0, sources: [], sources_by_platform: [], analysis: {} })
 let timer = null
 let taskId = null
@@ -271,13 +283,14 @@ const tempLabel = (t) => (t === 'hot' ? 'Горит' : t === 'warm' ? 'Тепл�
 
 // --- логика опроса ---
 const applyStatus = (task) => {
+  progressMessage.value = task.message || 'Разведка спроса идёт…'
   const d = task.progress_detail || {}
   agents.value = d.agents || agents.value
   totalSources.value = d.total_sources ?? totalSources.value
   elapsed.value = d.elapsed ?? elapsed.value
   if (task.status === 'completed' && task.result) {
     result.value = task.result
-    totalSources.value = task.result.sources_count || totalSources.value
+    totalSources.value = task.result.sources_count ?? 0
     done.value = true
     // Сохраняем итог разведки, чтобы прикрепить его к прогону (доступ из истории).
     setSignalsResult(task.result)

@@ -186,6 +186,15 @@ class Config:
     BRAVE_API_KEY = os.environ.get('BRAVE_API_KEY', '')
     # SearXNG: self-hosted метапоиск (free, OSS). URL своего инстанса, напр. http://localhost:8080
     SEARXNG_URL = os.environ.get('SEARXNG_URL', '')
+    # Same scoped German egress as main Pitchy; never proxy SSO/LLM globally.
+    SEARCH_HTTPS_PROXY = (os.environ.get('SEARCH_HTTPS_PROXY') or os.environ.get('EXA_HTTPS_PROXY') or '').strip()
+    EXA_HTTPS_PROXY = (os.environ.get('EXA_HTTPS_PROXY') or SEARCH_HTTPS_PROXY).strip()
+    SIGNAL_HTTPS_PROXY = (os.environ.get('SIGNAL_HTTPS_PROXY') or SEARCH_HTTPS_PROXY).strip()
+    SIGNAL_RESEARCH_SECONDS = max(30, min(180, int(os.environ.get('SIGNAL_RESEARCH_SECONDS', '170'))))
+    SIGNAL_CRAWL_SECONDS = max(5, min(90, int(os.environ.get('SIGNAL_CRAWL_SECONDS', '75'))))
+    SIGNAL_MAX_PAGES = max(1, min(80, int(os.environ.get('SIGNAL_MAX_PAGES', '48'))))
+    SIGNAL_MAX_COMMENTS = max(1, min(50, int(os.environ.get('SIGNAL_MAX_COMMENTS', '20'))))
+    SIGNAL_BROWSER_ENABLED = os.environ.get('SIGNAL_BROWSER_ENABLED', '1').lower() not in ('0', 'false', '')
 
     @classmethod
     def validate(cls):

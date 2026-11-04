@@ -1,0 +1,4 @@
+# Installed over the locked simulation environment (see Dockerfile).
+ddgs>=6.0.0
+scrapy==2.19.0
+scrapy-playwright==0.0.48
