@@ -9,7 +9,7 @@ on:
       operation:
         description: Verify the deployed collector or inspect the deployment runner
         type: choice
-        options: [verify, runner]
+        options: [verify, runner, stop-old-download]
         default: verify
       full:
         description: Also run real Polza query planning and synthesis
@@ -40,6 +40,27 @@ jobs:
           ssh -i "$deploy_key" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
             "$PROD_USERNAME@$PROD_HOST" "bash -s -- '$OPERATION' '$FULL_RESEARCH'" <<'REMOTE'
           set -euo pipefail
+          if [ "$1" = "stop-old-download" ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import signal
+          stopped = 0
+          for entry in Path('/proc').iterdir():
+              if not entry.name.isdigit():
+                  continue
+              try:
+                  args = (entry / 'cmdline').read_bytes().decode(errors='replace').split('\0')
+                  if (any('/playwright/driver/' in arg for arg in args)
+                      and all(arg in args for arg in ('install', '--with-deps', 'chromium'))):
+                      os.kill(int(entry.name), signal.SIGTERM)
+                      stopped += 1
+              except (OSError, ValueError):
+                  pass
+          print('Stopped obsolete full-browser installers:', stopped)
+          PY
+            exit 0
+          fi
           if [ "$1" = "runner" ]; then
             docker ps --format '{{.Names}} {{.Status}}'
             mapfile -t services < <(systemctl list-unit-files --no-legend 'actions.runner*' | awk '{print $1}')
