@@ -1,6 +1,9 @@
 name: Verify deployed market research
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/verify-market-research.yml]
   workflow_dispatch:
     inputs:
       operation:
@@ -27,7 +30,7 @@ jobs:
           PROD_USERNAME: ${{ secrets.PROD_USERNAME }}
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           FULL_RESEARCH: ${{ inputs.full }}
-          OPERATION: ${{ inputs.operation }}
+          OPERATION: ${{ inputs.operation || 'runner' }}
         run: |
           set -euo pipefail
           deploy_key=$(mktemp)
