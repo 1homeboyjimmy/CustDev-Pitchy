@@ -3,6 +3,11 @@ name: Verify deployed market research
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: Verify the deployed collector or inspect/start an offline runner
+        type: choice
+        options: [verify, runner]
+        default: verify
       full:
         description: Also run real Polza query planning and synthesis
         type: boolean
@@ -13,14 +18,39 @@ permissions:
 
 jobs:
   verify:
-    runs-on: [self-hosted, prod-server]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check deployed collector and live sources
+      - name: Check production server over SSH
         env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USERNAME: ${{ secrets.PROD_USERNAME }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           FULL_RESEARCH: ${{ inputs.full }}
+          OPERATION: ${{ inputs.operation }}
         run: |
           set -euo pipefail
+          deploy_key=$(mktemp)
+          trap 'rm -f "$deploy_key"' EXIT
+          printf '%s\n' "$PROD_SSH_KEY" > "$deploy_key"
+          chmod 600 "$deploy_key"
+          ssh -i "$deploy_key" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+            "$PROD_USERNAME@$PROD_HOST" "bash -s -- '$OPERATION' '$FULL_RESEARCH'" <<'REMOTE'
+          set -euo pipefail
+          if [ "$1" = "runner" ]; then
+            docker ps --format '{{.Names}} {{.Status}}'
+            mapfile -t services < <(systemctl list-unit-files --no-legend 'actions.runner*' | awk '{print $1}')
+            for service in "${services[@]}"; do
+              printf 'Runner service: %s\n' "$service"
+              systemctl show "$service" --property=ActiveState,SubState,ExecMainStatus
+              if ! systemctl is-active --quiet "$service"; then
+                sudo -n systemctl start "$service"
+                systemctl show "$service" --property=ActiveState,SubState
+              fi
+            done
+            exit 0
+          fi
           args=()
-          if [ "$FULL_RESEARCH" = "true" ]; then args+=(--full); fi
+          if [ "$2" = "true" ]; then args+=(--full); fi
           docker exec pitchy-offline python backend/scripts/check_market_research.py "${args[@]}"
+          REMOTE
