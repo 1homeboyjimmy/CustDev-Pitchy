@@ -4,6 +4,9 @@
 .cursor
 .DS_Store
 .env
+.codex-local
+AGENTS.md
+pitchy_reference
 
 node_modules
 frontend/node_modules

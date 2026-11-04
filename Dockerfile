@@ -36,23 +36,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl procps \
 # Copy uv binary into the final stage as it is used by the concurrently runner
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
-# 1. СНАЧАЛА копируем весь ваш исходный код
-COPY . .
-
-# 2. ЗАТЕМ копируем собранные зависимости (чтобы локальные файлы их не затерли)
+# Keep the browser and Python dependencies independent of application changes.
 COPY --from=uv-builder /app/backend/.venv /app/backend/.venv
+ENV PATH="/app/backend/.venv/bin:$PATH"
+COPY backend/requirements-research.txt /tmp/requirements-research.txt
+RUN uv pip install --python /app/backend/.venv/bin/python -r /tmp/requirements-research.txt \
+    && python -m playwright install --with-deps --only-shell chromium
+
+# Local virtualenvs/node_modules are excluded by .dockerignore.
+COPY . .
 COPY --from=frontend-builder /app/frontend/node_modules /app/frontend/node_modules
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # Устанавливаем пакеты для корневой папки (на всякий случай, если они нужны для запуска)
 RUN npm install
-
-# Set environment variables to use the virtual environment
-ENV PATH="/app/backend/.venv/bin:$PATH"
-
-# Research dependencies are isolated from the locked OASIS/Torch environment.
-RUN uv pip install --python /app/backend/.venv/bin/python -r backend/requirements-research.txt \
-    && python -m playwright install --with-deps chromium
 
 EXPOSE 3000 5001
 

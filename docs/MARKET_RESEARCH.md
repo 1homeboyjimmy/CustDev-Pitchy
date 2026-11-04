@@ -39,7 +39,9 @@ uv --no-config pip install --python backend/.venv/bin/python -r backend/requirem
 backend/.venv/bin/python -m playwright install chromium
 ```
 
-Docker installs the same dependencies and Chromium with Linux dependencies.
+Docker installs the same dependencies and the Chromium headless shell with
+Linux dependencies in a layer preceding application source. Routine source
+changes reuse this layer; only changes to its dependencies require a download.
 They are layered over the existing simulation lock to avoid changing the
 OASIS/Torch environment. No migration of the Neo4j database is needed.
 
