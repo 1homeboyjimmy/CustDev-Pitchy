@@ -59,15 +59,22 @@ jobs:
           from pathlib import Path
           import concurrent.futures
           import json
+          import subprocess
           import time
           import urllib.request
 
           values = {}
-          for filename in ('/opt/ai-startup/.env', '/opt/ai-startup/.env.runtime', '/root/CustDev-Pitchy/.env'):
+          discovered = subprocess.run(['find', '/root', '/opt', '/srv', '-maxdepth', '4', '-type', 'f', '-name', '.env*'],
+                                      capture_output=True, text=True, timeout=10).stdout.splitlines()
+          for filename in dict.fromkeys(discovered + ['/opt/ai-startup/.env', '/opt/ai-startup/.env.runtime', '/root/CustDev-Pitchy/.env']):
               path = Path(filename)
               if path.exists():
-                  values.update(dict(line.split('=', 1) for line in path.read_text().splitlines()
-                                     if '=' in line and not line.lstrip().startswith('#')))
+                  settings = dict(line.split('=', 1) for line in path.read_text().splitlines()
+                                  if '=' in line and not line.lstrip().startswith('#'))
+                  keys = [key for key in settings if 'PROXY' in key and settings[key].strip().strip('\"\'')]
+                  if keys:
+                      print(json.dumps({'proxy_config_path': filename, 'keys': keys}), flush=True)
+                  values.update({key: value for key, value in settings.items() if value.strip().strip('\"\'')})
           proxy = next((values.get(key, '').strip().strip('\"\'') for key in
                         ('SIGNAL_HTTPS_PROXY', 'SEARCH_HTTPS_PROXY', 'EXA_HTTPS_PROXY')
                         if values.get(key, '').strip().strip('\"\'')), '')

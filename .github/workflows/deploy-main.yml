@@ -3,6 +3,8 @@ name: Deploy to Production Server
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - .github/workflows/verify-market-research.yml
   workflow_dispatch:
 
 jobs:
