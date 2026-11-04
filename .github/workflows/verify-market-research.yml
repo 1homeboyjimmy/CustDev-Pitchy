@@ -47,6 +47,14 @@ jobs:
               printf 'Runner service: %s\n' "$service"
               systemctl show "$service" --property=ActiveState,SubState,ExecMainStatus
             done
+            df -h /
+            ps -eo comm,etime,pcpu,pmem --sort=-pcpu | head -n 12 || true
+            # Browser installers run inside BuildKit; inspect only archive sizes,
+            # never process environments, build secrets or application logs.
+            for pid in $(pgrep -f '/playwright/driver/.*install' || true); do
+              find "/proc/$pid/root/tmp" -maxdepth 2 -type f -name '*playwright*' \
+                -printf '%f %s bytes\n' 2>/dev/null || true
+            done
             exit 0
           fi
           args=()

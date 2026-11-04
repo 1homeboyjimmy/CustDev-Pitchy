@@ -40,8 +40,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 COPY --from=uv-builder /app/backend/.venv /app/backend/.venv
 ENV PATH="/app/backend/.venv/bin:$PATH"
 COPY backend/requirements-research.txt /tmp/requirements-research.txt
-RUN uv pip install --python /app/backend/.venv/bin/python -r /tmp/requirements-research.txt \
-    && python -m playwright install --with-deps --only-shell chromium
+RUN uv pip install --python /app/backend/.venv/bin/python -r /tmp/requirements-research.txt
+RUN python -m playwright install-deps chromium && rm -rf /var/lib/apt/lists/*
+RUN python -m playwright install --only-shell chromium
 
 # Local virtualenvs/node_modules are excluded by .dockerignore.
 COPY . .
