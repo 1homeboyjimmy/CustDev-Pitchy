@@ -6,6 +6,7 @@ Use --full to also exercise Polza query planning and evidence synthesis.
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from importlib.metadata import version
 import contextlib
 import io
 import json
@@ -52,6 +53,17 @@ def coverage(result):
     }
 
 
+def discover(job):
+    name, search = job
+    try:
+        items = search()
+        return name, items, {'status': 'found' if items else 'empty', 'sources': len(items)}
+    except Exception as exc:
+        # Exception messages can contain authenticated proxy URLs.
+        cause = exc.__cause__ or exc.__context__ or exc
+        return name, [], {'status': 'failed', 'error_type': type(cause).__name__}
+
+
 def verification_status(report, full=False):
     """A single readable Russian page must not turn all-platform checks green."""
     fetched = set()
@@ -63,7 +75,9 @@ def verification_status(report, full=False):
                     else 'x' if host in ('x.com', 'twitter.com', 'mobile.twitter.com') else 'russia')
     if not fetched or (full and report.get('research_status') != 'completed'):
         return 'failed'
-    if fetched != {'russia', 'reddit', 'x'} or (full and not report.get('research', {}).get('analysis_available')):
+    if (fetched != {'russia', 'reddit', 'x'}
+        or any(item.get('status') == 'failed' for item in report.get('discovery_status', {}).values())
+        or (full and not report.get('research', {}).get('analysis_available'))):
         return 'partial'
     return 'passed'
 
@@ -75,6 +89,7 @@ def main():
     started = time.monotonic()
     report = {'provider': Config.SIGNAL_PROVIDER, 'proxy_configured': bool(Config.SIGNAL_HTTPS_PROXY),
               'browser_enabled': Config.SIGNAL_BROWSER_ENABLED, 'direct_egress': egress()}
+    report['ddgs_version'] = version('ddgs')
     if Config.SIGNAL_HTTPS_PROXY:
         report['proxy_egress'] = egress(Config.SIGNAL_HTTPS_PROXY)
     jobs = [
@@ -83,9 +98,10 @@ def main():
         ('x', lambda: SignalsService._search_x('customer discovery interviews', 2)),
     ]
     with ThreadPoolExecutor(max_workers=3) as pool:
-        found = list(pool.map(lambda job: (job[0], job[1]()), jobs))
-    report['discovery'] = {name: len(items) for name, items in found}
-    sources = [dict(item, source=name) for name, items in found for item in items]
+        found = list(pool.map(discover, jobs))
+    report['discovery'] = {name: len(items) for name, items, _ in found}
+    report['discovery_status'] = {name: status for name, _, status in found}
+    sources = [dict(item, source=name) for name, items, _ in found for item in items]
     # Controls distinguish an empty search index from a broken downloader.
     sources += [
         {'url': 'https://habr.com/ru/articles/681444/', 'source': 'russian_control'},

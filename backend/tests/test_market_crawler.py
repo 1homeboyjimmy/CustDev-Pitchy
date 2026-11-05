@@ -210,6 +210,22 @@ def test_server_verification_does_not_pass_when_only_habr_works():
     assert verification_status(report, full=True) == 'partial'
 
 
+def test_server_verification_continues_after_provider_failure():
+    from scripts.check_market_research import discover, verification_status
+    def unavailable():
+        try:
+            raise TimeoutError('secret-proxy-credentials')
+        except TimeoutError:
+            raise RuntimeError('provider_failed') from None
+    name, sources, status = discover(('x', unavailable))
+    assert (name, sources, status) == ('x', [], {'status': 'failed', 'error_type': 'TimeoutError'})
+    report = {'collection': {'pages': [
+        {'url': url, 'crawl_status': 'fetched'} for url in
+        ['https://habr.com/post', 'https://reddit.com/r/a/comments/123', 'https://x.com/a/status/123']]},
+        'discovery_status': {'x': status}}
+    assert verification_status(report) == 'partial'
+
+
 def test_proxy_fallback_is_scoped_once_and_handles_browser_credentials():
     middleware = worker.EgressMiddleware()
     spider = SimpleNamespace(proxy='http://user:password@proxy.example:8888')
