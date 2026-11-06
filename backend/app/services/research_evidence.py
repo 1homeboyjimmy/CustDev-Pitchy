@@ -158,6 +158,8 @@ EXTRACTION_PROMPT = """Разбери материалы по исследова
 excerpted или content_truncated означают неполный материал, не заявляй полноту условий или мнений.
 Неизвестные необязательные поля опускай, не перечисляй пустые значения. Извлекай существенное для исходного вопроса,
 а не все утверждения каждого материала. Statement кратко передаёт смысл, не дублирует quote.
+Распредели объём ответа между всеми страницами: не исчерпывай его подробным разбором первых источников.
+Выбирай короткие самостоятельные цитаты, сохраняя условия и отрицания; избегай повторения одного факта.
 Сохраняй отрицания и условия. Для цены нужны период, база комиссии,
 запуск, включённые услуги, обязательные модули; без них пометь неполную стоимость.
 Для статистики нужны территория, период, методика, выборка и база процента.
@@ -254,9 +256,21 @@ def demand_groups(sources, signal=None):
 
 
 def claims_digest(sources):
-    return json.dumps([{'source_index': i, 'url': s.get('url'), 'source_type': s.get('evidence_kind'),
-                        'claims': s.get('claims', []), 'extraction_status': s.get('extraction_status')}
-                       for i, s in enumerate(sources)], ensure_ascii=False)
+    # Role/geography proof has already been checked against the original block.
+    # Keep full evidence quotes and conditions, but do not send those proofs a
+    # second time or repeat each source URL/timestamp for every claim.
+    omitted = {'role_quote', 'geography_quote', 'retrieved_at'}
+    pages = []
+    for i, source in enumerate(sources):
+        claims = []
+        for claim in source.get('claims', []):
+            claims.append({key: value for key, value in claim.items()
+                           if key not in omitted and value is not None and value != ''
+                           and not (key == 'source_url' and value == source.get('url'))})
+        pages.append({'source_index': i, 'url': source.get('url'), 'source_type': source.get('evidence_kind'),
+                      'retrieved_at': source.get('retrieved_at'), 'claims': claims,
+                      'extraction_status': source.get('extraction_status')})
+    return json.dumps(pages, ensure_ascii=False, separators=(',', ':'))
 
 
 def interview_context(research):

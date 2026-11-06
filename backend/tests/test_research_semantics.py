@@ -174,6 +174,36 @@ def test_source_extraction_uses_configured_extraction_model(monkeypatch):
     assert seen[0]['extra_body'] == {'reasoning': {'enabled': False}}
 
 
+def test_compact_digest_preserves_conditions_and_comment_provenance():
+    from app.services.research_evidence import claims_digest
+    source = extract(payload(limitations='Оплата альтернативы, переход не подтверждён'))
+    claim = source['claims'][0]
+    claim.update(source_url='https://vendor.example/comment/1', published_at='2026-10-01',
+                 demand_eligible=False)
+    compact = json.loads(claims_digest([source]))[0]['claims'][0]
+    for key in ('id', 'quote', 'statement', 'limitations', 'source_url', 'published_at',
+                'signal', 'market_scope', 'evidence_type', 'demand_eligible'):
+        assert compact[key] == claim[key]
+    assert 'не готов менять кассу' in compact['quote']
+    assert 'role_quote' not in compact and 'geography_quote' not in compact
+    assert claim['role_quote'] and claim['geography_quote']  # Full evidence stays stored.
+
+
+def test_synthesis_bounds_reasoning_only_for_supported_model(monkeypatch):
+    from app.config import Config
+    calls = []
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{}'))])
+    monkeypatch.setattr(Config, 'LLM_API_KEY', 'test')
+    monkeypatch.setattr(research, 'OpenAI', lambda **kw: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
+    for model in ('openai/gpt-6-luna-pro', 'custom/model'):
+        monkeypatch.setattr(Config, 'model_for', lambda task, value=model: value)
+        research._llm_synthesize('Проверить потребность', [], [extract(payload())], 10)
+    assert calls[0]['extra_body'] == {'reasoning': {'effort': 'low'}}
+    assert 'extra_body' not in calls[1]
+
+
 def test_server_smoke_tasks_do_not_replace_application_task_cache(tmp_path, monkeypatch):
     from scripts import check_market_research as check
     application_cache = tmp_path / 'application-tasks.json'

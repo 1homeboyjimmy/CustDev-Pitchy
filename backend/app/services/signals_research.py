@@ -238,6 +238,8 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict], timeou
         '  "interview_hypotheses": [str], "risks": [str], "affected_groups": [str],\n'
         '  "summary": str\n'
         "}\n"
+        "Это краткий рабочий бриф: объединяй повторяющиеся выводы, не пересказывай каждую страницу, "
+        "summary до 150 слов; в каждом выводе 1–2 предложения. Цитаты уже проверены, их повторять не нужно. "
         "В summary ответь на исходный вопрос с ограничениями. Формулируй нейтральные вопросы интервью, "
         "не подсказывающие ответ, гипотезы для проверки и контргипотезы. Синтетические персонажи должны "
         "мочь не согласиться: не задавай им заранее положительный или отрицательный ответ. "
@@ -258,6 +260,9 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict], timeou
                       {"role": "user", "content": prompt}],
             max_tokens=4000,
             response_format={'type': 'json_object'},
+            **({'extra_body': {'reasoning': {'effort': 'low'}}}
+               if Config.model_for('signals') == 'openai/gpt-6-luna-pro'
+               else polza_chat_options(Config.model_for('signals'))),
             temperature=0.3,
         )
         text = resp.choices[0].message.content.strip()
