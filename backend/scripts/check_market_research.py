@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import sys
 import time
+import tempfile
 from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -95,6 +96,21 @@ def verification_status(report, full=False):
     return 'passed'
 
 
+def run_research_check(query):
+    """Standalone smoke tasks must never overwrite the application's task cache."""
+    with tempfile.TemporaryDirectory(prefix='custdev-smoke-') as directory:
+        TaskManager._tasks_file = str(Path(directory) / 'tasks.json')
+        TaskManager._instance = None
+        task_id = start_research(query, [], owner_id='server-smoke')
+        deadline = time.monotonic() + Config.SIGNAL_RESEARCH_SECONDS + 10
+        while time.monotonic() < deadline:
+            task = TaskManager().get_task(task_id)
+            if task and task.status.value in ('completed', 'failed'):
+                return task.status.value, task.result or {}
+            time.sleep(1)
+        return 'timed_out', {}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--full', action='store_true')
@@ -129,17 +145,8 @@ def main():
                                      'discovered_sources': collected})
     print(json.dumps({'phase': 'collection', **report}, ensure_ascii=False), flush=True)
     if args.full:
-        task_id = start_research(args.query, [], owner_id='server-smoke')
-        deadline = time.monotonic() + Config.SIGNAL_RESEARCH_SECONDS + 10
-        while time.monotonic() < deadline:
-            task = TaskManager().get_task(task_id)
-            if task and task.status.value in ('completed', 'failed'):
-                report['research_status'] = task.status.value
-                report['research'] = coverage(task.result or {})
-                break
-            time.sleep(1)
-        else:
-            report['research_status'] = 'timed_out'
+        report['research_status'], result = run_research_check(args.query)
+        report['research'] = coverage(result)
     report['total_elapsed'] = round(time.monotonic() - started, 1)
     report['verification_status'] = verification_status(report, args.full)
     print(json.dumps({'phase': 'complete', **report}, ensure_ascii=False), flush=True)

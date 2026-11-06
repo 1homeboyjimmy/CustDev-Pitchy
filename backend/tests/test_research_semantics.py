@@ -172,3 +172,20 @@ def test_source_extraction_uses_configured_extraction_model(monkeypatch):
     assert research._extract_evidence('Смена кассы', [page()], 10)[0]['claims']
     assert seen[0]['model'] == Config.model_for('extraction')
     assert seen[0]['extra_body'] == {'reasoning': {'enabled': False}}
+
+
+def test_server_smoke_tasks_do_not_replace_application_task_cache(tmp_path, monkeypatch):
+    from scripts import check_market_research as check
+    application_cache = tmp_path / 'application-tasks.json'
+    application_cache.write_text('original application data')
+    monkeypatch.setattr(check.TaskManager, '_instance', None)
+    monkeypatch.setattr(check.TaskManager, '_tasks_file', str(application_cache))
+    def start(*args, **kwargs):
+        tasks = check.TaskManager()
+        identifier = tasks.create_task('signals_research')
+        tasks.complete_task(identifier, {'analysis_available': True})
+        return identifier
+    monkeypatch.setattr(check, 'start_research', start)
+    status, result = check.run_research_check('Question')
+    assert status == 'completed' and result['analysis_available']
+    assert application_cache.read_text() == 'original application data'
