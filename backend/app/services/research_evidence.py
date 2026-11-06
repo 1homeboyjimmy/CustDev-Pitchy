@@ -38,6 +38,47 @@ def choice(value, choices, default):
     return value if isinstance(value, str) and value in choices else default
 
 
+def parse_object(content):
+    """Accept provider markdown wrappers, but never repair truncated evidence."""
+    if not isinstance(content, str):
+        raise ValueError('missing_json')
+    start, end = content.find('{'), content.rfind('}')
+    value = json.loads(content[start:end + 1]) if start >= 0 and end > start else None
+    if not isinstance(value, dict):
+        raise ValueError('invalid_json_object')
+    return value
+
+
+def parse_pages(content):
+    """Keep only complete page objects if an output cap cuts the outer JSON.
+
+    No missing braces or partial claims are invented. Every recovered quote
+    still passes source-local validation.
+    """
+    try:
+        return parse_object(content)
+    except ValueError:
+        if not isinstance(content, str):
+            return None
+        marker = re.search(r'"pages"\s*:\s*\[', content)
+        if not marker:
+            return None
+        position, pages = marker.end(), []
+        decoder = json.JSONDecoder()
+        while position < len(content):
+            while position < len(content) and content[position] in ' \n\r\t,':
+                position += 1
+            try:
+                page, end = decoder.raw_decode(content, position)
+            except ValueError:
+                break
+            if not isinstance(page, dict):
+                break
+            pages.append(page)
+            position = end
+        return {'pages': pages} if pages else None
+
+
 def material_blocks(source):
     blocks = []
     for block in source.get('content_blocks') or []:

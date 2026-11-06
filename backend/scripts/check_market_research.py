@@ -89,7 +89,8 @@ def verification_status(report, full=False):
         or any(item.get('status') == 'failed' for item in report.get('discovery_status', {}).values())
         or (full and not report.get('research', {}).get('analysis_available'))
         or (full and report.get('research', {}).get('evidence_version') == 2
-            and (not report['research'].get('claims') or not report['research'].get('interview_questions')))):
+            and (not report['research'].get('claims') or not report['research'].get('interview_questions')
+                 or report['research'].get('extraction_unavailable_count')))):
         return 'partial'
     return 'passed'
 

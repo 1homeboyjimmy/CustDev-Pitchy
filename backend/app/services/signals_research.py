@@ -22,7 +22,7 @@ from ..models.task import TaskManager, TaskStatus
 from ..utils.logger import get_logger
 from .page_crawler import collect_pages, source_diagnostics
 from .signals_service import SignalsService, SearchUnavailable, _normalise_sources
-from .research_evidence import QUESTIONS, EXTRACTION_PROMPT, extraction_material, validate_pages, claims_digest, demand_groups
+from .research_evidence import QUESTIONS, EXTRACTION_PROMPT, extraction_material, validate_pages, claims_digest, demand_groups, parse_object, parse_pages
 
 logger = get_logger('pitchy.signals_research')
 _start_lock = threading.Lock()
@@ -101,6 +101,7 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict:
                 'willingness': 'условия принятия решения проверка результата'}
     planned = {agent['id']: f'{fallback} {suffixes[agent["id"]]}' for agent in AGENTS}
     planned['_context'] = {'product_hypothesis': query[:6000], 'segments': segments, 'unknowns': []}
+    planned['_planning_status'] = 'fallback'
     planned['_intents'] = {a['id']: {'questions': a.get('questions', ['process', 'purchase']),
                                     'segment': '', 'job': '', 'expected_evidence': '', 'polarity': 'balanced'} for a in AGENTS}
     if not Config.LLM_API_KEY or not Config.LLM_BASE_URL:
@@ -122,13 +123,13 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict:
         "Ищи также опровержения и отсутствие потребности, а не только подтверждение гипотезы. "
         "Исследуем российский рынок и зарубежный сравнительный опыт. "
         "Запросы reddit и x составь на английском; остальные — на русском. "
-        "Верни JSON: context={research_objective,decision,proposed_change,affected_groups,roles,current_state,unknowns}; "
+        "Верни компактный JSON: context={research_objective:краткая цель,affected_groups:[названия групп],unknowns:[главные неизвестные]}; "
         "plans={x,reddit,habr_vc,pikabu,reviews,competitors,willingness}; каждое значение plans — "
-        "{query:строка до 18 слов,questions:массив ключей вопросов,segment,job,expected_evidence,polarity:balanced}.\n\n"
+        "короткая строка поискового запроса. Не повторяй паспорт.\n\n"
         f"Сегменты: {', '.join(segments) or 'не заданы'}\nКонтекст:\n{query[:6000]}"
     )
     try:
-        client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL, timeout=12.0, max_retries=0)
+        client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL, timeout=14.0, max_retries=0)
         response = client.chat.completions.create(
             model=Config.model_for('search'),
             messages=[{'role': 'user', 'content': prompt}],
@@ -137,12 +138,13 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict:
             response_format={'type': 'json_object'},
             **polza_chat_options(Config.model_for('search')),
         )
-        data = json.loads(response.choices[0].message.content)
+        data = parse_object(response.choices[0].message.content)
         if not isinstance(data, dict):
             return planned
         if isinstance(data.get('context'), dict):
             planned['_context'] = data['context']
         entries = data.get('plans') if isinstance(data.get('plans'), dict) else data
+        planned_count = 0
         for agent in AGENTS:
             raw = entries.get(agent['id'])
             if isinstance(raw, dict):
@@ -155,8 +157,10 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict:
             value = raw.strip() if isinstance(raw, str) else ''
             if value:
                 planned[agent['id']] = value[:240]
+                planned_count += 1
+        planned['_planning_status'] = 'model' if planned_count == len(AGENTS) else 'partial' if planned_count else 'fallback'
     except Exception as exc:
-        logger.warning("Signal query planning degraded to deck excerpt")
+        logger.warning("Signal query planning fallback (%s)", type(exc).__name__)
     return planned
 
 
@@ -189,13 +193,14 @@ def _extract_evidence(query, sources, timeout):
             client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL,
                             timeout=max(1, timeout), max_retries=0)
             response = client.chat.completions.create(
-                model=Config.model_for('signals'), temperature=0, max_tokens=6000,
+                model=Config.model_for('extraction'), temperature=0, max_tokens=6000,
                 response_format={'type': 'json_object'},
+                **polza_chat_options(Config.model_for('extraction')),
                 messages=[{'role': 'system', 'content': EXTRACTION_PROMPT},
                           {'role': 'user', 'content': json.dumps({'project': query[:6000], 'materials': material}, ensure_ascii=False)}])
-            payload = json.loads(response.choices[0].message.content)
-        except Exception:
-            logger.warning('Evidence extraction unavailable; unverified pages do not establish demand')
+            payload = parse_pages(response.choices[0].message.content)
+        except Exception as exc:
+            logger.warning('Evidence extraction unavailable (%s); unverified pages do not establish demand', type(exc).__name__)
     return validate_pages(payload, sources, material)
 
 
@@ -453,7 +458,7 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
             all_sources, filtered_out = _filter_market_evidence(all_sources)
             remaining = deadline - time.monotonic()
             tm.update_task(task_id, message="Извлекаю подтверждаемые факты, контекст и возражения…")
-            extraction_budget = max(0, min(15, remaining / 2))
+            extraction_budget = max(0, min(30, remaining * 0.65))
             verified = _bounded_call(_extract_evidence, extraction_budget, query, deepcopy(all_sources),
                                      timeout=extraction_budget) if all_sources and extraction_budget > 1 else None
             # Extraction works on copies: a timed-out thread cannot mutate a saved result later.
@@ -470,6 +475,7 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
                 "query": query,
                 "evidence_version": 2,
                 "research_context": planned_queries.get('_context', {}),
+                "planning_status": planned_queries.get('_planning_status', 'fallback'),
                 "market": "russia",
                 "discovered_sources": source_diagnostics([semantic_sources.get(s['url'], s) for s in discovered]),
                 "unread_sources_count": sum(s.get('crawl_status') != 'fetched' for s in discovered),
@@ -483,7 +489,8 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
                 "degraded": bool(pending or any(s.get('crawl_status') != 'fetched' for s in discovered)
                                  or any(a.get('search_status') == 'unavailable' for a in agents_state) or not raw_analysis
                                  or any(s.get('extraction_status') != 'completed' for s in all_sources)
-                                 or not any(s.get('claims') for s in all_sources)),
+                                 or not any(s.get('claims') for s in all_sources)
+                                 or planned_queries.get('_planning_status') != 'model'),
                 "time_budget_seconds": Config.SIGNAL_RESEARCH_SECONDS,
                 "segments_input": segments,
                 "sources": all_sources,

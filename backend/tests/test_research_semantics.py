@@ -149,3 +149,26 @@ def test_synthetic_quotes_can_only_support_a_conditional_finding():
     result = research._normalise_analysis({'findings': [
         {'conclusion': 'Модельный сценарий', 'claim_ids': ['0:0'], 'status': 'supported'}]}, [source])
     assert result['findings'][0]['status'] == 'conditional'
+
+
+def test_truncated_model_output_retains_only_complete_grounded_pages():
+    from app.services.research_evidence import parse_pages
+    complete = payload()['pages'][0]
+    interrupted = '{"pages": [' + json.dumps(complete) + ', {"source_index": 1, "claims": ['
+    parsed = parse_pages(interrupted)
+    assert parsed == {'pages': [complete]}
+    assert len(extract(parsed)['claims']) == 1
+    assert parse_pages('{"pages": [{"source_index":0,"claims":[{"quote":"partial') is None
+
+
+def test_source_extraction_uses_configured_extraction_model(monkeypatch):
+    from app.config import Config
+    seen = []
+    def create(**kwargs):
+        seen.append(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(payload())))])
+    monkeypatch.setattr(Config, 'LLM_API_KEY', 'test')
+    monkeypatch.setattr(research, 'OpenAI', lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
+    assert research._extract_evidence('Смена кассы', [page()], 10)[0]['claims']
+    assert seen[0]['model'] == Config.model_for('extraction')
+    assert seen[0]['extra_body'] == {'reasoning': {'enabled': False}}

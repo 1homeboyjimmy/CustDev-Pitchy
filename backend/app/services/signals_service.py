@@ -294,12 +294,12 @@ class SignalsService:
             future.cancel()
             statuses.append({'id': futures[future], 'status': 'timed_out', 'sources': 0})
         pool.shutdown(wait=False, cancel_futures=True)
-        discovered = collect_pages(_normalise_sources(sources), timeout=max(0, deadline - time.monotonic() - 15))
+        discovered = collect_pages(_normalise_sources(sources), timeout=max(0, deadline - time.monotonic() - 30))
         sources = [item for item in discovered if item.get('crawl_status') == 'fetched']
         from .signals_research import _extract_evidence, _bounded_call
         from .research_evidence import extraction_material, validate_pages, claims_digest
         from copy import deepcopy
-        remaining = max(0, min(15, deadline - time.monotonic()))
+        remaining = max(0, min(30, deadline - time.monotonic()))
         verified = _bounded_call(_extract_evidence, remaining, query, deepcopy(sources), timeout=remaining) if remaining > 1 else None
         sources = verified if verified is not None else validate_pages(None, sources, extraction_material(sources, query))
         context = '\n\n'.join(f"### {item.get('market_scope', 'unknown')} {item['url']}\n" +
