@@ -14,7 +14,8 @@ from ..config import Config
 def source_diagnostics(sources):
     """Keep coverage without duplicating full articles/replies in every task."""
     keys = ('url', 'title', 'domain', 'source', 'search_angle', 'market_scope', 'crawl_status',
-            'http_status', 'error_type', 'egress', 'discussion_status')
+            'http_status', 'error_type', 'egress', 'discussion_status', 'collection_method',
+            'discussion_http_status')
     return [{**{key: source[key] for key in keys if key in source},
              'content_characters': len(source.get('content') or ''),
              'comments_count': len(source.get('comments') or [])} for source in sources]
@@ -38,7 +39,11 @@ def collect_pages(sources: list[dict], timeout: float | None = None) -> list[dic
             'seconds': budget,
             'max_comments': Config.SIGNAL_MAX_COMMENTS,
             'browser': Config.SIGNAL_BROWSER_ENABLED,
+            'x_api_token': Config.X_API_BEARER_TOKEN,
+            'x_api_max_posts': Config.X_API_MAX_POSTS,
+            'x_api_max_replies': min(Config.X_API_MAX_REPLIES, Config.SIGNAL_MAX_COMMENTS),
         }), encoding='utf-8')
+        request_path.chmod(0o600)
         worker = Path(__file__).resolve().parents[1] / 'crawling' / 'worker.py'
         try:
             process = subprocess.Popen(

@@ -47,6 +47,9 @@ def coverage(result):
         'pages': [{'url': item.get('url'), 'platform': item.get('source'),
                    'crawl_status': item.get('crawl_status'), 'egress': item.get('egress'),
                    'error_type': item.get('error_type'), 'http_status': item.get('http_status'),
+                   'collection_method': item.get('collection_method'),
+                   'discussion_status': item.get('discussion_status'),
+                   'discussion_http_status': item.get('discussion_http_status'),
                    'characters': item.get('content_characters', len(item.get('content') or '')),
                    'comments': item.get('comments_count', len(item.get('comments') or []))}
                   for item in result.get('discovered_sources') or sources],
@@ -89,6 +92,7 @@ def main():
     started = time.monotonic()
     report = {'provider': Config.SIGNAL_PROVIDER, 'proxy_configured': bool(Config.SIGNAL_HTTPS_PROXY),
               'browser_enabled': Config.SIGNAL_BROWSER_ENABLED, 'direct_egress': egress()}
+    report['x_api_configured'] = bool(Config.X_API_BEARER_TOKEN)
     report['ddgs_version'] = version('ddgs')
     if Config.SIGNAL_HTTPS_PROXY:
         report['proxy_egress'] = egress(Config.SIGNAL_HTTPS_PROXY)

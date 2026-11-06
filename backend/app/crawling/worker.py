@@ -1,4 +1,4 @@
-"""Standalone Scrapy worker. Public pages only; no credentials or paid APIs.
+"""Standalone Scrapy worker for public pages and opt-in official X API reads.
 
 The parent owns the hard deadline. Results are flushed per page so partial
 collections survive a slow site, a browser failure or the deadline.
@@ -17,6 +17,11 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from scrapy.exceptions import IgnoreRequest
+
+try:
+    from .x_api import XAPIMixin, post_id
+except ImportError:  # Executed as a standalone worker file.
+    from x_api import XAPIMixin, post_id
 
 
 BLOCK_MARKERS = ('cloudflare ray id', 'verify you are human', 'checking your browser',
@@ -133,6 +138,8 @@ class EgressMiddleware:
             raise IgnoreRequest('non_public_url')
 
     def _retry(self, request, spider):
+        if request.meta.get('x_api'):
+            return None  # Paid API reads have no automatic retries.
         if not spider.proxy or request.meta.get('via_proxy'):
             return None
         meta = dict(request.meta, via_proxy=True, proxy=spider.proxy)
@@ -297,7 +304,7 @@ def extract_html(response, max_comments=20):
             'discussion_status': 'partial' if comments else 'not_available'}
 
 
-class MarketSpider(scrapy.Spider):
+class MarketSpider(XAPIMixin, scrapy.Spider):
     name = 'market_pages'
 
     def __init__(self, job, output, **kwargs):
@@ -308,6 +315,7 @@ class MarketSpider(scrapy.Spider):
         self.best = {}
 
     async def start(self):
+        x_targets = {}
         for index, source in enumerate(self.job['sources']):
             url = source.get('url') or ''
             try:
@@ -325,12 +333,25 @@ class MarketSpider(scrapy.Spider):
                                   f'limit={self.job["max_comments"]}&depth=4&raw_json=1', ''))
                 meta['reddit_json'] = True
             if parsed.hostname in X_HOSTS:
+                if self.job.get('x_api_token'):
+                    identifier = post_id(url)
+                    if not identifier:
+                        self.save(index, crawl_status='invalid_url')
+                    elif identifier in x_targets:
+                        x_targets[identifier].append(index)
+                    elif len(x_targets) < self.job.get('x_api_max_posts', 3):
+                        x_targets[identifier] = [index]
+                    else:
+                        self.save(index, crawl_status='budget_limited', collection_method='x_api')
+                    continue
                 if not self.job['browser']:
                     self.save(index, crawl_status='browser_disabled')
                     continue
                 meta.update(self.browser_meta())
                 meta['playwright_page_init_callback'] = observe_public_tweets
             yield scrapy.Request(url, callback=self.parse_page, errback=self.failed, meta=meta)
+        if x_targets:
+            yield self.x_api_posts_request(x_targets)
 
     def browser_meta(self, via_proxy=False):
         from scrapy_playwright.page import PageMethod

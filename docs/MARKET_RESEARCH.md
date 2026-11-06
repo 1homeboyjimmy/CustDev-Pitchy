@@ -14,7 +14,8 @@ Existing saved runs remain readable and are not automatically recollected.
    existing Russian sites. It prevents reactor conflicts between Flask jobs.
 3. Reddit public JSON supplies the post and nested replies. If unavailable,
    the collector tries the public HTML page. X uses Chromium through
-   scrapy-playwright. Other sites use article selectors, visible comments and
+   scrapy-playwright, or the official API when `X_API_BEARER_TOKEN` is set.
+   Other sites use article selectors, visible comments and
    JSON-LD, with browser rendering for empty pages and dynamic discussions.
 4. Results preserve text, excerpts, comment links, dates when available,
    collection status and egress. Only successfully fetched pages enter the
@@ -29,6 +30,7 @@ Public access does not guarantee complete discussions. Login walls, removed
 posts, rate limits, collapsed replies and the time limit
 may prevent collection. `discussion_status=partial` explicitly marks a bounded
 discussion; the collector does not sign in or purchase platform API access.
+An explicitly configured X API token enables authorized read-only API requests.
 One page is counted as one source, even when it contains multiple replies.
 X timeline neighbors are excluded from replies unless public parent metadata
 connects them to the selected post. Login screens are not Reddit evidence.
@@ -80,6 +82,25 @@ or printed by the collector. Staging can set the same env variables directly.
 | `SIGNAL_MAX_PAGES` | 48 | Maximum discovered pages attempted per job |
 | `SIGNAL_MAX_COMMENTS` | 20 | Maximum visible comments/replies per page |
 | `SIGNAL_BROWSER_ENABLED` | 1 | Enable public JavaScript page rendering |
+| `X_API_BEARER_TOKEN` | empty | Optional official X API credentials; secret, never log |
+| `X_API_MAX_POSTS` | 3 | Paid discovered posts per collector job, maximum 10 |
+| `X_API_MAX_REPLIES` | 10 | Replies retained per post, 0 disables reply requests |
+
+With X API enabled, Scrapy batches discovered post IDs in one lookup and
+reads at most one full-archive reply-search page per selected post. Each search
+requests exactly 10 results (the API minimum), even if fewer replies are retained.
+No pagination, user expansions or automatic paid retries run. The default
+maximum is 3 parent posts plus 30 returned replies per collector job, not a
+global account spending cap. Set the billing-cycle cap in the X console too.
+The configured German proxy is used immediately for X API requests. Authorization
+headers only go to fixed `api.x.com` endpoints; redirects are disabled.
+Search providers remain responsible for discovery. Sources beyond the paid cap
+are marked `budget_limited`; inaccessible or deleted API posts are not evidence.
+Reply-access failure preserves a successfully read parent post and records
+`discussion_http_status`. Threads are always marked partial, not complete.
+
+Production takes `X_API_BEARER_TOKEN` from the same-named GitHub Actions secret
+and writes it into the container runtime env; `.env` is excluded from the image.
 
 At the deadline, completed pages are retained and Chromium is stopped.
 `discovered_sources` includes unread pages with `crawl_status` such as

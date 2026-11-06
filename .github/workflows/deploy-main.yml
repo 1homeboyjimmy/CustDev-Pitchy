@@ -17,6 +17,7 @@ jobs:
       - name: Build and Deploy
         env:
           CUSTDEV_BUILD_PROXY: ${{ secrets.SEARCH_HTTPS_PROXY }}
+          CUSTDEV_X_API_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
         run: |
           echo "==> Preparing Environment..."
           # Copy the .env file configured previously on the server to the current workspace
@@ -107,6 +108,23 @@ jobs:
               lines.append('SEARCH_HTTPS_PROXY=' + quoted)
               target.write_text('\n'.join(lines) + '\n')
           PY
+
+          # Read-only X access is optional and never enters a Docker image.
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          token = os.environ.get('CUSTDEV_X_API_TOKEN', '').strip()
+          if token:
+              path = Path('.env')
+              lines = [line for line in path.read_text().splitlines()
+                       if not line.startswith('X_API_BEARER_TOKEN=')]
+              if any(char not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%+/_=-' for char in token):
+                  raise SystemExit('X_API_BEARER_TOKEN has an invalid format')
+              lines.append('X_API_BEARER_TOKEN=' + token)
+              path.write_text('\n'.join(lines) + '\n')
+              print('    X API token configured.')
+          PY
+          unset CUSTDEV_X_API_TOKEN
 
           # The runtime file is optional when the dedicated secrets were
           # already provisioned in CustDev's persistent server env. Until the

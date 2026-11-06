@@ -195,6 +195,10 @@ class Config:
     SIGNAL_MAX_PAGES = max(1, min(80, int(os.environ.get('SIGNAL_MAX_PAGES', '48'))))
     SIGNAL_MAX_COMMENTS = max(1, min(50, int(os.environ.get('SIGNAL_MAX_COMMENTS', '20'))))
     SIGNAL_BROWSER_ENABLED = os.environ.get('SIGNAL_BROWSER_ENABLED', '1').lower() not in ('0', 'false', '')
+    X_API_BEARER_TOKEN = os.environ.get('X_API_BEARER_TOKEN', '').strip()
+    # Bound paid reads per collector job; discovery stays with the search provider.
+    X_API_MAX_POSTS = max(1, min(10, int(os.environ.get('X_API_MAX_POSTS', '3'))))
+    X_API_MAX_REPLIES = max(0, min(10, int(os.environ.get('X_API_MAX_REPLIES', '10'))))
 
     @classmethod
     def validate(cls):
