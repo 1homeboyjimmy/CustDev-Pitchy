@@ -62,6 +62,7 @@ def test_api_preserves_post_when_reply_access_fails_and_does_not_retry():
     assert saved[0]['content'] == 'Complete long post'
     assert saved[0]['collection_method'] == 'x_api'
     assert parse_qs(urlsplit(reply_req.url).query)['max_results'] == ['10']
+    assert parse_qs(urlsplit(reply_req.url).query)['start_time'] == ['2026-11-06T00:00:00Z']
     blocked = response(reply_req, {}, status=402)
     assert worker.EgressMiddleware().process_response(reply_req, blocked, s) is blocked
     s.parse_x_replies(blocked)
@@ -95,3 +96,13 @@ def test_auth_errors_and_missing_posts_do_not_become_evidence():
     assert saved[0]['crawl_status'] == saved[1]['crawl_status'] == 'api_unavailable'
     assert list(s.parse_x_posts(response(req, {'data': []}))) == []
     assert saved[0]['crawl_status'] == 'content_unavailable'
+
+
+def test_no_paid_reply_search_when_post_has_no_replies_or_replies_are_disabled():
+    for options, metrics in [({}, {'reply_count': 0}), ({'x_api_max_replies': 0}, {'reply_count': 10})]:
+        s = spider(**options)
+        saved = capture(s)
+        req = s.x_api_posts_request({'123': [0]})
+        assert list(s.parse_x_posts(response(req, {'data': [{
+            'id': '123', 'text': 'Post', 'conversation_id': '123', 'public_metrics': metrics}]}))) == []
+        assert saved[0]['crawl_status'] == 'fetched'

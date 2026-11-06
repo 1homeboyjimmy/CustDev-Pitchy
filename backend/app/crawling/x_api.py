@@ -11,7 +11,7 @@ from urllib.parse import urlencode, urlsplit
 import scrapy
 
 
-POST_FIELDS = 'created_at,conversation_id,note_post'
+POST_FIELDS = 'created_at,conversation_id,note_post,referenced_posts,public_metrics'
 
 
 def post_id(url):
@@ -96,10 +96,17 @@ class XAPIMixin:
                           egress='proxy' if self.proxy else 'direct', published_at=post.get('created_at'),
                           discussion_status='not_available')
             conversation = str(post.get('conversation_id') or '')
-            if self.job.get('x_api_max_replies', 0) and conversation.isdigit():
+            metrics = post.get('public_metrics') or {}
+            if (self.job.get('x_api_max_replies', 0) and conversation.isdigit()
+                    and metrics.get('reply_count') != 0):
+                params = {'query': f'conversation_id:{conversation} is:reply', 'max_results': 10,
+                          'post.fields': POST_FIELDS}
+                # The archive endpoint's default time window can omit older
+                # replies. Start at the selected post's publication timestamp.
+                if post.get('created_at'):
+                    params['start_time'] = post['created_at']
                 yield self.x_api_request('tweets/search/all',
-                                        {'query': f'conversation_id:{conversation} is:reply', 'max_results': 10,
-                                         'post.fields': POST_FIELDS},
+                                        params,
                                         {'x_indices': indices, 'x_target': identifier,
                                          'x_conversation': conversation}, self.parse_x_replies, self.failed_x_replies)
 

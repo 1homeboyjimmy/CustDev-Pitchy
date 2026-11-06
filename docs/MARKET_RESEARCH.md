@@ -89,6 +89,8 @@ or printed by the collector. Staging can set the same env variables directly.
 With X API enabled, Scrapy batches discovered post IDs in one lookup and
 reads at most one full-archive reply-search page per selected post. Each search
 requests exactly 10 results (the API minimum), even if fewer replies are retained.
+The search starts at the selected post's publication date so older discussions
+are included. Posts whose API metrics report zero replies skip the reply call.
 No pagination, user expansions or automatic paid retries run. The default
 maximum is 3 parent posts plus 30 returned replies per collector job, not a
 global account spending cap. Set the billing-cycle cap in the X console too.
