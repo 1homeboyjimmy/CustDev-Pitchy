@@ -449,8 +449,11 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
             all_sources = _normalise_sources(all_sources)
             tm.update_task(task_id, progress=45, message="Читаю страницы, комментарии и ответы…",
                            progress_detail=_detail(agents_state, len(all_sources)))
-            synthesis_reserve = min(35, Config.SIGNAL_RESEARCH_SECONDS / 4)
-            discovered = collect_pages(all_sources, timeout=max(0, deadline - time.monotonic() - synthesis_reserve))
+            # Both extraction and synthesis need time after crawling. Reserving
+            # only the old synthesis allowance lets slow pages consume the
+            # evidence budget before either model can finish.
+            analysis_reserve = min(95, Config.SIGNAL_RESEARCH_SECONDS * 0.6)
+            discovered = collect_pages(all_sources, timeout=max(0, deadline - time.monotonic() - analysis_reserve))
             all_sources = discovered
             tm.update_task(task_id, progress=85, message="Проверяю доказательства и свожу выводы…",
                            progress_detail=_detail(agents_state, sum(s.get('crawl_status') == 'fetched' for s in discovered)))
@@ -459,7 +462,7 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
             all_sources, filtered_out = _filter_market_evidence(all_sources)
             remaining = deadline - time.monotonic()
             tm.update_task(task_id, message="Извлекаю подтверждаемые факты, контекст и возражения…")
-            extraction_budget = max(0, min(30, remaining * 0.65))
+            extraction_budget = max(0, min(45, remaining * 0.5))
             verified = _bounded_call(_extract_evidence, extraction_budget, query, deepcopy(all_sources),
                                      timeout=extraction_budget) if all_sources and extraction_budget > 1 else None
             # Extraction works on copies: a timed-out thread cannot mutate a saved result later.
