@@ -15,7 +15,8 @@ def source_diagnostics(sources):
     """Keep coverage without duplicating full articles/replies in every task."""
     keys = ('url', 'title', 'domain', 'source', 'search_angle', 'market_scope', 'crawl_status',
             'http_status', 'error_type', 'egress', 'discussion_status', 'collection_method',
-            'discussion_http_status')
+            'discussion_http_status', 'extraction_status', 'evidence_kind', 'content_truncated',
+            'document_format')
     return [{**{key: source[key] for key in keys if key in source},
              'content_characters': len(source.get('content') or ''),
              'comments_count': len(source.get('comments') or [])} for source in sources]

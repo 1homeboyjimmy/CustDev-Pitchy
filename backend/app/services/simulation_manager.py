@@ -406,6 +406,14 @@ class SimulationManager:
                     logger.warning("RAG returned no context for simulation_requirement")
             except Exception as rag_e:
                 logger.warning(f"RAG context lookup failed (non-critical): {rag_e}")
+
+            # The same reviewed public evidence follows the run into personas
+            # and interview configuration, with hypotheses explicitly labelled.
+            from .verdict_service import load_saved_signals
+            from .research_evidence import interview_context
+            research_context = interview_context(load_saved_signals(simulation_id) or {})
+            if research_context:
+                market_context = research_context + '\n\n' + market_context
             
             # ========== Phase 1: Read and filter entities ==========
             if progress_callback:

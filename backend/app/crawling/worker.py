@@ -20,8 +20,10 @@ from scrapy.exceptions import IgnoreRequest
 
 try:
     from .x_api import XAPIMixin, post_id
+    from .documents import html_blocks, pdf_document
 except ImportError:  # Executed as a standalone worker file.
     from x_api import XAPIMixin, post_id
+    from documents import html_blocks, pdf_document
 
 
 BLOCK_MARKERS = ('cloudflare ray id', 'verify you are human', 'checking your browser',
@@ -300,6 +302,8 @@ def extract_html(response, max_comments=20):
         return None
     return {'title': clean_text(response.css('h1 ::text').get() or response.css('title::text').get()),
             'content': content[:16000], 'comments': comments,
+            'content_blocks': html_blocks(roots[:1]),
+            'content_truncated': len(content) > 16000,
             'published_at': response.css('meta[property="article:published_time"]::attr(content), time::attr(datetime)').get(),
             'discussion_status': 'partial' if comments else 'not_available'}
 
@@ -381,6 +385,7 @@ class MarketSpider(XAPIMixin, scrapy.Spider):
                     fields['discussion_status'] = 'partial'
                 if len(previous.get('content', '')) > len(fields.get('content', '')):
                     fields['content'] = previous['content']
+                    fields['content_blocks'] = previous.get('content_blocks', [])
                 fields['highlights'] = [fields.get('content', '')[:1200]] + [c['text'][:700] for c in fields['comments'][:4]]
             self.best[index] = dict(fields)
         fields.update(_index=index, retrieved_at=datetime.now(timezone.utc).isoformat())
@@ -399,6 +404,20 @@ class MarketSpider(XAPIMixin, scrapy.Spider):
         destination = final_host.removeprefix('www.')
         if not platform_hosts and destination != origin and not destination.endswith('.' + origin):
             self.save(index, crawl_status='unexpected_redirect')
+            return
+        if response.status == 200 and response.body.lstrip().startswith(b'%PDF-'):
+            try:
+                item = pdf_document(response.body)
+            except Exception:
+                item = None
+            if item:
+                if not item.get('title'):
+                    item['title'] = self.job['sources'][index].get('title') or response.url
+                self.save(index, **item, crawl_status='fetched', evidence_level='page',
+                          highlights=[item['content'][:1200]], final_url=response.url,
+                          egress='proxy' if response.meta.get('via_proxy') else 'direct')
+            else:
+                self.save(index, crawl_status='document_text_unavailable')
             return
         if not isinstance(response, scrapy.http.TextResponse):
             self.save(index, crawl_status='unsupported_content')

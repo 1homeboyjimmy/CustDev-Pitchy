@@ -275,7 +275,7 @@ class SignalsService:
         if not query:
             return result
         deadline = time.monotonic() + Config.SIGNAL_RESEARCH_SECONDS
-        jobs = [('web', lambda: [dict(item, market_scope='russian_market') for item in SignalsService.search(query, max_results)])]
+        jobs = [('web', lambda: [dict(item, market_scope='unknown') for item in SignalsService.search(query, max_results, domains=[])])]
         if Config.ENABLE_REDDIT_SIGNALS:
             jobs.append(('reddit', lambda: SignalsService._search_reddit(query, max(3, max_results // 2))))
         jobs.append(('x', lambda: SignalsService._search_x(query, max(3, max_results // 2))))
@@ -294,11 +294,17 @@ class SignalsService:
             future.cancel()
             statuses.append({'id': futures[future], 'status': 'timed_out', 'sources': 0})
         pool.shutdown(wait=False, cancel_futures=True)
-        discovered = collect_pages(_normalise_sources(sources), timeout=max(0, deadline - time.monotonic()))
+        discovered = collect_pages(_normalise_sources(sources), timeout=max(0, deadline - time.monotonic() - 15))
         sources = [item for item in discovered if item.get('crawl_status') == 'fetched']
+        from .signals_research import _extract_evidence, _bounded_call
+        from .research_evidence import extraction_material, validate_pages, claims_digest
+        from copy import deepcopy
+        remaining = max(0, min(15, deadline - time.monotonic()))
+        verified = _bounded_call(_extract_evidence, remaining, query, deepcopy(sources), timeout=remaining) if remaining > 1 else None
+        sources = verified if verified is not None else validate_pages(None, sources, extraction_material(sources, query))
         context = '\n\n'.join(f"### {item.get('market_scope', 'unknown')} {item['url']}\n" +
                               '\n'.join(item.get('highlights') or []) for item in sources)
-        result.update(available=bool(sources), sources=sources, context=context,
+        result.update(available=bool(sources), sources=sources, context=claims_digest(sources), evidence_version=2,
                       discovered_sources=source_diagnostics(discovered), search_status=statuses,
                       source_count=len(sources), source_domains=sorted({item['domain'] for item in sources}),
                       unread_sources_count=len(discovered) - len(sources),

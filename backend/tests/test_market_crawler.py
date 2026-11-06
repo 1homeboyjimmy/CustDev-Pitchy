@@ -372,5 +372,8 @@ def test_research_orchestrator_publishes_collected_evidence_and_coverage(monkeyp
     assert stored['unread_sources_count'] == 1
     assert all(item['crawl_status'] == 'fetched' for item in stored['sources'])
     assert stored['comments_count'] == stored['sources_count']
-    assert stored['russian_market_sources'] > 0
-    assert stored['international_reference_sources'] == 1
+    # Without successful extraction, geography cannot be inherited from a domain.
+    assert stored['russian_market_sources'] == 0
+    assert stored['international_reference_sources'] == 0
+    assert stored['unknown_scope_sources'] == stored['sources_count']
+    assert stored['evidence_version'] == 2

@@ -98,6 +98,9 @@ def _answers_digest(answers: list[dict], limit: int = 60) -> str:
 
 
 def _signals_digest(sources: list[dict], limit: int = 40) -> str:
+    if any(s.get('evidence_version') == 2 for s in sources):
+        from .research_evidence import claims_digest
+        return claims_digest(sources[:limit])[:18000]
     lines = []
     for s in sources[:limit]:
         hl = (s.get('highlights') or [''])[0]
@@ -108,7 +111,8 @@ def _signals_digest(sources: list[dict], limit: int = 40) -> str:
 
 def _market_evidence_stats(signals: dict, reactions: list[dict]) -> dict:
     sources = [s for s in signals.get('sources', []) if (s.get('highlights') or [])
-               and s.get('market_scope') != 'international_reference']
+               and (any(c.get('market_scope') == 'russian_market' and c.get('evidence_type') not in ('synthetic', 'assumption', 'calculation')
+                        for c in s.get('claims', [])) if s.get('evidence_version') == 2 else s.get('market_scope') != 'international_reference')]
     domains = {str(s.get('domain') or '').lower() for s in sources if s.get('domain')}
     community_domains = {
         'reddit.com', 'habr.com', 'vc.ru', 'pikabu.ru', 'otzovik.com',
@@ -124,6 +128,9 @@ def _market_evidence_stats(signals: dict, reactions: list[dict]) -> dict:
     quality_score += min(20, len(domains) * 4)
     quality_score += min(10, community_count)
     quality_score += min(10, len(reactions) * 2)
+    if signals.get('evidence_version') == 2:
+        # Synthetic participants never increase confidence in external facts.
+        quality_score = min(60, len(domains) * 4) + min(10, community_count)
     return {
         'real_sources': len(sources),
         'unique_domains': len(domains),
@@ -136,6 +143,12 @@ def _market_evidence_stats(signals: dict, reactions: list[dict]) -> dict:
 
 
 def _observed_dashboard_evidence(signals: dict, reactions: list[dict]) -> dict:
+    if signals.get('evidence_version') == 2:
+        analysis = signals.get('analysis') or {}
+        return {'affected_groups': analysis.get('affected_groups') or [],
+                'grounded_claims': sum(len(s.get('claims') or []) for s in signals.get('sources', [])),
+                'synthetic_respondents': len({r.get('agent_name') for r in reactions}),
+                'population_estimate': None}
     def safe_count(value) -> int:
         try:
             return max(0, int(value or 0))
@@ -180,7 +193,7 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
         'query': query,
         'sources': sources,
         'answers': answers,
-        'version': 4,
+        'version': 5,
         'model': Config.model_for('verdict'),
         'provider': Config.LLM_BASE_URL,
     }
@@ -213,24 +226,30 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
         return result
 
     prompt = (
+        "Отвечай на исходный продуктовый вопрос: это может быть реакция на функцию сайта, "
+        "риски изменения или целесообразность внедрения, а не покупательский спрос. "
+        "Не навязывай бюджет, размер рынка и конкурентов. Различай позиции групп и условия реакции. "
+        "Для evidence_version=2 используем проверяемые claims; синтетические интервью исследуют гипотезы, "
+        "а не измеряют мнение общества. Не считай цену продавца готовностью аудитории платить. "
         "Ты ведущий аналитик CustDev. Сведи две опоры в честный вердикт по продукту. "
-        "Реальные рыночные источники имеют вес 70%, синтетическая симуляция — 30%. "
-        "Оценивай спрос в России. international_reference — только зарубежный опыт, "
+        "Внешние сведения и синтетические ответы — разные виды данных. "
+        "Синтетика не увеличивает достоверность внешнего факта и не измеряет долю населения. "
+        "Оценивай исходную гипотезу в российском контексте. international_reference — только зарубежный опыт, "
         "не доказательство российского спроса. При недостатке российских данных явно укажи это. "
         "Никогда не называй агентов реальными пользователями и не придумывай цитаты, проценты или факты.\n"
         f"Продукт/гипотеза: {query}\n\n"
-        f"ОПОРА 1 — РЕАЛЬНЫЕ СИГНАЛЫ РЫНКА (из сообществ):\n{_signals_digest(sources) or 'нет данных'}\n\n"
+        f"ОПОРА 1 — ВНЕШНИЕ МАТЕРИАЛЫ, ЦИТАТЫ И ОГОВОРКИ:\n{_signals_digest(sources) or 'нет данных'}\n\n"
         f"НАБЛЮДАЕМАЯ СТАТИСТИКА: {json.dumps(evidence_stats, ensure_ascii=False)}\n"
         f"ОПОРА 2 — СИНТЕТИЧЕСКИЕ РЕАКЦИИ ОБЩЕСТВА АГЕНТОВ (не реальные интервью):\n{_answers_digest(answers) or 'реакций нет'}\n\n"
         "Верни СТРОГО JSON (без пояснений вне JSON):\n"
         "{\n"
-        '  "verdict": "Спрос есть|Спрос есть, но осторожно|Спрос слабый|Спроса нет",\n'
+        '  "verdict": "Вывод по исходному вопросу с условиями и ограничениями",\n'
         '  "confidence": 0-100,\n'
         '  "summary": "1-2 фразы итога",\n'
         '  "signals_side": "1 фраза: что говорят реальные сигналы",\n'
         '  "simulation_side": "1 фраза: что говорит общество агентов",\n'
         '  "agreement": "согласны|частично|расходятся",\n'
-        '  "evidence": {"pay_pct": int, "hot_segments": str, "hot_personas": str, "top_pain": str},\n'
+        '  "evidence": {"observations": str, "limitations": str},\n'
         '  "red_flags": [str, str],\n'
         '  "recommendation": "что делать дальше, 1-2 фразы",\n'
         '  "report_markdown": "МАСШТАБНЫЙ разбор в markdown из ДВУХ разделов: ## Взаимодействие агентов в симуляции (подробно разбери ответы персон по вопросам CustDev — кто загорелся, кто скептичен, ключевые реплики и противоречия) и ## Оценка: Сигналы × Симуляция (где две опоры сходятся, где расходятся, риски, итоговый вывод). Сигналы отдельной секцией НЕ дублируй — они показаны выше."\n'
@@ -267,7 +286,7 @@ def generate_full_report(simulation_id: str, query: str) -> dict:
                 parsed['confidence'] = evidence_stats['quality_score']
             result["verdict"] = parsed
             if signals.get('market') == 'russia' and not evidence_stats['real_sources']:
-                parsed['verdict'] = 'Недостаточно данных для оценки спроса в России'
+                parsed['verdict'] = 'Недостаточно российских данных для уверенного вывода'
     except Exception as e:
         logger.error(f"verdict synthesize error: {e}")
     if result.get('verdict'):

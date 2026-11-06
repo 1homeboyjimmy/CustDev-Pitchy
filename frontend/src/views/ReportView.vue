@@ -9,7 +9,7 @@
           <div class="h-4 w-px bg-white/10"></div>
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 4/5 · итог</span>
-            <span class="text-sm font-bold text-white tracking-tight truncate">Вердикт: нужен ли рынку продукт</span>
+            <span class="text-sm font-bold text-white tracking-tight truncate">Вывод по продуктовому вопросу</span>
           </div>
         </div>
         <button v-if="!loading" @click="loadVerdict" class="text-white/30 hover:text-white transition-colors" title="Пересобрать отчёт">
@@ -23,7 +23,7 @@
           <!-- Загрузка -->
           <div v-if="loading" class="py-20 text-center space-y-4">
             <LoaderIcon class="w-7 h-7 animate-spin text-white/60 mx-auto" />
-            <div class="text-white/55">Сводим сигналы рынка и симуляцию общества в вердикт…</div>
+            <div class="text-white/55">Сопоставляем внешний контекст и синтетические интервью…</div>
           </div>
 
           <template v-else>
@@ -36,11 +36,11 @@
                 <div class="text-xl font-semibold text-white">{{ v.verdict || 'Недостаточно данных' }}</div>
                 <p v-if="v.summary" class="text-sm text-white/60 leading-relaxed mt-1">{{ v.summary }}</p>
                 <div v-if="v.confidence != null" class="flex items-center gap-3 mt-3 max-w-sm">
-                  <span class="text-[12px] text-white/45">Уверенность</span>
+                  <span class="text-[12px] text-white/45">{{ semanticResearch ? 'Опора на данные' : 'Уверенность' }}</span>
                   <div class="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
                     <div class="h-full rounded-full" :class="verdictBar" :style="{ width: (v.confidence || 0) + '%' }"></div>
                   </div>
-                  <span class="text-[12px] text-white/70 font-medium">{{ v.confidence }}%</span>
+                  <span class="text-[12px] text-white/70 font-medium">{{ v.confidence }}{{ semanticResearch ? '/100' : '%' }}</span>
                 </div>
               </div>
             </div>
@@ -75,11 +75,12 @@
                   <span class="text-xs text-white/60">{{ evidenceStats.quality_score || 0 }}/100</span>
                 </div>
               </div>
-              <div class="mt-3 text-[11px] text-white/35">Вес вердикта: реальный рынок {{ evidenceStats.real_market_weight || 70 }}% · симуляция {{ evidenceStats.simulation_weight || 30 }}%</div>
+              <div v-if="semanticResearch" class="mt-3 text-[11px] text-white/35">Оценка покрытия источниками — эвристика, а не вероятность реакции общества. Синтетические интервью проверяют гипотезы и не повышают достоверность внешних фактов.</div>
+              <div v-else class="mt-3 text-[11px] text-white/35">Вес вердикта: реальный рынок {{ evidenceStats.real_market_weight || 70 }}% · симуляция {{ evidenceStats.simulation_weight || 30 }}%</div>
             </section>
 
             <!-- Доказательства -->
-            <div v-if="v.evidence" class="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
+            <div v-if="v.evidence && !semanticResearch" class="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
               <div class="min-w-0 rounded-2xl bg-white/[0.03] border border-white/8 p-4">
                 <div class="text-[11px] uppercase tracking-wide text-white/40">Готовы платить</div>
                 <div class="text-2xl font-bold mt-1" :class="(v.evidence.pay_pct||0) >= 5 ? 'text-emerald-400' : 'text-white'">{{ v.evidence.pay_pct ?? '—' }}%</div>
@@ -183,6 +184,7 @@ const systemLogs = ref([])
 const loading = ref(true)
 const v = ref({})            // структурный вердикт
 const signals = ref({})      // результат скана сигналов
+const semanticResearch = computed(() => signals.value.evidence_version === 2)
 const custdevCount = ref(0)
 const manualInterviewCount = ref(0)
 const simulationReactionCount = ref(0)

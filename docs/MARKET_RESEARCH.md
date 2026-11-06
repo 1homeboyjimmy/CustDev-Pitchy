@@ -1,5 +1,10 @@
 # Market research with Scrapy
 
+The current question-led, universal product-research flow is documented in
+[PRODUCT_RESEARCH.md](PRODUCT_RESEARCH.md). It prepares synthetic interviews
+for arbitrary product questions, without modes or mandatory purchase metrics.
+The provider, transport, proxy and API limits below remain unchanged.
+
 The research stage evaluates the Russian market. Reddit and X provide
 international references and are excluded from Russian demand counts.
 Existing saved runs remain readable and are not automatically recollected.

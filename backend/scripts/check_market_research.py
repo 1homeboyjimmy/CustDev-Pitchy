@@ -39,11 +39,18 @@ def egress(proxy=None):
 
 def coverage(result):
     sources = result.get('sources') or []
+    analysis = result.get('analysis') or {}
     return {
         'sources': len(sources), 'russian_market_sources': result.get('russian_market_sources', 0),
         'international_reference_sources': result.get('international_reference_sources', 0),
         'comments': sum(len(item.get('comments') or []) for item in sources),
         'elapsed': result.get('elapsed'), 'analysis_available': result.get('analysis_available'),
+        'evidence_version': result.get('evidence_version'),
+        'claims': sum(len(item.get('claims') or []) for item in sources),
+        'findings': len(analysis.get('findings') or []),
+        'interview_questions': analysis.get('interview_questions') or [],
+        'extraction_unavailable_count': result.get('extraction_unavailable_count'),
+        'research_context': result.get('research_context'),
         'pages': [{'url': item.get('url'), 'platform': item.get('source'),
                    'crawl_status': item.get('crawl_status'), 'egress': item.get('egress'),
                    'error_type': item.get('error_type'), 'http_status': item.get('http_status'),
@@ -80,7 +87,9 @@ def verification_status(report, full=False):
         return 'failed'
     if (fetched != {'russia', 'reddit', 'x'}
         or any(item.get('status') == 'failed' for item in report.get('discovery_status', {}).values())
-        or (full and not report.get('research', {}).get('analysis_available'))):
+        or (full and not report.get('research', {}).get('analysis_available'))
+        or (full and report.get('research', {}).get('evidence_version') == 2
+            and (not report['research'].get('claims') or not report['research'].get('interview_questions')))):
         return 'partial'
     return 'passed'
 
@@ -88,6 +97,8 @@ def verification_status(report, full=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--full', action='store_true')
+    parser.add_argument('--query', default='Сервис для российских стартапов: автоматизация кастдева и анализа интервью с клиентами. '
+                        'Проверить востребованность продукта, текущие альтернативы, расходы, условия выбора и причины отказа.')
     args = parser.parse_args()
     started = time.monotonic()
     report = {'provider': Config.SIGNAL_PROVIDER, 'proxy_configured': bool(Config.SIGNAL_HTTPS_PROXY),
@@ -117,8 +128,7 @@ def main():
                                      'discovered_sources': collected})
     print(json.dumps({'phase': 'collection', **report}, ensure_ascii=False), flush=True)
     if args.full:
-        task_id = start_research('Сервис для российских стартапов: автоматизация кастдева и анализа интервью с клиентами. '
-                                 'Проверить боли и готовность платить за экономию времени.', ['основатели стартапов'], owner_id='server-smoke')
+        task_id = start_research(args.query, [], owner_id='server-smoke')
         deadline = time.monotonic() + Config.SIGNAL_RESEARCH_SECONDS + 10
         while time.monotonic() < deadline:
             task = TaskManager().get_task(task_id)

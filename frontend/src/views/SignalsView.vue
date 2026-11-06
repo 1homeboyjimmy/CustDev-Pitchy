@@ -10,7 +10,7 @@
           <div class="h-4 w-px bg-white/10"></div>
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Шаг 2/5</span>
-            <span class="text-sm font-bold text-white tracking-tight truncate">Сигналы рынка</span>
+            <span class="text-sm font-bold text-white tracking-tight truncate">Контекст продуктового исследования</span>
           </div>
         </div>
         <div class="flex items-center gap-2 text-[10px] sm:text-[11px] text-white/40 bg-white/5 px-2 sm:px-3 py-1.5 rounded-lg shrink-0">
@@ -41,7 +41,7 @@
               <LoaderIcon class="w-5 h-5 animate-spin text-white/70" />
               <div>
                 <div class="text-lg font-semibold text-white">{{ progressMessage }}</div>
-                <div class="text-sm text-white/45">Российские сообщества, Reddit и X · обычно до 3 минут</div>
+                <div class="text-sm text-white/45">Контекст, опыт и возражения для кастдев-интервью · обычно до 3 минут</div>
               </div>
             </div>
 
@@ -69,8 +69,10 @@
           <!-- ФАЗА 2 — дашборд -->
           <template v-else>
             <div v-if="result.market === 'russia'" class="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-white/60 space-y-2">
-              <p>Российский рынок: {{ result.russian_market_sources || 0 }} источников · зарубежный опыт: {{ result.international_reference_sources || 0 }} · комментариев и ответов: {{ result.comments_count || 0 }}.</p>
-              <p>Материалы Reddit и X помогают изучить зарубежный опыт; вывод о спросе в России опирается на российские источники.</p>
+              <p>Российский контекст: {{ result.russian_market_sources || 0 }} источников · зарубежный опыт: {{ result.international_reference_sources || 0 }} · комментариев и ответов: {{ result.comments_count || 0 }}.</p>
+              <p>Публичные материалы помогают подготовить синтетические интервью. Они не являются репрезентативным опросом общества.</p>
+              <p v-if="result.unknown_scope_sources">География не установлена или смешана у {{ result.unknown_scope_sources }} источников.</p>
+              <p v-if="result.extraction_unavailable_count">У {{ result.extraction_unavailable_count }} страниц не удалось извлечь проверяемые утверждения. Их содержание не используется как подтверждённый факт.</p>
               <p v-if="unavailableSearches.length">Поиск недоступен: {{ unavailableSearches.map(item => item.name || item.id).join(', ') }}. Отсутствие результатов здесь не означает отсутствие спроса.</p>
               <p v-if="result.unread_sources_count">Не удалось прочитать {{ result.unread_sources_count }} страниц. Они не включены в доказательства спроса.</p>
               <p v-if="!result.analysis_available">Аналитический вывод недоступен. Ниже показаны собранные материалы.</p>
@@ -82,24 +84,47 @@
                 <div class="text-2xl font-bold text-white mt-1">{{ result.sources_count }}</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
-                <div class="text-[11px] uppercase tracking-wide text-white/40">Горячих сегментов</div>
-                <div class="text-2xl font-bold text-white mt-1">{{ hotCount }} / {{ segments.length || '—' }}</div>
+                <div class="text-[11px] uppercase tracking-wide text-white/40">{{ semanticResearch ? 'Групп для интервью' : 'Горячих сегментов' }}</div>
+                <div class="text-2xl font-bold text-white mt-1">{{ semanticResearch ? analysis.affected_groups?.length || 0 : `${hotCount} / ${segments.length || '—'}` }}</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
-                <div class="text-[11px] uppercase tracking-wide text-white/40">Сигналы оплаты · РФ</div>
-                <div class="text-2xl font-bold mt-1" :class="analysis.willingness?.paying > 0 ? 'text-emerald-400' : 'text-white'">{{ analysis.willingness?.paying ?? '—' }}</div>
+                <div class="text-[11px] uppercase tracking-wide text-white/40">{{ semanticResearch ? 'Утверждений с цитатами' : 'Сигналы оплаты · РФ' }}</div>
+                <div class="text-2xl font-bold mt-1 text-white">{{ semanticResearch ? result.claims_count || 0 : analysis.willingness?.paying ?? '—' }}</div>
               </div>
               <div class="rounded-2xl bg-white/[0.03] border border-white/8 p-4">
-                <div class="text-[11px] uppercase tracking-wide text-white/40">Спрос-вердикт</div>
-                <div class="text-2xl font-bold mt-1" :class="verdictClass">{{ analysis.verdict || '—' }}</div>
+                <div class="text-[11px] uppercase tracking-wide text-white/40">{{ semanticResearch ? 'Вопросов для интервью' : 'Спрос-вердикт' }}</div>
+                <div class="text-2xl font-bold mt-1" :class="verdictClass">{{ semanticResearch ? analysis.interview_questions?.length || 0 : analysis.verdict || '—' }}</div>
               </div>
             </div>
 
-            <p v-if="analysis.summary" class="text-sm text-white/65 leading-relaxed border-l-2 border-white/15 pl-4">{{ analysis.summary }}</p>
+            <p v-if="analysis.summary" class="text-sm text-white/65 leading-relaxed border-l-2 border-white/15 pl-4"><span v-if="semanticResearch" class="block text-xs text-white/40 mb-1">Аналитическая сводка модели</span>{{ analysis.summary }}</p>
+            <p v-if="semanticResearch && !result.claims_count" class="text-sm text-amber-200/70">Подтверждающие цитаты не извлечены. Выводы и гипотезы требуют дополнительной проверки.</p>
+
+            <section v-if="semanticResearch" class="rounded-2xl border border-white/10 p-5 space-y-4">
+              <h2 class="font-semibold text-white">Контекст для синтетических интервью</h2>
+              <div v-for="(finding, i) in analysis.findings || []" :key="i" class="text-sm text-white/70 space-y-1">
+                <p class="font-medium text-white">{{ finding.question }}</p>
+                <p>{{ finding.conclusion }}</p>
+                <span class="text-xs text-white/40">{{ findingStatus(finding.status) }}</span>
+                <div v-for="id in finding.claim_ids || []" :key="id" class="border-l border-white/15 pl-3 mt-2">
+                  <template v-if="claimById[id]">
+                    <p class="text-xs italic">«{{ claimById[id].quote }}»</p>
+                    <a :href="sourceLink(claimById[id].source_url)" target="_blank" rel="noopener noreferrer" class="text-xs underline">{{ locatorLabel(claimById[id].locator) }} · {{ evidenceLabel(claimById[id].evidence_type) }}</a>
+                  </template>
+                </div>
+              </div>
+              <div v-for="section in interviewSections" :key="section.key" class="space-y-2">
+                <h3 class="text-sm font-medium text-white">{{ section.label }}</h3>
+                <ul class="list-disc pl-5 text-sm text-white/60 space-y-1">
+                  <li v-for="(item, i) in analysis[section.key] || []" :key="i">{{ item }}</li>
+                </ul>
+              </div>
+              <p class="text-xs text-white/40">Гипотезы и предполагаемые риски требуют проверки. Ответы будущих синтетических респондентов не задаются заранее.</p>
+            </section>
 
             <!-- Сегменты + источники -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+              <section v-if="!semanticResearch" class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
                 <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Спрос по сегментам</div>
                 <div v-if="segments.length" class="space-y-3">
                   <div v-for="(s, i) in segments" :key="i">
@@ -133,7 +158,7 @@
             </div>
 
             <!-- Воронка готовности -->
-            <section v-if="analysis.willingness" class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+            <section v-if="!semanticResearch && analysis.willingness" class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
               <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Что подтверждают российские источники</div>
               <p class="text-xs text-white/40">Считаем страницы, а не людей. Один источник может подтверждать несколько наблюдений.</p>
               <div class="space-y-2.5">
@@ -148,7 +173,7 @@
             </section>
 
             <!-- Топ болей + конкуренты -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div v-if="!semanticResearch" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
                 <div class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Топ болей</div>
                 <div v-if="analysis.top_pains && analysis.top_pains.length" class="space-y-2.5">
@@ -190,6 +215,16 @@
                   </div>
                   <p v-if="s.highlights && s.highlights.length" class="text-[12px] italic text-white/55 leading-relaxed">«{{ s.highlights[0] }}»</p>
                   </a>
+                  <details v-if="s.claims?.length" class="mt-2 border-t border-white/10 pt-2 space-y-2">
+                    <summary class="text-xs cursor-pointer text-white/60">Утверждения и ограничения · {{ s.claims.length }}</summary>
+                    <p v-if="s.extraction_excerpted || s.content_truncated" class="text-xs text-amber-200/70">Проанализированы фрагменты материала. Условия и контекст могут быть неполными.</p>
+                    <div v-for="claim in s.claims" :key="claim.id" class="text-xs text-white/60 space-y-1 py-2">
+                      <p class="text-white/80">{{ claim.statement }}</p>
+                      <p class="italic">«{{ claim.quote }}»</p>
+                      <p>{{ evidenceLabel(claim.evidence_type) }} · {{ locatorLabel(claim.locator) }}</p>
+                      <p v-if="claim.limitations">Ограничение: {{ claim.limitations }}</p>
+                    </div>
+                  </details>
                   <details v-if="s.comments?.length" class="mt-2 space-y-2 border-t border-white/10 pt-2">
                     <summary class="text-[11px] text-white/50 cursor-pointer">Комментарии и ответы · {{ s.comments.length }}<span v-if="s.discussion_status === 'partial'"> · часть обсуждения</span></summary>
                     <a v-for="(comment, ci) in s.comments" :key="ci" :href="sourceLink(comment.url) || sourceLink(s.url)" target="_blank" rel="noopener noreferrer" class="block text-[12px] text-white/55 leading-relaxed hover:text-white">«{{ comment.text }}»</a>
@@ -229,7 +264,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import StageShell from '../components/layout/StageShell.vue'
-import { sourceLink, unreadReason, searchProblems } from '../utils/marketEvidence'
+import { sourceLink, unreadReason, searchProblems, locatorLabel } from '../utils/marketEvidence'
 import {
   ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, Radar as RadarIcon,
   Loader as LoaderIcon, Check as CheckIcon, Clock as ClockIcon, RefreshCw as RefreshIcon,
@@ -252,7 +287,7 @@ const totalSources = ref(0)
 const elapsed = ref(0)
 const done = ref(false)
 const errorMessage = ref('')
-const progressMessage = ref('Разведка спроса идёт…')
+const progressMessage = ref('Исследование контекста идёт…')
 const result = ref({ sources_count: 0, sources: [], sources_by_platform: [], analysis: {} })
 let timer = null
 let taskId = null
@@ -265,6 +300,17 @@ let consecutivePollErrors = 0
 const unavailableSearches = computed(() => searchProblems(result.value.search_status))
 const unreadSources = computed(() => (result.value.discovered_sources || []).filter(item => item.crawl_status !== 'fetched'))
 const analysis = computed(() => result.value.analysis || {})
+const semanticResearch = computed(() => result.value.evidence_version === 2)
+const claimById = computed(() => Object.fromEntries((result.value.sources || []).flatMap(s => (s.claims || []).map(c => [c.id, c]))))
+const interviewSections = [
+  { key: 'affected_groups', label: 'Затронутые группы' },
+  { key: 'interview_questions', label: 'Вопросы для интервью' },
+  { key: 'interview_hypotheses', label: 'Гипотезы для проверки' },
+  { key: 'risks', label: 'Предполагаемые риски' },
+  { key: 'gaps', label: 'Чего пока не знаем' },
+]
+function findingStatus(value) { return ({ supported: 'Есть подтверждающая цитата', conditional: 'Есть условия и ограничения', gap: 'Недостаточно данных', conflicting: 'Противоречивые свидетельства' })[value] || 'Недостаточно данных' }
+function evidenceLabel(value) { return ({ observation: 'Наблюдение', self_report: 'Со слов участника', vendor_statement: 'Заявление поставщика', calculation: 'Расчёт', assumption: 'Допущение', synthetic: 'Синтетический пример' })[value] || 'Тип не установлен' }
 const elapsedText = computed(() => {
   const m = Math.floor(elapsed.value / 60), s = elapsed.value % 60
   return m > 0 ? `${m}м ${s}с` : `${s}с`
@@ -309,7 +355,7 @@ const stopPoll = () => {
   elapsedTimer = null
 }
 const applyStatus = (task) => {
-  progressMessage.value = task.message || 'Разведка спроса идёт…'
+  progressMessage.value = task.message || 'Исследование контекста идёт…'
   const d = task.progress_detail || {}
   agents.value = d.agents || agents.value
   totalSources.value = d.total_sources ?? totalSources.value

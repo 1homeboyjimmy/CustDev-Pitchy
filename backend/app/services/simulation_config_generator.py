@@ -705,12 +705,14 @@ Simulation Requirements: {simulation_requirement}
 ## Available Entity Types and Examples
 {type_info}
 
-## Market Context (Real-world facts about RU market)
+## Product Research Context (quotes, hypotheses and limitations must remain distinct)
 {market_context or 'No additional market context available'}
 
 ## Task
 Please generate event configuration JSON:
 - Extract hot topic keywords
+- Follow the original product question. Do not force a purchase, pricing or market-size scenario when irrelevant.
+- Hypotheses are not facts or predetermined participant answers. Allow support, refusal, indifference and conditional reactions.
 - Describe opinion development direction
 - Design initial post content, **each post must specify poster_type (publisher type)**
 

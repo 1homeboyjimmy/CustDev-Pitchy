@@ -11,6 +11,7 @@ import json
 import re
 import time
 import threading
+from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor, wait, TimeoutError
 
 from openai import OpenAI
@@ -21,6 +22,7 @@ from ..models.task import TaskManager, TaskStatus
 from ..utils.logger import get_logger
 from .page_crawler import collect_pages, source_diagnostics
 from .signals_service import SignalsService, SearchUnavailable, _normalise_sources
+from .research_evidence import QUESTIONS, EXTRACTION_PROMPT, extraction_material, validate_pages, claims_digest, demand_groups
 
 logger = get_logger('pitchy.signals_research')
 _start_lock = threading.Lock()
@@ -46,16 +48,16 @@ AGENTS = [
     {"id": "x", "name": "X — зарубежный опыт", "kind": "x", "domains": ["x.com", "twitter.com"], "suffix": ""},
     {"id": "reddit",     "name": "Reddit — зарубежный опыт",            "kind": "reddit", "domains": [],
      "suffix": ""},
-    {"id": "habr_vc",    "name": "Хабр / vc.ru — проф. обсуждения", "kind": "web",
-     "domains": ["habr.com", "vc.ru"], "suffix": ""},
-    {"id": "pikabu",     "name": "Пикабу / форумы — настроения",    "kind": "web",
-     "domains": ["pikabu.ru"], "suffix": ""},
-    {"id": "reviews",    "name": "Отзовики / маркетплейсы",          "kind": "web",
-     "domains": ["otzovik.com", "irecommend.ru", "ozon.ru", "wildberries.ru"], "suffix": "отзывы"},
-    {"id": "competitors", "name": "Конкуренты и аналоги",            "kind": "web",
-     "domains": ["habr.com", "vc.ru", "pikabu.ru"], "suffix": "конкуренты аналоги обзор"},
-    {"id": "willingness", "name": "Готовность платить",             "kind": "web",
-     "domains": ["habr.com", "vc.ru", "pikabu.ru", "otzovik.com"], "suffix": "сколько стоит подписка готов платить"},
+    {"id": "habr_vc", "name": "Контекст и затронутые группы", "kind": "web",
+     "domains": [], "suffix": "", "questions": ["process", "segments"]},
+    {"id": "pikabu", "name": "Реакции, риски и возражения", "kind": "web",
+     "domains": [], "suffix": "", "questions": ["reaction", "trust", "purchase"]},
+    {"id": "reviews", "name": "Внедрение и измеренный результат", "kind": "web",
+     "domains": [], "suffix": "", "questions": ["implementation", "outcomes"]},
+    {"id": "competitors", "name": "Альтернативы и ограничения", "kind": "web",
+     "domains": [], "suffix": "", "questions": ["alternatives", "economics"]},
+    {"id": "willingness", "name": "Условия решения и его проверка", "kind": "web",
+     "domains": [], "suffix": "", "questions": ["purchase", "outcomes"]},
 ]
 
 
@@ -90,19 +92,39 @@ def _fallback_search_brief(query: str) -> str:
     return ' '.join(lines)[:360] or (query or '')[:360]
 
 
-def _plan_search_queries(query: str, segments: list[str]) -> dict[str, str]:
+def _plan_search_queries(query: str, segments: list[str]) -> dict:
     """Turn a deck/passport context into focused real-market search queries."""
     fallback = _fallback_search_brief(query)
-    planned = {agent['id']: fallback for agent in AGENTS}
+    suffixes = {'x': 'workflow switching costs objections', 'reddit': 'current tools problems alternatives',
+                'habr_vc': 'контекст опыт пользователей затронутые группы', 'pikabu': 'реакция возражения риски отказ причины',
+                'reviews': 'опыт использования ограничения результаты', 'competitors': 'альтернативы сравнение ограничения',
+                'willingness': 'условия принятия решения проверка результата'}
+    planned = {agent['id']: f'{fallback} {suffixes[agent["id"]]}' for agent in AGENTS}
+    planned['_context'] = {'product_hypothesis': query[:6000], 'segments': segments, 'unknowns': []}
+    planned['_intents'] = {a['id']: {'questions': a.get('questions', ['process', 'purchase']),
+                                    'segment': '', 'job': '', 'expected_evidence': '', 'polarity': 'balanced'} for a in AGENTS}
     if not Config.LLM_API_KEY or not Config.LLM_BASE_URL:
         return planned
     prompt = (
-        "Из контекста продукта составь короткие поисковые запросы для проверки реального спроса. "
-        "Не используй слова ЦА без расшифровки. В каждом запросе укажи конкретную боль, аудиторию или продукт. "
-        "Исследуем российский рынок. Reddit и X — только зарубежный опыт, не доказательство спроса в РФ. "
+        "Ты готовишь контекст для СИНТЕТИЧЕСКИХ КАСТДЕВ-ИНТЕРВЬЮ по произвольному продуктовому вопросу. "
+        "Не классифицируй задачу по режимам. Из вопроса и паспорта выдели исследуемое изменение, "
+        "решение, затронутые группы, их роли, текущую ситуацию и неопределённости. "
+        "Обещания продукта — гипотезы, не факты. Неизвестные параметры не придумывай. "
+        "Построй исследование по вопросам: " + json.dumps(QUESTIONS, ensure_ascii=False) + ". "
+        "Выбирай только вопросы, относящиеся к исходной задаче. Не навязывай размер рынка, оплату, конкурентов "
+        "или технические интеграции, если задача о реакции на изменение сайта или ином продуктовом решении. "
+        "Для каждого канала сформулируй один предметный запрос: habr_vc — контекст и группы; "
+        "pikabu — реакции, возражения и риски; reviews — опыт использования и результаты; "
+        "competitors — альтернативы и ограничения; willingness — условия решения и проверка; "
+        "x и reddit — реальные аналогичные ситуации и различия мнений. "
+        "Официальные сайты, базы знаний и отраслевые PDF допустимы, не ограничивай поиск сообществами. "
+        "Потребность ищи словами клиента без обязательного названия бренда; бренд нужен для его условий. "
+        "Ищи также опровержения и отсутствие потребности, а не только подтверждение гипотезы. "
+        "Исследуем российский рынок и зарубежный сравнительный опыт. "
         "Запросы reddit и x составь на английском; остальные — на русском. "
-        "Верни JSON с ключами x, reddit, habr_vc, pikabu, reviews, competitors, willingness; "
-        "каждое значение — строка до 18 слов.\n\n"
+        "Верни JSON: context={research_objective,decision,proposed_change,affected_groups,roles,current_state,unknowns}; "
+        "plans={x,reddit,habr_vc,pikabu,reviews,competitors,willingness}; каждое значение plans — "
+        "{query:строка до 18 слов,questions:массив ключей вопросов,segment,job,expected_evidence,polarity:balanced}.\n\n"
         f"Сегменты: {', '.join(segments) or 'не заданы'}\nКонтекст:\n{query[:6000]}"
     )
     try:
@@ -118,8 +140,18 @@ def _plan_search_queries(query: str, segments: list[str]) -> dict[str, str]:
         data = json.loads(response.choices[0].message.content)
         if not isinstance(data, dict):
             return planned
+        if isinstance(data.get('context'), dict):
+            planned['_context'] = data['context']
+        entries = data.get('plans') if isinstance(data.get('plans'), dict) else data
         for agent in AGENTS:
-            raw = data.get(agent['id'])
+            raw = entries.get(agent['id'])
+            if isinstance(raw, dict):
+                planned['_intents'][agent['id']] = {
+                    'questions': [q for q in raw.get('questions', []) if isinstance(q, str) and q in QUESTIONS]
+                                 if isinstance(raw.get('questions'), list) else agent.get('questions', []),
+                    **{k: str(raw.get(k) or '')[:600] for k in ('segment', 'job', 'expected_evidence')},
+                    'polarity': 'balanced'}
+                raw = raw.get('query')
             value = raw.strip() if isinstance(raw, str) else ''
             if value:
                 planned[agent['id']] = value[:240]
@@ -140,13 +172,31 @@ def _filter_market_evidence(sources: list[dict]) -> tuple[list[dict], int]:
         if not highlights or any(marker in title.casefold() for marker in generic_titles):
             continue
         source['highlights'] = highlights
-        source['evidence_kind'] = (
+        source.setdefault('evidence_kind', (
             'review' if str(source.get('domain') or '').endswith(('otzovik.com', 'irecommend.ru'))
             else 'community'
-        )
+        ))
         filtered.append(source)
     filtered_out = max(0, len(sources) - len(filtered))
     return filtered, filtered_out
+
+
+def _extract_evidence(query, sources, timeout):
+    material = extraction_material(sources, query)
+    payload = None
+    if Config.LLM_API_KEY and Config.LLM_BASE_URL and timeout > 0:
+        try:
+            client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL,
+                            timeout=max(1, timeout), max_retries=0)
+            response = client.chat.completions.create(
+                model=Config.model_for('signals'), temperature=0, max_tokens=6000,
+                response_format={'type': 'json_object'},
+                messages=[{'role': 'system', 'content': EXTRACTION_PROMPT},
+                          {'role': 'user', 'content': json.dumps({'project': query[:6000], 'materials': material}, ensure_ascii=False)}])
+            payload = json.loads(response.choices[0].message.content)
+        except Exception:
+            logger.warning('Evidence extraction unavailable; unverified pages do not establish demand')
+    return validate_pages(payload, sources, material)
 
 
 def _llm_synthesize(query: str, segments: list[str], sources: list[dict], timeout: float = 30) -> dict | None:
@@ -158,30 +208,42 @@ def _llm_synthesize(query: str, segments: list[str], sources: list[dict], timeou
     for index, s in enumerate(sources):
         quotes = ' | '.join(str(value)[:180] for value in (s.get('highlights') or [])[:5])
         lines.append(f"[{index}] {s.get('market_scope', 'unknown')} {s.get('url', '')} — {s.get('title', '')}: {quotes}"[:max(200, 39000 // max(1, len(sources)))])
-    digest = "\n".join(lines)[:40000]
+    digest = claims_digest(sources) if any(s.get('evidence_version') == 2 for s in sources) else "\n".join(lines)[:40000]
     seg_line = ", ".join(segments) if segments else "не заданы"
 
     prompt = (
-        "Ты аналитик CustDev. Оцени спрос именно на российском рынке. "
+        "Ты готовишь контекст и вопросы для синтетических кастдев-интервью по произвольной продуктовой задаче. "
+        "Следуй исходному вопросу; не навязывай покупку, рынок, бюджет или TAM, если они не относятся к нему. "
+        "Используй только извлечённые claims с подтверждающими цитатами; недоступная экстракция — пробел. "
+        "demand_eligible=false нельзя цитировать как боль или оплату клиента. Цена продавца не подтверждает спрос. "
+        "current_spend означает самоотчёт о расходах на альтернативу, не покупку исследуемого продукта. "
+        "Не смешивай бюджет, условный интерес, отказ и платёж. Не считай страницы клиентами. "
+        "Синтетические ответы, расчёты и допущения не являются наблюдениями. Показывай противоречия и пробелы. "
+        "Изучаем российский контекст и зарубежный сравнительный опыт, а не репрезентативный опрос общества. "
         "Материалы international_reference — зарубежный опыт; не включай их в подсчёты российского спроса. "
         "Если российских данных нет, укажи недостаток данных. Отдельно поясни зарубежный опыт в summary. "
-        "В evidence и willingness_evidence укажи индексы подтверждающих РОССИЙСКИХ источников из дайджеста. "
-        "Нет подтверждающих источников — пустой массив. Не подставляй зарубежные ссылки. "
+        "В claim_ids используй только существующие идентификаторы утверждений, "
+        "географию и ограничения сохраняй. Нет подтверждения — status=gap и пустые claim_ids. "
         "Гипотеза/продукт: " + query[:6000] + ". Сегменты ЦА: " + seg_line + ".\n\n"
         "СЫРЫЕ СИГНАЛЫ:\n" + digest + "\n\n"
         "Верни СТРОГО JSON без пояснений по схеме:\n"
         "{\n"
-        '  "segments": [{"name": str, "temperature": "hot|warm|cold", "pain_count": int, "note": str, "evidence": [int]}],\n'
-        '  "willingness": {"complaining": int, "seeking": int, "paying": int},\n'
-        '  "willingness_evidence": {"complaining": [int], "seeking": [int], "paying": [int]},\n'
-        '  "top_pains": [{"text": str, "count": int, "tag": "pain|pay", "evidence": [int]}],\n'
-        '  "competitors": [{"name": str, "weakness": str}],\n'
-        '  "verdict": "Есть|Слабый|Нет|Недостаточно данных",\n'
+        '  "findings": [{"question": str, "conclusion": str, "claim_ids": [str], "status": "supported|conditional|gap|conflicting"}],\n'
+        '  "gaps": [str], "interview_questions": [str],\n'
+        '  "interview_hypotheses": [str], "risks": [str], "affected_groups": [str],\n'
         '  "summary": str\n'
         "}\n"
-        "Все числа должны быть подсчётом сигналов из входного дайджеста, а не оценкой размера рынка. "
-        "temperature: hot=много боли и спроса, "
-        "cold=почти нет. Сегменты бери из заданных, если пусто — выдели сам. Только JSON."
+        "В summary ответь на исходный вопрос с ограничениями. Формулируй нейтральные вопросы интервью, "
+        "не подсказывающие ответ, гипотезы для проверки и контргипотезы. Синтетические персонажи должны "
+        "мочь не согласиться: не задавай им заранее положительный или отрицательный ответ. "
+        "Частота комментариев не означает долю общества или вероятность реакции. "
+        "Основная задача сервиса — исследование востребованности продукта; если вопрос касается спроса, "
+        "подробно раскрой потребность, существующие альтернативы, условия выбора и отказа, расходы и барьеры. "
+        "Если извлечены соответствующие факты, можно дополнительно вернуть willingness_evidence "
+        "с ключами complaining,seeking,paying и индексами источников: только demand_eligible=true, "
+        "paying только для current_spend. Это расходы участника на альтернативу, не обещание купить продукт. "
+        "Числа не придумывай. Любые рыночные расчёты допускаются только при необходимости для исходного вопроса "
+        "и должны явно отделять допущения от исходных данных. Только JSON."
     )
     try:
         client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL, timeout=max(1, timeout), max_retries=0)
@@ -221,7 +283,9 @@ def _normalise_analysis(analysis: dict, sources: list[dict]) -> dict:
     """Validate model output and count new research only from cited RU pages."""
     if not isinstance(analysis, dict):
         return {}
-    russian = {i for i, source in enumerate(sources) if source.get('market_scope') != 'international_reference'}
+    semantic = any(source.get('evidence_version') == 2 for source in sources)
+    groups = demand_groups(sources)
+    russian = set(groups) if semantic else {i for i, source in enumerate(sources) if source.get('market_scope') != 'international_reference'}
     strict = any('market_scope' in source for source in sources)
     limit = len(russian)
     def string(value, length=1200):
@@ -246,8 +310,34 @@ def _normalise_analysis(analysis: dict, sources: list[dict]) -> dict:
         'international_reference_sources': len(sources) - limit,
         'data_quality': 'cited_evidence' if strict and limit else 'evidence_bounded' if limit else 'no_evidence',
     }
+    if semantic:
+        known_claims = {c['id']: c for s in sources for c in s.get('claims', [])}
+        result['russian_market_sources'] = sum(any(c.get('market_scope') == 'russian_market' for c in s.get('claims', [])) for s in sources)
+        result['international_reference_sources'] = sum(any(c.get('market_scope') == 'international_reference' for c in s.get('claims', [])) for s in sources)
+        result['data_quality'] = 'quoted_evidence' if known_claims else 'no_verified_claims'
+        result['findings'] = []
+        for item in items(analysis.get('findings')):
+            ids = [v for v in item.get('claim_ids', []) if isinstance(v, str) and v in known_claims] if isinstance(item.get('claim_ids'), list) else []
+            status = item.get('status') if item.get('status') in ('supported', 'conditional', 'gap', 'conflicting') else 'gap'
+            if not ids:
+                status = 'gap'
+            elif all(known_claims[v].get('evidence_type') in ('synthetic', 'assumption', 'calculation') for v in ids):
+                status = 'conditional'
+            result['findings'].append({'question': string(item.get('question')), 'conclusion': string(item.get('conclusion')),
+                                       'claim_ids': sorted(set(ids)), 'status': status})
+        for field in ('gaps', 'interview_questions', 'interview_hypotheses', 'risks', 'affected_groups'):
+            result[field] = [string(v) for v in analysis.get(field, []) if string(v)] if isinstance(analysis.get(field), list) else []
+        # These are planning hypotheses, never observed interview responses.
+        result['interview_brief'] = {k: result[k] for k in ('affected_groups', 'interview_questions', 'interview_hypotheses', 'gaps', 'risks')}
+        result['interview_brief']['synthetic_only'] = True
+        for key, signal in (('complaining', 'pain'), ('seeking', 'seeking'), ('paying', 'current_spend')):
+            allowed = demand_groups(sources, signal)
+            result['willingness_evidence'][key] = [i for i in result['willingness_evidence'][key] if i in allowed]
     result['willingness'] = {key: len(result['willingness_evidence'][key]) if strict else count(willingness.get(key))
                              for key in ('complaining', 'seeking', 'paying')}
+    if semantic:
+        for key in result['willingness']:
+            result['willingness'][key] = len(set().union(*(groups[i] for i in result['willingness_evidence'][key])))
     for segment in items(analysis.get('segments')):
         evidence = refs(segment.get('evidence'))
         pain_count = len(evidence) if strict else count(segment.get('pain_count'))
@@ -310,7 +400,7 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
             planned_queries = _bounded_call(_plan_search_queries, min(15, max(0, deadline - time.monotonic())), query, segments)
             if not planned_queries:
                 planned_queries = {agent['id']: _fallback_search_brief(query) for agent in active_agents}
-            tm.update_task(task_id, message="Сформированы предметные запросы к рынку…",
+            tm.update_task(task_id, message="Сформированы вопросы продуктового исследования…",
                            progress=4, progress_detail=_detail(agents_state, 0))
             # Все углы независимы: параллельный запуск сокращает latency и
             # делает прогресс действительно отражающим работу роя.
@@ -332,6 +422,8 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
                     agents_state[i].update(status='Поиск недоступен', search_status='unavailable', sources=0, done=True)
                     continue
                 all_sources.extend(found)
+                for source in found:
+                    source['research_intent'] = planned_queries.get('_intents', {}).get(active_agents[i]['id'], {})
                 agents_state[i]['search_status'] = 'found' if found else 'empty'
                 agents_state[i].update(status="Найдены ссылки" if found else "Нет результатов", sources=len(found), done=True)
             for future in pending:
@@ -360,20 +452,38 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
             raw_sources_count = len(all_sources)
             all_sources, filtered_out = _filter_market_evidence(all_sources)
             remaining = deadline - time.monotonic()
+            tm.update_task(task_id, message="Извлекаю подтверждаемые факты, контекст и возражения…")
+            extraction_budget = max(0, min(15, remaining / 2))
+            verified = _bounded_call(_extract_evidence, extraction_budget, query, deepcopy(all_sources),
+                                     timeout=extraction_budget) if all_sources and extraction_budget > 1 else None
+            # Extraction works on copies: a timed-out thread cannot mutate a saved result later.
+            if verified is None:
+                all_sources = validate_pages(None, all_sources, extraction_material(all_sources, query))
+            else:
+                all_sources = verified
+            remaining = deadline - time.monotonic()
             raw_analysis = _bounded_call(_llm_synthesize, min(30, remaining), query, segments, all_sources,
                                          timeout=min(30, remaining)) if remaining > 2 and all_sources else None
             analysis = _normalise_analysis(raw_analysis or {}, all_sources)
+            semantic_sources = {s['url']: s for s in all_sources}
             result = {
                 "query": query,
+                "evidence_version": 2,
+                "research_context": planned_queries.get('_context', {}),
                 "market": "russia",
-                "discovered_sources": source_diagnostics(discovered),
+                "discovered_sources": source_diagnostics([semantic_sources.get(s['url'], s) for s in discovered]),
                 "unread_sources_count": sum(s.get('crawl_status') != 'fetched' for s in discovered),
                 "comments_count": sum(len(s.get('comments') or []) for s in all_sources),
                 "russian_market_sources": sum(s.get('market_scope') == 'russian_market' for s in all_sources),
                 "international_reference_sources": sum(s.get('market_scope') == 'international_reference' for s in all_sources),
+                "unknown_scope_sources": sum(s.get('market_scope') in ('unknown', 'mixed') for s in all_sources),
+                "claims_count": sum(len(s.get('claims', [])) for s in all_sources),
+                "extraction_unavailable_count": sum(s.get('extraction_status') != 'completed' for s in all_sources),
                 "search_status": agents_state,
                 "degraded": bool(pending or any(s.get('crawl_status') != 'fetched' for s in discovered)
-                                 or any(a.get('search_status') == 'unavailable' for a in agents_state) or not raw_analysis),
+                                 or any(a.get('search_status') == 'unavailable' for a in agents_state) or not raw_analysis
+                                 or any(s.get('extraction_status') != 'completed' for s in all_sources)
+                                 or not any(s.get('claims') for s in all_sources)),
                 "time_budget_seconds": Config.SIGNAL_RESEARCH_SECONDS,
                 "segments_input": segments,
                 "sources": all_sources,
@@ -385,7 +495,8 @@ def start_research(query: str, segments: list[str], owner_id: str | None = None,
                 "sources_by_platform": _sources_by_platform(all_sources),
                 "elapsed": int(time.time() - started),
                 "analysis": analysis,
-                "analysis_available": isinstance(raw_analysis, dict) and bool(analysis.get("summary") or analysis.get("segments") or analysis.get("top_pains")),
+                "analysis_available": isinstance(raw_analysis, dict) and bool(analysis.get("summary") or analysis.get("findings")
+                                           or analysis.get("interview_questions") or analysis.get("segments") or analysis.get("top_pains")),
             }
             tm.complete_task(task_id, result)
             logger.info(f"Signals research {task_id}: {len(all_sources)} источников, analysis={bool(analysis)}")

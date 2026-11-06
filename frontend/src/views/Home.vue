@@ -29,7 +29,7 @@
             :animate="{ opacity: 1, y: 0 }"
             :transition="{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }"
           >
-            <span class="text-white font-semibold">Pitchy.Pro</span> проверяет спрос до того, как вы потратите месяцы на разработку. Мы собираем <span class="text-white">реальные сигналы боли</span> из сообществ (Хабр, vc.ru, Пикабу) и прогоняем вашу гипотезу через <span class="text-white">симуляцию общества ИИ-агентов</span> — а затем выдаём честный вердикт: стоит ли строить.
+            <span class="text-white font-semibold">Pitchy.Pro</span> помогает проверить востребованность продукта до разработки и внедрения. Мы собираем <span class="text-white">реальный контекст и опыт</span> и проводим <span class="text-white">синтетические кастдев-интервью</span>, чтобы понять потребности, условия выбора, возражения и подводные камни. Можно исследовать и отдельную функцию или решение для бизнеса. Это подготовка к проверке гипотез, а не замена реального опроса.
           </motion.p>
 
           <motion.div
@@ -40,7 +40,7 @@
           >
             <div class="flex items-center gap-2">
               <ShieldCheckIcon class="w-4 h-4 text-white/80" />
-              <span>Реальные сигналы рынка</span>
+              <span>Контекст из реальных источников</span>
             </div>
             <div class="hidden sm:block text-white/10">•</div>
             <div class="flex items-center gap-2">
@@ -69,7 +69,7 @@
           >
             <h2 class="text-3xl font-semibold text-white tracking-tight">С чего начать</h2>
             <p class="text-white/50 leading-relaxed">
-              Опишите гипотезу стартапа вручную или сгенерируйте её из паспорта проекта Pitchy. Дальше система сама соберёт сигналы рынка, проведёт фокус-группу и сведёт всё в вердикт.
+              Опишите продуктовый вопрос вручную или добавьте паспорт проекта Pitchy. Система соберёт контекст, подготовит синтетические интервью и сопоставит позиции разных групп.
             </p>
           </motion.div>
 
@@ -181,8 +181,8 @@
 
                 <div class="space-y-4">
                   <input v-model="hyp.name" type="text" :disabled="loading" placeholder="Название / суть — напр.: сервис подбора грантов" class="w-full rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors" />
-                  <textarea v-model="hyp.problem" :disabled="loading" placeholder="Проблема (боль клиента) — какую боль решаете?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
-                  <textarea v-model="hyp.solution" :disabled="loading" placeholder="Решение — что предлагаете и чем лучше альтернатив?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
+                  <textarea v-model="hyp.problem" :disabled="loading" placeholder="Текущая ситуация — как всё работает сейчас?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
+                  <textarea v-model="hyp.solution" :disabled="loading" placeholder="Предлагаемое изменение или решение — что хотим проверить?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
 
                   <div class="space-y-2">
                     <div v-if="segments.length" class="flex flex-wrap gap-2">
@@ -196,7 +196,7 @@
 
                   <div class="space-y-1.5">
                     <span class="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] flex items-center gap-1.5"><TargetIcon class="w-3.5 h-3.5" /> Ключевая гипотеза для проверки</span>
-                    <textarea v-model="hyp.question" :disabled="loading" placeholder="Что именно проверяем у рынка? Напр.: «фаундеры готовы платить 2000 ₽/мес за автоподбор грантов»" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
+                    <textarea v-model="hyp.question" :disabled="loading" placeholder="Какой вопрос исследуем? Например: как пользователи отреагируют на обязательную регистрацию?" class="w-full min-h-[80px] resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-3 text-[14px] leading-relaxed text-white/90 placeholder:text-white/25 outline-none focus:border-white/30 focus:bg-white/[0.04] transition-colors"></textarea>
                   </div>
                 </div>
               </div>
@@ -325,14 +325,15 @@ import {
   Loader as LoaderIcon
 } from 'lucide-vue-next'
 import { listProjects, getProjectPassport } from '../api/projects'
+import { researchRequirement, researchQuery } from '../utils/productResearchInput'
 import { extractPresentationContext } from '../api/signals'
 import { clearSignalsResult } from '../store/pendingUpload'
 
 const steps = [
   { num: '01', title: 'Гипотеза', desc: 'Опишите боль, решение и сегменты ЦА — вручную или сгенерируйте из паспорта проекта Pitchy.' },
-  { num: '02', title: 'Сигналы рынка', desc: 'Сбор реальных обсуждений боли из Хабр, vc.ru и Пикабу: цитаты пользователей, текущие решения, готовность платить.' },
+  { num: '02', title: 'Контекст исследования', desc: 'Опыт пользователей, реакции на похожие изменения, альтернативы, возражения и ограничения с цитатами источников.' },
   { num: '03', title: 'Фокус-группа', desc: 'Общество ИИ-агентов отвечает на стандартные CustDev-вопросы. Можно поговорить один на один с любой персоной.' },
-  { num: '04', title: 'Вердикт', desc: 'Сводим сигналы рынка и симуляцию общества в честный вывод: нужен ли рынку продукт и стоит ли его строить.' },
+  { num: '04', title: 'Вывод', desc: 'Сопоставляем внешний контекст и синтетические интервью по исходному вопросу: позиции групп, условия решения и неизвестное.' },
   { num: '05', title: 'Глубинное интервью', desc: 'Уточняйте детали у любого агента общества или у аналитика по итогам прогона.' },
 ]
 
@@ -457,9 +458,7 @@ const buildHypothesisSeed = () => {
     (passportSections ? `\nПолный паспорт проекта Pitchy:\n${JSON.stringify(passportSections, null, 2)}\n` : '')
   const file = new File([seedText], 'Гипотеза.txt', { type: 'text/plain' })
   const requirement =
-    `Цель CustDev: проверить, нужен ли рынку этот продукт. ` +
-    `Ключевая гипотеза: ${hyp.value.question}. ` +
-    `Сегменты ЦА: ${segLine}.`
+    researchRequirement(hyp.value.question, segLine)
   return { file, requirement }
 }
 
@@ -475,12 +474,7 @@ const startSimulation = async () => {
       setPendingUpload([file], requirement)
       setPreExtractedText(await file.text())
       // Запрос для разведки сигналов — это боль/тема, плюс сегменты ЦА.
-      const sigQuery = [
-        hyp.value.name && `Продукт: ${hyp.value.name}`,
-        hyp.value.problem && `Проблема: ${hyp.value.problem}`,
-        hyp.value.solution && `Решение: ${hyp.value.solution}`,
-        hyp.value.question && `Проверка: ${hyp.value.question}`,
-      ].filter(Boolean).join('. ').slice(0, 1800)
+      const sigQuery = researchQuery(hyp.value)
       setHypothesisContext(sigQuery, segments.value)
       router.push({ name: 'Signals' })
     } else {
